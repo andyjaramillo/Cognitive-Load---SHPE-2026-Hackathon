@@ -56,8 +56,7 @@ class AIService:
             api_key=settings.azure_openai_api_key,
             api_version=settings.azure_openai_api_version,
         )
-        self._fast = settings.azure_openai_deployment_gpt4o
-        self._long = settings.azure_openai_deployment_gpt4_32k
+        self._model = settings.azure_openai_deployment_gpt4o
 
     # ------------------------------------------------------------------ #
     #  Task Decomposer                                                     #
@@ -78,7 +77,7 @@ class AIService:
             user_msg += "\nGranularity: broad (up to 30 min steps, keep it short)"
 
         resp = await self._client.chat.completions.create(
-            model=self._fast,
+            model=self._model,
             temperature=0.2,       # low temp → consistent, factual output
             response_format={"type": "json_object"},
             messages=[
@@ -102,7 +101,7 @@ class AIService:
             f"Text to rewrite:\n{text}"
         )
         stream = await self._client.chat.completions.create(
-            model=self._long,
+            model=self._model,
             temperature=0.3,
             stream=True,
             messages=[
@@ -121,7 +120,7 @@ class AIService:
 
     async def explain_simplification(self, sentence: str) -> dict:
         resp = await self._client.chat.completions.create(
-            model=self._fast,
+            model=self._model,
             temperature=0.1,
             response_format={"type": "json_object"},
             messages=[
@@ -142,7 +141,7 @@ class AIService:
             f"(longer than planned)."
         )
         resp = await self._client.chat.completions.create(
-            model=self._fast,
+            model=self._model,
             temperature=0.5,
             messages=[
                 {"role": "system", "content": _NUDGE_SYSTEM},

@@ -8,8 +8,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@azure/msal-browser": "^3.14.0",
-    "@azure/msal-react": "^2.1.1",
     "@reduxjs/toolkit": "^2.2.5",
     "framer-motion": "^11.2.10",
     "react": "^18.3.1",

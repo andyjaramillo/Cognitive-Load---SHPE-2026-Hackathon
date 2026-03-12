@@ -1,20 +1,23 @@
 """
 NeuroFocus — FastAPI backend
-Azure OpenAI + Azure Cosmos DB (NoSQL) + Azure AD
+Azure OpenAI + Azure Cosmos DB (NoSQL)
 """
 from __future__ import annotations
 
 import json
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from ai_service import AIService
-from auth import get_user_id
 from config import Settings, get_settings
 from db import CosmosRepo
+
+
+async def get_user_id(x_user_id: str = Header(default="default-user")) -> str:
+    return x_user_id
 from models import (
     DecomposeRequest,
     DecomposeResponse,

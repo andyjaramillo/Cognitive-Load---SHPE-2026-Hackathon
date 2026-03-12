@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+openai
+azure-cosmos
+azure-ai-formrecognizer
+azure-storage-blob
+azure-ai-contentsafety
+azure-keyvault-secrets
+azure-identity
+azure-monitor-opentelemetry
+pydantic-settings
+python-multipart
+httpx

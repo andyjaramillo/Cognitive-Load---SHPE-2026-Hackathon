@@ -1,45 +1,19 @@
 import { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { useMsal, useIsAuthenticated } from '@azure/msal-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { prefsActions } from './store'
 import { fetchPreferences } from './utils/api'
-import { loginRequest, DEBUG_MODE } from './authConfig'
 import Decomposer from './components/Decomposer'
 import Refactor from './components/Refactor'
 import PreferenceDashboard from './components/PreferenceDashboard'
 import './styles/global.css'
 
-function LoginScreen({ onLogin }) {
-  return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: 'var(--bg)', gap: '1.5rem', padding: '2rem',
-    }}>
-      <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', color: 'var(--text-primary)', textAlign: 'center' }}>
-        NeuroFocus
-      </h1>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', textAlign: 'center', maxWidth: 360 }}>
-        A calm space to break down tasks, simplify text, and work at your own pace.
-      </p>
-      <button className="btn btn-primary" style={{ padding: '0.75rem 2rem', fontSize: '1rem' }} onClick={onLogin}>
-        Sign in with your organisation
-      </button>
-    </div>
-  )
-}
-
 export default function App() {
   const dispatch = useDispatch()
   const prefs = useSelector(s => s.prefs)
-  const { instance } = useMsal()
-  const msalAuthenticated = useIsAuthenticated()
-  const isAuthenticated = DEBUG_MODE || msalAuthenticated
 
-  // Load preferences from Cosmos once authenticated
+  // Load preferences from Cosmos on mount
   useEffect(() => {
-    if (!isAuthenticated) return
     fetchPreferences()
       .then(p => {
         const mapped = {
@@ -56,7 +30,7 @@ export default function App() {
         dispatch(prefsActions.setPrefs(mapped))
       })
       .catch(() => dispatch(prefsActions.setPrefs({})))
-  }, [isAuthenticated, dispatch])
+  }, [dispatch])
 
   // Apply CSS variables from prefs
   useEffect(() => {
@@ -66,12 +40,6 @@ export default function App() {
     root.style.setProperty('--line-height', prefs.lineHeight ?? 1.6)
     root.style.setProperty('--letter-spacing', `${prefs.letterSpacing ?? 0}px`)
   }, [prefs.colorTheme, prefs.fontChoice, prefs.lineHeight, prefs.letterSpacing])
-
-  if (!isAuthenticated) {
-    return (
-      <LoginScreen onLogin={() => instance.loginRedirect(loginRequest).catch(console.error)} />
-    )
-  }
 
   return (
     <div className="app-shell">
@@ -97,15 +65,6 @@ export default function App() {
             </div>
 
             <PreferenceDashboard />
-
-            {/* Sign out */}
-            <button
-              className="btn btn-ghost"
-              style={{ marginTop: 'auto', width: '100%', fontSize: '0.82rem' }}
-              onClick={() => instance.logoutRedirect()}
-            >
-              Sign out
-            </button>
           </motion.aside>
         )}
       </AnimatePresence>
