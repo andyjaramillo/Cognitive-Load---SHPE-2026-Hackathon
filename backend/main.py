@@ -5,16 +5,19 @@ Azure OpenAI + Azure Cosmos DB (NoSQL)
 from __future__ import annotations
 
 import json
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from ai_service import AIService
+from blob_service import BlobService
 from config import Settings, get_settings
 from content_safety import ContentSafetyFlagged, ContentSafetyService
 from db import CosmosRepo
+from doc_intelligence import MAX_FILE_BYTES, DocIntelligenceService, SUPPORTED_TYPES
 from models import (
     DecomposeRequest,
     DecomposeResponse,
@@ -26,8 +29,12 @@ from models import (
     SessionItem,
     SummariseRequest,
     TaskStep,
+    UploadResponse,
     UserPreferences,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 async def get_user_id(x_user_id: str = Header(default="default-user")) -> str:
@@ -41,13 +48,18 @@ def make_app(settings: Settings | None = None) -> FastAPI:
     repo = CosmosRepo(cfg)
     ai = AIService(cfg)
     safety = ContentSafetyService(cfg.content_safety_endpoint, cfg.content_safety_key)
+    blob = BlobService(cfg.blob_connection_string, cfg.blob_container_name)
+    doc_intel = DocIntelligenceService(cfg.doc_intelligence_endpoint, cfg.doc_intelligence_key)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await repo._ensure_containers()
+        await blob.ensure_container()   # create blob container once at startup
         yield
         await repo.close()
         await safety.close()
+        await blob.close()
+        await doc_intel.close()
 
     app = FastAPI(
         title="NeuroFocus API",
@@ -198,6 +210,91 @@ def make_app(settings: Settings | None = None) -> FastAPI:
 
         await safety.screen_output(msg)
         return NudgeResponse(message=msg)
+
+    # ── Document Upload ──────────────────────────────────────────────────── #
+
+    @app.post("/api/upload", response_model=UploadResponse, tags=["documents"])
+    async def upload_document(
+        request: Request,
+        file: UploadFile = File(...),
+        user_id: str = Depends(get_user_id),
+    ):
+        # Pre-check Content-Length header before reading into memory.
+        # This is a first gate — the real size check happens after read
+        # since the header is client-controlled and not guaranteed.
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > MAX_FILE_BYTES:
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "flagged": True,
+                    "category": "document_error",
+                    "message": (
+                        "That file is too large (max 20 MB). "
+                        "Try splitting it into smaller sections."
+                    ),
+                },
+            )
+
+        # Validate content type header before reading bytes
+        if file.content_type not in SUPPORTED_TYPES:
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "flagged": True,
+                    "category": "unsupported_file_type",
+                    "message": (
+                        "We support PDF, Word (.docx), and image files (PNG, JPG, TIFF). "
+                        "Could you try converting your document to one of those formats?"
+                    ),
+                },
+            )
+
+        file_bytes = await file.read()
+
+        # Extract text — includes size check, magic byte verification, and
+        # empty-text detection. ValueError = calm user error, RuntimeError = 503.
+        try:
+            extracted_text, page_count = await doc_intel.extract_text(
+                file_bytes, file.content_type
+            )
+        except ValueError as exc:
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "flagged": True,
+                    "category": "document_error",
+                    "message": str(exc),
+                },
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+        # Screen extracted text as a document (not user intent)
+        await safety.screen_document(extracted_text)
+
+        # Upload to Blob Storage for archival — best-effort, never blocks response
+        blob_name: str | None = None
+        if blob.available:
+            try:
+                blob_name = await blob.upload(
+                    file_bytes,
+                    file.filename or "document",
+                    file.content_type,
+                    user_id=user_id,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "upload.blob_skipped",
+                    extra={"event": "blob_upload_failed", "error": str(exc)},
+                )
+
+        return UploadResponse(
+            extracted_text=extracted_text,
+            page_count=page_count,
+            filename=file.filename or "document",
+            blob_name=blob_name,
+        )
 
     # ── Sessions ─────────────────────────────────────────────────────────── #
 
