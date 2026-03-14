@@ -1,5 +1,9 @@
-from pydantic_settings import BaseSettings
+from __future__ import annotations
+
 from functools import lru_cache
+from typing import Optional
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -15,6 +19,10 @@ class Settings(BaseSettings):
     cosmos_database: str = "neurofocus"
     cosmos_container_preferences: str = "user_preferences"
     cosmos_container_sessions: str = "sessions"
+
+    # Azure AI Content Safety (optional — app degrades gracefully without it)
+    content_safety_endpoint: Optional[str] = None
+    content_safety_key: Optional[str] = None
 
     # App
     allowed_origins: str = "http://localhost:5173"
