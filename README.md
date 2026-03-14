@@ -1,98 +1,88 @@
-# NeuroFocus
+# NeuroFocus — AI Cognitive Support Companion
 
-A neuro-inclusive AI workspace — calm task decomposition, text simplification, and bionic reading — built on **FastAPI + Azure OpenAI + Azure Cosmos DB + React**.
+> *Turns overwhelming into doable.*
+
+A neuro-inclusive AI workspace built for the **Microsoft Innovation Challenge (SHPE 2026 Hackathon)**. NeuroFocus helps users experiencing cognitive overload — especially those with ADHD, autism, dyslexia, or anxiety — by transforming complex information into calm, structured, personalized clarity.
+
+**Stack:** Python 3.11 / FastAPI + React / Tailwind / Framer Motion
+**AI:** Azure OpenAI GPT-4o (structured output + streaming SSE)
+**Challenge:** Cognitive Load Reduction Assistant
 
 ---
 
-## Architecture
+## What It Does
 
-```
-React (MSAL auth)  →  FastAPI  →  Azure OpenAI (GPT-4o / GPT-4-32k)
-                          ↓
-                   Azure Cosmos DB (NoSQL, serverless)
-```
+| Feature | Description |
+|---|---|
+| **Document Simplifier** | Upload a PDF/Word doc or paste text → AI rewrites it at your reading level (simple / standard / detailed). Hover any sentence to see *why* it was simplified. Bionic Reading toggle. |
+| **Task Decomposer** | Describe a goal → AI breaks it into time-boxed steps with motivational nudges. Granularity control: micro (≤5 min), normal (≤15 min), broad (≤30 min). |
+| **Focus Mode** | Full-screen, one task at a time. Circular countdown timer. Supportive check-ins when you're running over. Overwhelm escape hatch that strips everything down to one action. |
 
-### Why Cosmos DB instead of PostgreSQL?
+All interactions are calm, guided, and never pressuring. The app never guilt-trips, never uses red for errors, and never asks open-ended questions.
 
-| | Azure Cosmos DB (NoSQL) | PostgreSQL |
+---
+
+## Azure Architecture — 8 Services
+
+| # | Service | Role |
 |---|---|---|
-| Schema | Flexible JSON documents — perfect for evolving preference shapes | Fixed schema, migrations needed |
-| Serverless | ✅ Pay-per-request, zero idle cost | ❌ Always-on compute |
-| Azure-native | ✅ First-class SDK, RBAC, AAD integration | Possible but extra setup |
-| Partition key | `/user_id` — instant single-user queries | Requires indexing strategy |
+| 1 | **Azure OpenAI (GPT-4o)** | All AI — task decomposition, text simplification, explainability tooltips, contextual nudges |
+| 2 | **Azure Cosmos DB (NoSQL)** | User preferences and session history — serverless, partition key `/user_id` |
+| 3 | **Azure AI Content Safety** | Two-layer input/output screening: Azure API + custom cognitive pressure detection (7 categories: urgency, guilt, catastrophizing, perfectionism, shame, comparison, demands) |
+| 4 | **Azure AI Document Intelligence** | Extracts text from PDF, Word, and image uploads using the `prebuilt-read` model |
+| 5 | **Azure Blob Storage** | Archives uploaded documents under user-scoped paths for auditability |
+| 6 | **Azure App Service** | Hosts backend (Python/FastAPI) and frontend (React/Vite) |
+| 7 | **Azure Monitor / Application Insights** | Full OpenTelemetry auto-instrumentation + custom events: `task_decomposed`, `document_uploaded`, `session_created`, `content_safety_flagged` |
+| 8 | **Azure Key Vault** | Stores all secrets — fetched at startup via `DefaultAzureCredential` (Managed Identity in prod, `az login` locally) |
+
+See [`docs/`](docs/) for the full architecture decision document.
+
+---
+
+## Responsible AI
+
+This is a core judging criterion — not an afterthought.
+
+- **Cognitive pressure detection:** Custom regex layer screens for 7 categories of anxiety-inducing language before and after every AI call. This is beyond what Azure Content Safety provides natively.
+- **Context-aware screening:** User-typed text and uploaded documents are screened differently — a textbook that says "you must" isn't flagged the same way a pressuring message would be.
+- **Calm error handling:** Every error message is written for neurodiverse users. No HTTP codes, no alarming language. "We're taking a moment" not "500 Internal Server Error."
+- **Explainability:** Every simplification shows *why* the sentence was rewritten via a hover tooltip powered by a dedicated AI call.
+- **User control:** Exit Focus Mode anytime. Adjust all preferences in real time. Every interaction offers a guided choice, never a blank text box.
 
 ---
 
 ## Quick Start
 
-### 1. Provision infrastructure
-
-```bash
-az group create -n neurofocus-rg -l eastus
-az deployment group create \
-  -g neurofocus-rg \
-  --template-file infra/neurofocus.bicep
-```
-
-The Bicep template creates:
-- Azure OpenAI (GPT-4o + GPT-4-32k deployments)
-- Azure Cosmos DB — serverless, NoSQL — with `user_preferences` and `sessions` containers
-- Azure App Service (Python 3.11) for the FastAPI backend
-- Azure Static Web Apps for the React frontend
-
-### 2. Backend
+### Backend
 
 ```bash
 cd backend
-cp .env.example .env       # fill in values from Bicep outputs
+cp .env.example .env       # fill in your Azure credentials
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --reload  # runs on port 8000
 ```
 
-API docs: http://localhost:8000/docs
+API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-### 3. Frontend
+### Frontend
 
 ```bash
 cd frontend
-cp .env.example .env       # VITE_AZURE_CLIENT_ID + VITE_AZURE_TENANT_ID
 npm install
-npm run dev
+npm run dev                # runs on port 5173, proxies /api → 8000
 ```
 
-Open: http://localhost:5173
+Open: [http://localhost:5173](http://localhost:5173)
 
-### 4. Azure AD app registration
-
-1. Register a **Single-Page Application** in Azure AD.
-2. Add redirect URI: `http://localhost:5173` (dev) + your SWA URL (prod).
-3. Expose an API scope: `access_as_user`.
-4. Add the client ID to both `.env` files.
+> **No login required.** Auth is handled via a simple `X-User-Id` header (default: `default-user`) so judges can open the app without a Microsoft account.
 
 ---
 
 ## Environment Variables
 
-### Backend (`backend/.env`)
+Copy `backend/.env.example` to `backend/.env` and fill in your values. The only required variables to run locally are `AZURE_OPENAI_*` and `COSMOS_*`. All other Azure services (Content Safety, Blob, Doc Intelligence, App Insights, Key Vault) degrade gracefully if not configured.
 
-| Variable | Description |
-|---|---|
-| `AZURE_OPENAI_ENDPOINT` | e.g. `https://xxx.openai.azure.com/` |
-| `AZURE_OPENAI_API_KEY` | From Azure portal |
-| `AZURE_OPENAI_DEPLOYMENT_GPT4O` | Deployment name (default: `gpt-4o`) |
-| `AZURE_OPENAI_DEPLOYMENT_GPT4_32K` | Deployment name (default: `gpt-4-32k`) |
-| `COSMOS_ENDPOINT` | Cosmos DB endpoint URL |
-| `COSMOS_KEY` | Primary key |
-| `AZURE_TENANT_ID` | Your AAD tenant |
-| `AZURE_CLIENT_ID` | SPA app registration client ID |
-| `SECRET_KEY` | Random 32-byte hex string |
-
-### Frontend (`frontend/.env`)
-
-| Variable | Description |
-|---|---|
-| `VITE_AZURE_CLIENT_ID` | SPA app registration client ID |
-| `VITE_AZURE_TENANT_ID` | AAD tenant ID |
+In production on App Service: set `KEYVAULT_URL` and all secrets are fetched automatically via Managed Identity — no other secrets needed in App Service configuration.
 
 ---
 
@@ -101,37 +91,31 @@ Open: http://localhost:5173
 | Method | Path | Description |
 |---|---|---|
 | GET | `/health` | Health check |
-| GET | `/api/preferences` | Load user preferences from Cosmos |
+| GET | `/api/preferences` | Load user preferences |
 | PUT | `/api/preferences` | Save user preferences |
 | POST | `/api/decompose` | Break a goal into timed steps |
 | POST | `/api/summarise` | Streaming text simplification (SSE) |
 | POST | `/api/explain` | Explain why a sentence was simplified |
 | POST | `/api/nudge` | Supportive nudge when a timer overruns |
-| POST | `/api/sessions` | Save a decomposed session |
+| POST | `/api/upload` | Upload document → extract text via Doc Intelligence |
+| POST | `/api/sessions` | Save a decomposed task session |
 | GET | `/api/sessions` | List past sessions |
 
-Full OpenAPI spec at `/docs` when running locally.
+---
+
+## Repo Structure
+
+```
+├── backend/           ← FastAPI app, all Azure service integrations
+├── frontend/          ← React + Tailwind + Framer Motion
+├── infra/             ← Azure Bicep infrastructure templates
+├── docs/              ← Product vision, project plan, build logs
+└── CLAUDE.md          ← Shared project brain (read this for full context)
+```
 
 ---
 
-## Team Responsibilities
+## Team
 
-| Role | Primary files |
-|---|---|
-| Lead Backend Engineer | `backend/main.py`, `backend/ai_service.py`, `backend/db.py` |
-| Frontend Accessibility Lead | `frontend/src/components/`, `frontend/src/styles/global.css` |
-| Cognitive UX Researcher | `backend/ai_service.py` (system prompts), accessibility testing |
-| DevOps / Infra | `infra/neurofocus.bicep` |
-
----
-
-## Accessibility
-
-- ARIA labels on all interactive elements
-- Focus-visible outlines for keyboard navigation
-- Three font options: Default, OpenDyslexic, Atkinson Hyperlegible
-- Adjustable line height and letter spacing (persisted per user)
-- High-contrast theme
-- Bionic Reading toggle
-- Calm error messages — no alarming HTTP status language exposed to users
-- Focus Mode hides all sidebars for reduced visual noise
+- **Diego Figueroa** — Backend, Azure integrations, AI prompt engineering
+- **Andy Jaramillo** — Frontend, UX, accessibility, React components
