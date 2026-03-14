@@ -7,17 +7,14 @@ from __future__ import annotations
 import json
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from ai_service import AIService
 from config import Settings, get_settings
+from content_safety import ContentSafetyFlagged, ContentSafetyService
 from db import CosmosRepo
-
-
-async def get_user_id(x_user_id: str = Header(default="default-user")) -> str:
-    return x_user_id
 from models import (
     DecomposeRequest,
     DecomposeResponse,
@@ -33,18 +30,24 @@ from models import (
 )
 
 
+async def get_user_id(x_user_id: str = Header(default="default-user")) -> str:
+    return x_user_id
+
+
 # ── App factory ──────────────────────────────────────────────────────────── #
 
 def make_app(settings: Settings | None = None) -> FastAPI:
     cfg = settings or get_settings()
     repo = CosmosRepo(cfg)
     ai = AIService(cfg)
+    safety = ContentSafetyService(cfg.content_safety_endpoint, cfg.content_safety_key)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await repo._ensure_containers()
         yield
         await repo.close()
+        await safety.close()
 
     app = FastAPI(
         title="NeuroFocus API",
@@ -60,6 +63,22 @@ def make_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # ── Content Safety exception handler ─────────────────────────────────── #
+    # 200 status intentional — error codes feel alarming in accessibility apps.
+    # Frontend checks for {"flagged": true} and uses "category" to show
+    # context-appropriate UI (icon, colour, guidance) per flag type.
+
+    @app.exception_handler(ContentSafetyFlagged)
+    async def content_safety_handler(request: Request, exc: ContentSafetyFlagged):
+        return JSONResponse(
+            status_code=200,
+            content={
+                "flagged": True,
+                "category": exc.category,
+                "message": exc.message,
+            },
+        )
 
     # ── Health ──────────────────────────────────────────────────────────── #
 
@@ -93,6 +112,10 @@ def make_app(settings: Settings | None = None) -> FastAPI:
         req: DecomposeRequest,
         user_id: str = Depends(get_user_id),
     ):
+        await safety.screen_user_intent(req.goal)
+        if req.context:
+            await safety.screen_user_intent(req.context)
+
         try:
             result = await ai.decompose(
                 goal=req.goal,
@@ -106,6 +129,12 @@ def make_app(settings: Settings | None = None) -> FastAPI:
             ) from exc
 
         steps = [TaskStep(**s) for s in result.get("steps", [])]
+
+        output_text = " ".join(
+            f"{s.task_name} {s.motivation_nudge}" for s in steps
+        )
+        await safety.screen_output(output_text)
+
         return DecomposeResponse(steps=steps)
 
     # ── Summarise (streaming SSE) ────────────────────────────────────────── #
@@ -115,6 +144,12 @@ def make_app(settings: Settings | None = None) -> FastAPI:
         req: SummariseRequest,
         user_id: str = Depends(get_user_id),
     ):
+        # Screen as document (not user intent) — paste text may be a contract,
+        # article, or textbook and will naturally contain imperative language.
+        # Flagged input raises ContentSafetyFlagged before the stream opens,
+        # returning a calm 200 JSON response instead of an SSE stream.
+        await safety.screen_document(req.text)
+
         async def event_stream():
             try:
                 async for chunk in ai.summarise_stream(req.text, req.reading_level):
@@ -137,10 +172,14 @@ def make_app(settings: Settings | None = None) -> FastAPI:
         req: ExplainRequest,
         user_id: str = Depends(get_user_id),
     ):
+        await safety.screen_user_intent(req.sentence)
+
         try:
             result = await ai.explain_simplification(req.sentence)
         except Exception as exc:
             raise HTTPException(status_code=502, detail="Could not generate explanation.") from exc
+
+        await safety.screen_output(f"{result.get('reason', '')} {result.get('simplified', '')}")
         return ExplainResponse(**result)
 
     # ── Contextual nudge ─────────────────────────────────────────────────── #
@@ -150,10 +189,14 @@ def make_app(settings: Settings | None = None) -> FastAPI:
         req: NudgeRequest,
         user_id: str = Depends(get_user_id),
     ):
+        await safety.screen_user_intent(req.task_name)
+
         try:
             msg = await ai.contextual_nudge(req.task_name, req.elapsed_minutes)
         except Exception as exc:
             raise HTTPException(status_code=502, detail="Could not generate nudge.") from exc
+
+        await safety.screen_output(msg)
         return NudgeResponse(message=msg)
 
     # ── Sessions ─────────────────────────────────────────────────────────── #
