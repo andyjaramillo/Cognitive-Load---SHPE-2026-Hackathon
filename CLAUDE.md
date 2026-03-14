@@ -10,6 +10,17 @@ Microsoft Innovation Challenge hackathon (March 16–27, 2026). Building an AI c
 **Stack:** Python 3.11+ (FastAPI) backend + JavaScript (React + Tailwind + Framer Motion) frontend
 **Judging Criteria (25% each):** Performance, Innovation, Breadth of Azure services, Responsible AI
 
+## How to Use This File
+
+This file is the shared project brain for the whole team. Claude Code reads it automatically every session — so Claude always knows the full project context without anyone having to re-explain it.
+
+**When you learn something new, make a decision, or finish something — update this file.**
+That's how the whole team (and Claude) stays in sync. Don't rely on memory or Slack threads for decisions that affect the project. Put it here.
+
+- Diego updates it when backend decisions are made or services are built
+- Andy updates it when frontend decisions are made or components are built
+- Either person updates it when the product direction changes
+
 ## Current Progress
 
 - Repo restructured into backend/frontend folders (DONE)
