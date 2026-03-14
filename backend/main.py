@@ -18,6 +18,7 @@ from config import Settings, get_settings
 from content_safety import ContentSafetyFlagged, ContentSafetyService
 from db import CosmosRepo
 from doc_intelligence import MAX_FILE_BYTES, DocIntelligenceService, SUPPORTED_TYPES
+from keyvault import patch_settings_from_keyvault
 from monitoring import configure_monitoring, track_event
 from models import (
     DecomposeRequest,
@@ -46,6 +47,10 @@ async def get_user_id(x_user_id: str = Header(default="default-user")) -> str:
 
 def make_app(settings: Settings | None = None) -> FastAPI:
     cfg = settings or get_settings()
+
+    # Pull secrets from Key Vault before anything else reads them.
+    # If KEYVAULT_URL is not set this is a no-op and env vars are used as-is.
+    cfg = patch_settings_from_keyvault(cfg)
 
     # Must run before FastAPI() so the OTel SDK instruments the app from the start
     configure_monitoring(cfg.app_insights_connection_string)
