@@ -26,9 +26,9 @@ class DecomposeRequest(BaseModel):
 
 
 class TaskStep(BaseModel):
-    task_name: str
-    duration_minutes: int
-    motivation_nudge: str
+    task_name: str = Field(..., max_length=200)
+    duration_minutes: int = Field(..., ge=1, le=120)
+    motivation_nudge: str = Field(..., max_length=500)
 
 
 class DecomposeResponse(BaseModel):
@@ -56,7 +56,7 @@ class ExplainResponse(BaseModel):
 # ── Nudge ────────────────────────────────────────────────────────────────── #
 
 class NudgeRequest(BaseModel):
-    task_name: str
+    task_name: str = Field(..., max_length=200)
     elapsed_minutes: int = Field(..., ge=0)
 
 
@@ -76,8 +76,8 @@ class UploadResponse(BaseModel):
 # ── Sessions ─────────────────────────────────────────────────────────────── #
 
 class SessionCreate(BaseModel):
-    goal: str
-    steps: list[TaskStep]
+    goal: str = Field(..., max_length=500)
+    steps: list[TaskStep] = Field(..., max_length=50)
 
 
 class SessionItem(BaseModel):

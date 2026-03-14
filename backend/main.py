@@ -134,13 +134,12 @@ def make_app(settings: Settings | None = None) -> FastAPI:
                 granularity=req.granularity,
                 context=req.context,
             )
+            steps = [TaskStep(**s) for s in result.get("steps", [])]
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="We ran into a small hiccup — please try again in a moment.",
             ) from exc
-
-        steps = [TaskStep(**s) for s in result.get("steps", [])]
 
         output_text = " ".join(
             f"{s.task_name} {s.motivation_nudge}" for s in steps
@@ -188,11 +187,12 @@ def make_app(settings: Settings | None = None) -> FastAPI:
 
         try:
             result = await ai.explain_simplification(req.sentence)
+            response = ExplainResponse(**result)
         except Exception as exc:
             raise HTTPException(status_code=502, detail="Could not generate explanation.") from exc
 
-        await safety.screen_output(f"{result.get('reason', '')} {result.get('simplified', '')}")
-        return ExplainResponse(**result)
+        await safety.screen_output(f"{response.reason} {response.simplified}")
+        return response
 
     # ── Contextual nudge ─────────────────────────────────────────────────── #
 
@@ -223,7 +223,11 @@ def make_app(settings: Settings | None = None) -> FastAPI:
         # This is a first gate — the real size check happens after read
         # since the header is client-controlled and not guaranteed.
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > MAX_FILE_BYTES:
+        try:
+            cl = int(content_length) if content_length else 0
+        except ValueError:
+            cl = 0
+        if cl > MAX_FILE_BYTES:
             return JSONResponse(
                 status_code=200,
                 content={
