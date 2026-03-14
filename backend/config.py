@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     # Azure Monitor / Application Insights (optional — telemetry skipped if not set)
     app_insights_connection_string: Optional[str] = None
 
+    # Azure Key Vault (optional — secrets fall back to env vars if not set)
+    keyvault_url: Optional[str] = None
+
     # App
     allowed_origins: str = "http://localhost:5173"
 

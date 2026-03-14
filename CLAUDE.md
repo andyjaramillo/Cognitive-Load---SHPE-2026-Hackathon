@@ -21,6 +21,18 @@ That's how the whole team (and Claude) stays in sync. Don't rely on memory or Sl
 - Andy updates it when frontend decisions are made or components are built
 - Either person updates it when the product direction changes
 
+## Standing Code Quality Rules (Claude must follow every session)
+
+Before committing or pushing ANY code, Claude must:
+
+1. **Triple-check all code** — read every file modified in the session and verify correctness end-to-end, not just the lines changed
+2. **Security audit** — check for: injection flaws (SQL/command/path traversal), insecure deserialization, exposed secrets, missing input validation, improper error handling that leaks internals, CORS misconfiguration, missing auth on endpoints, and OWASP Top 10
+3. **Gap analysis** — verify: all service clients are properly closed in lifespan teardown, all async calls are properly awaited, all exception types are handled separately where behavior differs, graceful degradation works for every optional service
+4. **Bug check** — verify: no attribute errors from wrong field names, no silent failures in except blocks that swallow real errors, no race conditions in shared state, no type mismatches between what AI returns and what Pydantic expects
+5. **Best practices** — follow: Microsoft Azure SDK best practices (async clients, connection pooling, managed identity), FastAPI best practices (lifespan over on_event, dependency injection, response models), Python best practices (type hints, explicit error chains with `from exc`), OpenTelemetry best practices (spans closed properly, attributes are primitives)
+6. **Hackathon awareness** — every change must stay within scope: support the 3 core features (Document Simplifier, Task Decomposer, Focus Mode), serve the 4 judging criteria (Performance, Innovation, Azure Breadth, Responsible AI), and not add complexity that doesn't serve the demo
+7. **Show Diego before committing** — explain what was built, how it connects to Azure, a non-biased analysis of improvements, fix those improvements, then show the proposed commit message for approval. Never commit without showing Diego first.
+
 ## Current Progress
 
 - Repo restructured into backend/frontend folders (DONE)
@@ -29,7 +41,8 @@ That's how the whole team (and Claude) stays in sync. Don't rely on memory or Sl
 - Blob Storage + Document Intelligence upload pipeline (DONE)
 - Full backend security and crash bug audit completed (DONE) — 10 issues fixed across all 7 backend files
 - Application Insights / Azure Monitor integration (DONE) — monitoring.py, configure_monitoring() called before FastAPI(), 4 custom events tracked (task_decomposed, document_uploaded, session_created, content_safety_flagged), graceful degradation, AIService.close() added and wired into lifespan
-- Next: Key Vault
+- Key Vault integration (DONE) — keyvault.py, patch_settings_from_keyvault() called before any service init in make_app(), DefaultAzureCredential (Managed Identity in prod / az login locally), 10 secrets mapped (OpenAI, Cosmos, Content Safety, Blob, Doc Intelligence, App Insights), model_copy() used to bypass pydantic-settings env var re-resolution, graceful degradation
+- Next: App Service deployment, then frontend (Monday with Andy)
 - Monday: Team alignment, Foundry evaluation, frontend work begins
 
 ## Product Identity
@@ -77,7 +90,7 @@ Warm and soft by default. The app should feel like a quiet room.
 5. **Azure Blob Storage** — BUILT. User-scoped paths ({user_id}/{uuid}/{filename}). Sanitized filenames. Container created once at startup. Archival only — extraction runs from raw bytes.
 6. **Azure App Service** — Hosts backend + frontend. Managed identity for Key Vault.
 7. **Azure Monitor / App Insights** — BUILT. monitoring.py wraps azure-monitor-opentelemetry. configure_monitoring() bootstraps OTel before FastAPI() so all HTTP + outbound calls (OpenAI, Cosmos) are auto-instrumented. 4 custom events: task_decomposed (granularity, step_count), document_uploaded (page_count, content_type, blob_stored), session_created (step_count), content_safety_flagged (category, path). track_event() uses OTel spans → customEvents in App Insights portal, queryable via KQL. Idempotent — safe to call multiple times. Graceful degradation if APP_INSIGHTS_CONNECTION_STRING not set.
-8. **Azure Key Vault** — All secrets. Managed identity access from App Service.
+8. **Azure Key Vault** — BUILT. keyvault.py maps 10 secret names (hyphened) to Settings fields (underscored). patch_settings_from_keyvault() called first in make_app() before any service uses credentials. DefaultAzureCredential: uses az login locally, Managed Identity on App Service. model_copy(update=overrides) applies secrets without re-triggering pydantic-settings env var resolution (which would let env vars override Key Vault). Graceful degradation: no KEYVAULT_URL = no-op; individual missing secrets = warning, env var value kept.
 
 ## API Endpoints
 
@@ -110,6 +123,7 @@ backend/
 ├── blob_service.py          ← Blob Storage upload
 ├── doc_intelligence.py      ← Document Intelligence extraction
 ├── monitoring.py            ← Azure Monitor / Application Insights integration
+├── keyvault.py              ← Azure Key Vault secret loading at startup
 ├── requirements.txt
 └── .env.example
 ```
