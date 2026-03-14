@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from azure.cosmos import CosmosClient, PartitionKey, exceptions
+from azure.cosmos import PartitionKey, exceptions
 from azure.cosmos.aio import CosmosClient as AsyncCosmosClient
 
 from config import Settings

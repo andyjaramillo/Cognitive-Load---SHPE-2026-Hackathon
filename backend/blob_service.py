@@ -90,11 +90,26 @@ class BlobService:
             await container_client.create_container()
             logger.info(
                 "blob_service.ensure_container",
-                extra={"event": "container_ready", "container": self._container},
+                extra={"event": "container_created", "container": self._container},
             )
-        except Exception:
-            # Already exists — this is expected on all runs after the first
-            pass
+        except Exception as exc:
+            err = str(exc)
+            if "ContainerAlreadyExists" in err or "already exists" in err.lower():
+                # Expected on every run after the first — not an error
+                logger.info(
+                    "blob_service.ensure_container",
+                    extra={"event": "container_exists", "container": self._container},
+                )
+            else:
+                # Genuine failure — auth error, wrong connection string, network issue
+                logger.error(
+                    "blob_service.ensure_container",
+                    extra={
+                        "event": "container_error",
+                        "container": self._container,
+                        "error": err,
+                    },
+                )
 
     async def upload(
         self,

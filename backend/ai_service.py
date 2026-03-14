@@ -11,6 +11,11 @@ from openai import AsyncAzureOpenAI
 
 from config import Settings
 
+# Per-call timeouts (seconds). Streaming gets more time since chunks arrive
+# incrementally. Non-streaming calls should be fast — fail clearly if they hang.
+_TIMEOUT_DEFAULT = 30.0
+_TIMEOUT_STREAM  = 60.0
+
 # ── Calm-language system messages ────────────────────────────────────────── #
 
 _DECOMPOSER_SYSTEM = """
@@ -80,6 +85,7 @@ class AIService:
             model=self._model,
             temperature=0.2,       # low temp → consistent, factual output
             response_format={"type": "json_object"},
+            timeout=_TIMEOUT_DEFAULT,
             messages=[
                 {"role": "system", "content": _DECOMPOSER_SYSTEM},
                 {"role": "user", "content": user_msg},
@@ -104,6 +110,7 @@ class AIService:
             model=self._model,
             temperature=0.3,
             stream=True,
+            timeout=_TIMEOUT_STREAM,
             messages=[
                 {"role": "system", "content": _SUMMARISE_SYSTEM},
                 {"role": "user", "content": user_msg},
@@ -123,6 +130,7 @@ class AIService:
             model=self._model,
             temperature=0.1,
             response_format={"type": "json_object"},
+            timeout=_TIMEOUT_DEFAULT,
             messages=[
                 {"role": "system", "content": _SIMPLIFY_SENTENCE_SYSTEM},
                 {"role": "user", "content": sentence},
@@ -143,6 +151,7 @@ class AIService:
         resp = await self._client.chat.completions.create(
             model=self._model,
             temperature=0.5,
+            timeout=_TIMEOUT_DEFAULT,
             messages=[
                 {"role": "system", "content": _NUDGE_SYSTEM},
                 {"role": "user", "content": user_msg},
