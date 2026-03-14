@@ -27,6 +27,7 @@ That's how the whole team (and Claude) stays in sync. Don't rely on memory or Sl
 - MSAL auth removed, simple X-User-Id user profiles added (DONE)
 - Content Safety middleware with cognitive pressure detection (DONE)
 - Blob Storage + Document Intelligence upload pipeline (DONE)
+- Full backend security and crash bug audit completed (DONE) — 10 issues fixed across all 7 backend files
 - Next: Application Insights, then Key Vault
 - Monday: Team alignment, Foundry evaluation, frontend work begins
 

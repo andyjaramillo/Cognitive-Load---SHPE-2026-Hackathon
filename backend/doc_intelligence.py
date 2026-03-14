@@ -208,8 +208,13 @@ def _build_text(result) -> str:
     Concatenate extracted text from all pages into a single clean string.
     Preserves paragraph breaks between pages. Strips excessive whitespace.
     """
+    if not result.pages:
+        return ""
+
     lines: list[str] = []
     for page in result.pages:
+        if not page.lines:
+            continue
         for line in page.lines:
             content = line.content.strip()
             if content:
