@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     content_safety_endpoint: Optional[str] = None
     content_safety_key: Optional[str] = None
 
+    # Azure Blob Storage (optional — blob archival skipped if not configured)
+    blob_connection_string: Optional[str] = None
+    blob_container_name: str = "documents"
+
+    # Azure AI Document Intelligence (optional — upload endpoint unavailable without it)
+    doc_intelligence_endpoint: Optional[str] = None
+    doc_intelligence_key: Optional[str] = None
+
     # App
     allowed_origins: str = "http://localhost:5173"
 

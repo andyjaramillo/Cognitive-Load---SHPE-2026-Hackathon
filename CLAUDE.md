@@ -26,8 +26,8 @@ That's how the whole team (and Claude) stays in sync. Don't rely on memory or Sl
 - Repo restructured into backend/frontend folders (DONE)
 - MSAL auth removed, simple X-User-Id user profiles added (DONE)
 - Content Safety middleware with cognitive pressure detection (DONE)
-- Next: Document upload pipeline (Blob Storage + Document Intelligence)
-- Then: Application Insights, Key Vault
+- Blob Storage + Document Intelligence upload pipeline (DONE)
+- Next: Application Insights, then Key Vault
 - Monday: Team alignment, Foundry evaluation, frontend work begins
 
 ## Product Identity
@@ -71,8 +71,8 @@ Warm and soft by default. The app should feel like a quiet room.
 1. **Azure OpenAI (GPT-4o)** — All AI. Potentially orchestrated via Azure AI Foundry (decision pending Monday). Structured JSON output. Low temperature. Streaming SSE.
 2. **Azure Cosmos DB (NoSQL)** — Preferences, sessions, cached document results. Change feed for event-driven updates. Serverless. Partition key /user_id.
 3. **Azure AI Content Safety** — BUILT. Two-layer system: cognitive pressure regex (7 categories) + Azure Content Safety API. Context-aware screening (user intent vs documents). Flagged responses return calm JSON at 200 status. Logs pre-structured for App Insights.
-4. **Azure AI Document Intelligence** — PDF/Word text extraction with layout analysis. Enables smart preview. OCR capability for future handwriting support.
-5. **Azure Blob Storage** — Document storage before processing. Lifecycle policies for cleanup.
+4. **Azure AI Document Intelligence** — BUILT. prebuilt-read model. Magic byte validation (prevents spoofed file types). Empty text detection. Handles PDF, DOCX, DOC, PNG, JPG, TIFF.
+5. **Azure Blob Storage** — BUILT. User-scoped paths ({user_id}/{uuid}/{filename}). Sanitized filenames. Container created once at startup. Archival only — extraction runs from raw bytes.
 6. **Azure App Service** — Hosts backend + frontend. Managed identity for Key Vault.
 7. **Azure Monitor / App Insights** — Custom accessibility metrics: simplification ratio, time-to-focus, task completion rates, energy patterns. OpenTelemetry.
 8. **Azure Key Vault** — All secrets. Managed identity access from App Service.

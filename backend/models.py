@@ -64,6 +64,15 @@ class NudgeResponse(BaseModel):
     message: str
 
 
+# ── Document Upload ──────────────────────────────────────────────────────── #
+
+class UploadResponse(BaseModel):
+    extracted_text: str
+    page_count: int
+    filename: str
+    blob_name: str | None = None   # None if Blob Storage not configured
+
+
 # ── Sessions ─────────────────────────────────────────────────────────────── #
 
 class SessionCreate(BaseModel):
