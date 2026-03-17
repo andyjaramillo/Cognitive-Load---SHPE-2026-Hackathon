@@ -118,6 +118,7 @@
 
 /* ── Night (9pm–6am): deep ocean ───────────────────────────────────────── */
 [data-time-theme="night"] {
+  --focus-ring-shadow: drop-shadow(0 0 8px rgba(68,160,174,0.3));
   --bg: radial-gradient(ellipse at 50% 46%, #2C2434 0%, #241E2C 25%, #201A26 45%, #1C1822 65%, #1E1A22 85%, #201C24 100%);
   --bg-card: rgba(40,34,48,0.7);
   --bg-sidebar: rgba(32,26,40,0.85);

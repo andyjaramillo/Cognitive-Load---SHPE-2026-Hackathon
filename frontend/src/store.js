@@ -47,9 +47,11 @@ const prefsSlice = createSlice({
 const tasksSlice = createSlice({
   name: 'tasks',
   initialState: {
-    groups:  [],
-    loading: false,
-    error:   null,
+    groups:       [],
+    focusGroupId: null,
+    focusTaskId:  null,
+    loading:      false,
+    error:        null,
   },
   reducers: {
     // Add a new group (from Documents page or smart AI decomposition)
@@ -136,6 +138,21 @@ const tasksSlice = createSlice({
       const task = state.groups.find(g => g.id === groupId)?.tasks.find(t => t.id === taskId)
       if (task) task.timerStarted = Date.now()
     },
+
+    // Move a task to the end of uncompleted tasks in its group (skip)
+    skipTask(state, action) {
+      const { groupId, taskId } = action.payload
+      const group = state.groups.find(g => g.id === groupId)
+      if (!group) return
+      const idx = group.tasks.findIndex(t => t.id === taskId)
+      if (idx === -1) return
+      const [task] = group.tasks.splice(idx, 1)
+      group.tasks.push(task)
+    },
+
+    setFocusGroup(state, action) { state.focusGroupId = action.payload },
+    setFocusTask(state, action)  { state.focusTaskId  = action.payload },
+    clearFocus(state)            { state.focusGroupId = null; state.focusTaskId = null },
 
     setLoading(state, action) { state.loading = action.payload },
     setError(state, action)   { state.error = action.payload },
