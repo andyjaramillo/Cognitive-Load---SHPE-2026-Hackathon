@@ -261,7 +261,11 @@ function ActiveTaskCard({ task, groupId, onComplete, onPause, onDelete }) {
           <button
             className="btn btn-ghost"
             style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem' }}
-            onClick={() => navigate('/focus')}
+            onClick={() => {
+              dispatch(tasksActions.setFocusGroup(groupId))
+              dispatch(tasksActions.setFocusTask(task.id))
+              navigate('/focus')
+            }}
           >
             Focus on this
           </button>
@@ -498,7 +502,11 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive }
                     <button
                       className="btn btn-primary"
                       style={{ fontSize: '0.78rem', padding: '0.28rem 0.85rem' }}
-                      onClick={() => navigate('/focus')}
+                      onClick={() => {
+                        dispatch(tasksActions.setFocusGroup(group.id))
+                        dispatch(tasksActions.setFocusTask(null))
+                        navigate('/focus')
+                      }}
                     >
                       Start focus mode
                     </button>
