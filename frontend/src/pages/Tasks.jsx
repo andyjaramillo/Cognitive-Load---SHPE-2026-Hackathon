@@ -41,15 +41,16 @@ const item = {
 function TaskCircle({ done, active, onClick, size = 20 }) {
   return (
     <motion.button
-      onClick={e => { e.stopPropagation(); onClick() }}
-      aria-label={done ? 'Mark incomplete' : 'Mark complete'}
-      whileHover={{ scale: 1.12 }}
-      whileTap={{ scale: 0.9 }}
+      onClick={e => { e.stopPropagation(); if (!done) onClick() }}
+      aria-label={done ? 'Task complete' : 'Mark complete'}
+      whileHover={done ? {} : { scale: 1.12 }}
+      whileTap={done ? {} : { scale: 0.9 }}
       style={{
         width: size, height: size, borderRadius: '50%', flexShrink: 0,
         border: `2px solid ${done ? 'var(--color-done)' : active ? 'var(--color-active)' : 'var(--color-inactive)'}`,
         background: done ? 'var(--color-done)' : 'transparent',
-        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: done ? 'default' : 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'all 0.3s ease', padding: 0,
       }}
     >
@@ -90,9 +91,11 @@ function MoreMenu({ onClose, onEdit, onPause, onDelete }) {
   }, [onClose])
 
   const menuItems = [
-    { id: 'edit',   dot: 'var(--color-upcoming)', label: 'Edit task',   desc: 'Change text or time estimate' },
-    { id: 'pause',  dot: 'var(--color-paused)',   label: 'Pause',       desc: 'Set aside without deleting' },
-    { id: 'delete', dot: 'var(--color-inactive)', label: 'Delete',      desc: 'Remove permanently', divider: true },
+    { id: 'edit',   dot: 'var(--color-upcoming)', label: 'Edit task',        desc: 'Change text or time estimate' },
+    { id: 'move',   dot: 'var(--color-upcoming)', label: 'Move to group',    desc: 'Reorganize between groups',   soon: true },
+    { id: 'merge',  dot: 'var(--color-ai)',        label: 'Merge with another', desc: 'Combine related tasks',    soon: true },
+    { id: 'pause',  dot: 'var(--color-paused)',   label: 'Pause',            desc: 'Set aside without deleting' },
+    { id: 'delete', dot: 'var(--color-inactive)', label: 'Delete',           desc: 'Remove permanently', divider: true },
   ]
 
   return (
@@ -109,6 +112,7 @@ function MoreMenu({ onClose, onEdit, onPause, onDelete }) {
           {mi.divider && <div style={{ height: 1, background: 'var(--border)', margin: '0.25rem 0' }} />}
           <button
             onClick={() => {
+              if (mi.soon) return  // coming soon — no action
               if (mi.id === 'edit')   onEdit()
               if (mi.id === 'pause')  onPause()
               if (mi.id === 'delete') onDelete()
@@ -117,15 +121,18 @@ function MoreMenu({ onClose, onEdit, onPause, onDelete }) {
             style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: '0.7rem',
               padding: '0.55rem 0.25rem', background: 'none', border: 'none',
-              cursor: 'pointer', textAlign: 'left', borderRadius: 6,
+              cursor: mi.soon ? 'default' : 'pointer', textAlign: 'left', borderRadius: 6,
+              opacity: mi.soon ? 0.45 : 1,
               transition: 'background 0.15s ease',
             }}
-            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-soft)'}
+            onMouseEnter={e => { if (!mi.soon) e.currentTarget.style.background = 'var(--accent-soft)' }}
             onMouseLeave={e => e.currentTarget.style.background = 'none'}
           >
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: mi.dot, flexShrink: 0 }} />
             <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>{mi.label}</span>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>{mi.desc}</span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>
+              {mi.soon ? 'coming soon' : mi.desc}
+            </span>
           </button>
         </div>
       ))}
@@ -477,7 +484,10 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive }
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.75rem' }}>
                     <button className="btn btn-ghost" style={{ fontSize: '0.8rem', padding: '0.3rem 0.85rem' }} onClick={onToggle}>
-                      Close
+                      Start another group
+                    </button>
+                    <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.3rem 0.85rem' }} onClick={() => navigate('/focus')}>
+                      Take a break
                     </button>
                   </div>
                 </motion.div>
@@ -556,31 +566,37 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive }
 
 export default function Tasks() {
   const dispatch = useDispatch()
-  const navigate = useNavigate()
-  const { groups, loading } = useSelector(s => s.tasks)
+  const { groups } = useSelector(s => s.tasks)
   const prefs = useSelector(s => s.prefs)
 
   // Accordion
   const [expandedGroupId, setExpandedGroupId] = useState(null)
-  const prevGroupsLen = useRef(groups.length)
   const [pendingExpand, setPendingExpand] = useState(null) // 'my-tasks' | 'last'
 
   // Add input
-  const [addInput, setAddInput]   = useState('')
+  const [addInput, setAddInput]     = useState('')
   const [addLoading, setAddLoading] = useState(false)
-  const [addMsg, setAddMsg]       = useState(null) // { type: 'ai' | 'error', text }
+  const [addMsg, setAddMsg]         = useState(null) // { type: 'ai' | 'error', text }
+  const addMsgTimer = useRef(null)
 
   // Time filter
-  const [timeFilter, setTimeFilter]       = useState('20')
+  const [timeFilter, setTimeFilter]             = useState('20')
   const [timeFilterActive, setTimeFilterActive] = useState(false)
 
   // Paused section
   const [pausedOpen, setPausedOpen] = useState(false)
 
   // Q&A
-  const [qaInput, setQaInput]     = useState('')
-  const [qaAnswer, setQaAnswer]   = useState('')
+  const [qaInput, setQaInput]       = useState('')
+  const [qaAnswer, setQaAnswer]     = useState('')
   const [qaStreaming, setQaStreaming] = useState(false)
+  const qaFadeTimer = useRef(null)
+
+  // Cleanup timers on unmount
+  useEffect(() => () => {
+    clearTimeout(addMsgTimer.current)
+    clearTimeout(qaFadeTimer.current)
+  }, [])
 
   // Auto-expand document-sourced group on first mount
   useEffect(() => {
@@ -600,7 +616,6 @@ export default function Tasks() {
       setExpandedGroupId(groups[groups.length - 1].id)
       setPendingExpand(null)
     }
-    prevGroupsLen.current = groups.length
   }, [groups, pendingExpand])
 
   // Global progress stats
@@ -650,8 +665,9 @@ export default function Tasks() {
       setAddMsg({ type: 'error', text: "Something went quiet. Try again?" })
     }
     setAddLoading(false)
-    // Auto-clear the AI message after 4 seconds
-    setTimeout(() => setAddMsg(null), 4000)
+    // Auto-clear the AI message after 4 seconds — clear previous timer first
+    clearTimeout(addMsgTimer.current)
+    addMsgTimer.current = setTimeout(() => setAddMsg(null), 4000)
   }
 
   // Q&A: stream answer using task list as context
@@ -668,7 +684,12 @@ export default function Tasks() {
     await summariseStream(
       { text: context, reading_level: prefs.readingLevel || 'standard' },
       chunk => setQaAnswer(a => a + chunk),
-      () => setQaStreaming(false),
+      () => {
+        setQaStreaming(false)
+        // Auto-fade answer after 10 seconds
+        clearTimeout(qaFadeTimer.current)
+        qaFadeTimer.current = setTimeout(() => setQaAnswer(''), 10000)
+      },
       () => { setQaAnswer("I wasn't able to answer that. Try rephrasing?"); setQaStreaming(false) },
     )
   }
@@ -879,10 +900,24 @@ export default function Tasks() {
                   background: 'rgba(200,148,80,0.07)', border: '1px solid rgba(200,148,80,0.18)',
                   borderRadius: 10, padding: '0.75rem 1rem',
                   fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.65,
+                  position: 'relative',
                 }}
               >
                 {qaAnswer}
                 {qaStreaming && <span className="streaming-cursor" aria-hidden="true" />}
+                {!qaStreaming && (
+                  <button
+                    onClick={() => { clearTimeout(qaFadeTimer.current); setQaAnswer('') }}
+                    aria-label="Dismiss answer"
+                    style={{
+                      position: 'absolute', top: '0.4rem', right: '0.5rem',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--text-muted)', fontSize: '1rem', lineHeight: 1, padding: '0.1rem 0.3rem',
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
