@@ -1,0 +1,572 @@
+import { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useDispatch } from 'react-redux'
+import { prefsActions } from '../store'
+import { savePreferences } from '../utils/api'
+
+// ── Animation constants ───────────────────────────────────────────────── //
+
+const EXIT    = { opacity: 0, y: -8,  transition: { duration: 0.4,  ease: 'easeOut' } }
+const ENTER   = { opacity: 0, y:  12 }
+const ENTER_T = { opacity: 1, y:   0, transition: { duration: 0.5,  ease: [0.4, 0, 0.2, 1] } }
+
+// Stagger helper for choice cards
+function cardAnim(i) {
+  return {
+    initial:  { opacity: 0, y: 6 },
+    animate:  { opacity: 1, y: 0, transition: { delay: 0.15 + i * 0.06, duration: 0.38, ease: [0.4, 0, 0.2, 1] } },
+  }
+}
+
+const SHELL_STYLE = {
+  display:        'flex',
+  flexDirection:  'column',
+  alignItems:     'center',
+  gap:            '1.1rem',
+  textAlign:      'center',
+  padding:        '1.5rem 1.5rem',
+  maxWidth:       440,
+  width:          '100%',
+}
+
+// ── Font options ──────────────────────────────────────────────────────── //
+
+const FONTS = [
+  { value: 'default',      label: 'Default',      sub: 'DM Sans — clear and friendly',          css: 'var(--font-body)' },
+  { value: 'lexend',       label: 'Lexend',        sub: 'Easier to read — reduced visual stress', css: '"Lexend", sans-serif' },
+  { value: 'atkinson',     label: 'Atkinson',      sub: 'Maximum clarity',                        css: '"Atkinson Hyperlegible", sans-serif' },
+  { value: 'opendyslexic', label: 'OpenDyslexic',  sub: 'Designed for dyslexia',                  css: '"OpenDyslexic", sans-serif' },
+]
+
+// ── Sub-components ────────────────────────────────────────────────────── //
+
+function ChoiceCard({ label, sub, selected, dimmed, fontCss, onClick }) {
+  return (
+    <motion.button
+      onClick={onClick}
+      whileHover={!selected && !dimmed ? { borderColor: 'rgba(42,122,144,0.18)', background: 'rgba(255,253,250,0.8)' } : {}}
+      whileTap={{ scale: 0.98 }}
+      animate={selected ? { scale: [1, 1.02, 1], borderColor: 'rgba(42,122,144,0.5)' } : {}}
+      transition={{ duration: 0.15 }}
+      style={{
+        width:       '100%',
+        textAlign:   'left',
+        background:  selected ? 'rgba(42,122,144,0.06)' : 'rgba(255,253,250,0.5)',
+        border:      selected ? '1.5px solid rgba(42,122,144,0.4)' : '1px solid rgba(210,200,188,0.25)',
+        borderRadius: 12,
+        padding:     '14px 18px',
+        cursor:      'pointer',
+        opacity:     dimmed ? 0.3 : 1,
+        transition:  'opacity 0.2s ease, background 0.2s ease, border-color 0.2s ease',
+        fontFamily:  fontCss || 'inherit',
+      }}
+    >
+      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', fontFamily: fontCss || 'inherit' }}>
+        {label}
+      </div>
+      {sub && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3 }}>{sub}</div>}
+    </motion.button>
+  )
+}
+
+function ThemePreviewCard({ label, themeKey, selected, onClick }) {
+  const bg = {
+    morning: 'linear-gradient(160deg, #F5E6D3 0%, #EDD5B8 100%)',
+    night:   'linear-gradient(160deg, #1A2535 0%, #243350 100%)',
+    auto:    'linear-gradient(160deg, #F2E8DC 0%, #C8D8E0 100%)',
+  }
+  const textColor = themeKey === 'night' ? '#DCD4DA' : '#5A5047'
+  return (
+    <motion.button
+      onClick={onClick}
+      whileHover={{ scale: 1.04 }}
+      whileTap={{ scale: 0.97 }}
+      style={{
+        width:        110,
+        height:       150,
+        borderRadius: 14,
+        background:   bg[themeKey] || bg.auto,
+        border:       selected ? '2px solid rgba(42,122,144,0.65)' : '1.5px solid rgba(210,200,188,0.2)',
+        cursor:       'pointer',
+        overflow:     'hidden',
+        position:     'relative',
+        flexShrink:   0,
+        display:      'flex',
+        flexDirection: 'column',
+        padding:      10,
+        gap:          6,
+        transition:   'border-color 0.2s ease',
+      }}
+    >
+      <div style={{ height: 7,  background: themeKey === 'night' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)', borderRadius: 4 }} />
+      <div style={{ height: 18, background: 'rgba(200,148,80,0.22)', borderRadius: 7, marginTop: 2 }} />
+      <div style={{ height: 11, background: 'rgba(200,148,80,0.12)', borderRadius: 5, width: '65%' }} />
+      <div style={{ height: 14, borderRadius: 7, marginLeft: 'auto', background: themeKey === 'night' ? 'rgba(42,122,144,0.25)' : 'rgba(42,122,144,0.15)', width: '50%' }} />
+      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#5A8A80', marginTop: 'auto' }} />
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        padding: '5px 6px',
+        background: themeKey === 'night' ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)',
+        fontSize: 10, fontWeight: 500, color: textColor, textAlign: 'center',
+      }}>
+        {label}
+      </div>
+    </motion.button>
+  )
+}
+
+function DescribeInput({ onSubmit }) {
+  const [val, setVal] = useState('')
+  const ref = useRef(null)
+  useEffect(() => { setTimeout(() => ref.current?.focus(), 80) }, [])
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto', transition: { duration: 0.28 } }}
+      exit={{ opacity: 0, height: 0, transition: { duration: 0.2 } }}
+      style={{ width: '100%', overflow: 'hidden' }}
+    >
+      <form onSubmit={e => { e.preventDefault(); onSubmit(val) }} style={{ display: 'flex', gap: 8 }}>
+        <input ref={ref} value={val} onChange={e => setVal(e.target.value)}
+          placeholder="Describe what works best for you..." style={{ flex: 1, borderRadius: 12, fontSize: 13 }} />
+        <button type="submit" className="btn btn-primary" style={{ flexShrink: 0, fontSize: 13 }}>Done</button>
+      </form>
+    </motion.div>
+  )
+}
+
+function SettingsNote() {
+  return (
+    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 0.5, transition: { duration: 0.4, delay: 0.55 } }}
+      style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>
+      You can change any of these anytime in Settings
+    </motion.p>
+  )
+}
+
+// ── Helper ────────────────────────────────────────────────────────────── //
+
+function resolveTheme(t) {
+  if (t !== 'auto') return t
+  const h = new Date().getHours()
+  if (h >= 6  && h < 12) return 'morning'
+  if (h >= 12 && h < 17) return 'afternoon'
+  if (h >= 17 && h < 21) return 'evening'
+  return 'night'
+}
+
+// ── Main component ────────────────────────────────────────────────────── //
+
+export default function Onboarding() {
+  const dispatch = useDispatch()
+
+  const [stage,        setStage]        = useState('welcome')
+  const [nameInput,    setNameInput]    = useState('')
+  const [name,         setName]         = useState('')
+  const [readingLevel, setReadingLevel] = useState('standard')
+  const [fontChoice,   setFontChoice]   = useState('default')
+  const [themeChoice,  setThemeChoice]  = useState('auto')
+  const [granularity,  setGranularity]  = useState('normal')
+  const [commStyle,    setCommStyle]    = useState('balanced')
+
+  // Per-stage UI state
+  const [selectedCard, setSelectedCard] = useState(null)
+  const [showDescribe, setShowDescribe] = useState(false)
+  const [unsureMsg,    setUnsureMsg]    = useState('')
+
+  const nameRef = useRef(null)
+
+  // Reset per-stage UI on every stage change
+  useEffect(() => {
+    setSelectedCard(null)
+    setShowDescribe(false)
+    setUnsureMsg('')
+  }, [stage])
+
+  // Auto-focus name input
+  useEffect(() => {
+    if (stage === 'name') setTimeout(() => nameRef.current?.focus(), 320)
+  }, [stage])
+
+  // Welcome → name (hold ~3.5s after lines animate in)
+  useEffect(() => {
+    if (stage !== 'welcome') return
+    const t = setTimeout(() => setStage('name'), 3600)
+    return () => clearTimeout(t)
+  }, [stage])
+
+  // Meet → q2 (hold 1.5s)
+  useEffect(() => {
+    if (stage !== 'meet') return
+    const t = setTimeout(() => setStage('q2'), 1600)
+    return () => clearTimeout(t)
+  }, [stage])
+
+  // Complete → final
+  useEffect(() => {
+    if (stage !== 'complete') return
+    const t = setTimeout(() => setStage('final'), 1600)
+    return () => clearTimeout(t)
+  }, [stage])
+
+  // Final → save preferences and enter app
+  useEffect(() => {
+    if (stage !== 'final') return
+    const t = setTimeout(async () => {
+      const resolvedTheme = resolveTheme(themeChoice)
+      const prefs = {
+        name,
+        reading_level:       readingLevel,
+        font_choice:         fontChoice,
+        color_theme:         resolvedTheme,
+        granularity,
+        communication_style: commStyle,
+        onboarding_complete: true,
+        walkthrough_complete: false,
+      }
+      try { await savePreferences(prefs) } catch { /* best effort */ }
+      dispatch(prefsActions.setPrefs({
+        name,
+        readingLevel,
+        fontChoice,
+        colorTheme:         resolvedTheme,
+        granularity,
+        communicationStyle: commStyle,
+        onboardingComplete: true,
+        walkthroughComplete: false,
+      }))
+    }, 1100)
+    return () => clearTimeout(t)
+  }, [stage]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Apply font immediately when picked
+  useEffect(() => {
+    document.documentElement.setAttribute('data-font', fontChoice)
+  }, [fontChoice])
+
+  // ── Multi-choice handler factory ─────────────────────────────────── //
+
+  function pickChoice({ setValue, validValues, defaultVal, nextStage, unsureText }) {
+    return (v) => {
+      if (v === 'describe') {
+        setShowDescribe(s => !s)
+        setSelectedCard('describe')
+        return
+      }
+      setValue(validValues.includes(v) ? v : defaultVal)
+      if (v === 'unsure') {
+        setSelectedCard('unsure')
+        setUnsureMsg(unsureText)
+        setTimeout(() => setStage(nextStage), 2300)
+        return
+      }
+      setSelectedCard(v)
+      setTimeout(() => setStage(nextStage), 500)
+    }
+  }
+
+  const handleQ2 = pickChoice({ setValue: setReadingLevel, validValues: ['simple','standard','detailed'], defaultVal: 'standard', nextStage: 'q3', unsureText: "No worries. We'll go with a nice balance for now. You can always change it later." })
+  const handleQ5 = pickChoice({ setValue: setGranularity,  validValues: ['micro','normal','broad'],       defaultVal: 'normal',   nextStage: 'q6', unsureText: "No worries. We'll start with a clear plan. You can always ask for more or less detail." })
+  const handleQ6 = pickChoice({ setValue: setCommStyle,    validValues: ['warm','direct','balanced'],     defaultVal: 'balanced', nextStage: 'complete', unsureText: "No worries. We'll start with a little of each and you can adjust anytime." })
+
+  // ── Stage content ─────────────────────────────────────────────────── //
+
+  function renderContent() {
+    // welcome is handled separately (special stagger animation)
+    switch (stage) {
+
+      case 'name':
+        return (
+          <>
+            <motion.p initial={ENTER} animate={ENTER_T}
+              style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+              First, who will I be helping?
+            </motion.p>
+            <motion.form initial={ENTER} animate={{ ...ENTER_T, transition: { ...ENTER_T.transition, delay: 0.18 } }}
+              onSubmit={e => { e.preventDefault(); const n = nameInput.trim(); if (n) { setName(n); setStage('confirm-name') } }}
+              style={{ width: '100%', maxWidth: 300 }}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input ref={nameRef} value={nameInput} onChange={e => setNameInput(e.target.value)}
+                  placeholder="your name" autoComplete="given-name"
+                  style={{ width: '100%', height: 48, borderRadius: 12, paddingRight: 48, paddingLeft: 16, fontSize: 15, textAlign: 'center', boxSizing: 'border-box' }} />
+                <button type="submit" disabled={!nameInput.trim()} aria-label="Submit"
+                  style={{
+                    position: 'absolute', right: 8, width: 32, height: 32, borderRadius: '50%',
+                    background: nameInput.trim() ? '#5A8A80' : 'rgba(90,138,128,0.22)',
+                    border: 'none', cursor: nameInput.trim() ? 'pointer' : 'default',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.25s ease', flexShrink: 0,
+                  }}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M2 7h10M8 3l4 4-4 4" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            </motion.form>
+          </>
+        )
+
+      case 'confirm-name':
+        return (
+          <>
+            <motion.p initial={ENTER} animate={ENTER_T}
+              style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+              {name}, is that right?
+            </motion.p>
+            <motion.div initial={ENTER} animate={{ ...ENTER_T, transition: { ...ENTER_T.transition, delay: 0.15 } }}
+              style={{ display: 'flex', gap: '0.75rem' }}>
+              <button className="btn btn-primary" style={{ borderRadius: 8 }} onClick={() => setStage('meet')}>
+                That's me
+              </button>
+              <button className="btn btn-ghost" style={{ borderRadius: 8 }} onClick={() => { setNameInput(name); setStage('name') }}>
+                Let me fix that
+              </button>
+            </motion.div>
+          </>
+        )
+
+      case 'meet':
+        return (
+          <motion.p initial={ENTER} animate={ENTER_T}
+            style={{ fontSize: 16, color: 'var(--text-secondary)', lineHeight: 1.75, margin: 0 }}>
+            Nice to meet you, {name}.<br />
+            <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+              Let me set a few things up so this feels right for you.
+            </span>
+          </motion.p>
+        )
+
+      case 'q2':
+        return (
+          <>
+            <motion.p initial={ENTER} animate={ENTER_T}
+              style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+              How would you like me to walk you through things?
+            </motion.p>
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
+              {[
+                { v: 'simple',   l: 'Short and clear',            s: 'Just the essentials.' },
+                { v: 'standard', l: 'A good balance',             s: 'Enough detail, nothing extra.' },
+                { v: 'detailed', l: 'Give me everything',         s: 'I like having the full picture.' },
+                { v: 'describe', l: 'Let me describe what I need', s: null },
+                { v: 'unsure',   l: "I'm not sure yet",           s: null },
+              ].map((c, i) => (
+                <motion.div key={c.v} {...cardAnim(i)}>
+                  <ChoiceCard label={c.l} sub={c.s}
+                    selected={selectedCard === c.v}
+                    dimmed={!!selectedCard && selectedCard !== c.v && selectedCard !== 'describe' && c.v !== 'describe'}
+                    onClick={() => { if (['simple','standard','detailed'].includes(c.v)) setReadingLevel(c.v); handleQ2(c.v) }}
+                  />
+                </motion.div>
+              ))}
+            </div>
+            <AnimatePresence>
+              {showDescribe && <DescribeInput onSubmit={() => { setReadingLevel('standard'); setShowDescribe(false); setStage('q3') }} />}
+            </AnimatePresence>
+            <AnimatePresence>
+              {unsureMsg && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                style={{ fontSize: 13, color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0 }}>{unsureMsg}</motion.p>}
+            </AnimatePresence>
+            <SettingsNote />
+          </>
+        )
+
+      case 'q3':
+        return (
+          <>
+            <motion.p initial={ENTER} animate={ENTER_T}
+              style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+              Is there a font that feels easier to read?
+            </motion.p>
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
+              {FONTS.map((f, i) => (
+                <motion.div key={f.value} {...cardAnim(i)}>
+                  <ChoiceCard label={f.label} sub={f.sub} fontCss={f.css}
+                    selected={selectedCard === f.value || (!selectedCard && fontChoice === f.value)}
+                    dimmed={!!selectedCard && selectedCard !== f.value}
+                    onClick={() => { setFontChoice(f.value); setSelectedCard(f.value); setTimeout(() => setStage('q4'), 500) }}
+                  />
+                </motion.div>
+              ))}
+            </div>
+            <SettingsNote />
+          </>
+        )
+
+      case 'q4':
+        return (
+          <>
+            <motion.p initial={ENTER} animate={ENTER_T}
+              style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+              Choose the space that feels most comfortable.
+            </motion.p>
+            <motion.div initial={ENTER} animate={{ ...ENTER_T, transition: { ...ENTER_T.transition, delay: 0.18 } }}
+              style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              {[
+                { v: 'morning', l: 'Warm' },
+                { v: 'night',   l: 'Dark' },
+                { v: 'auto',    l: 'Match the time' },
+              ].map((t, i) => (
+                <motion.div key={t.v} {...cardAnim(i)}>
+                  <ThemePreviewCard label={t.l} themeKey={t.v} selected={themeChoice === t.v}
+                    onClick={() => {
+                      setThemeChoice(t.v)
+                      document.documentElement.setAttribute('data-time-theme', resolveTheme(t.v))
+                      setSelectedCard(t.v)
+                      setTimeout(() => setStage('q5'), 650)
+                    }}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
+          </>
+        )
+
+      case 'q5':
+        return (
+          <>
+            <motion.p initial={ENTER} animate={ENTER_T}
+              style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+              When something needs to get done, how should I break it down?
+            </motion.p>
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
+              {[
+                { v: 'micro',   l: 'Walk me through it step by step', s: 'The smaller, the better.' },
+                { v: 'normal',  l: 'Give me a clear plan',            s: 'Not too detailed, not too vague.' },
+                { v: 'broad',   l: 'Just show me the big picture',    s: "I'll figure out the rest." },
+                { v: 'describe',l: 'Let me describe what I need',     s: null },
+                { v: 'unsure',  l: "I'm not sure yet",                s: null },
+              ].map((c, i) => (
+                <motion.div key={c.v} {...cardAnim(i)}>
+                  <ChoiceCard label={c.l} sub={c.s}
+                    selected={selectedCard === c.v}
+                    dimmed={!!selectedCard && selectedCard !== c.v && selectedCard !== 'describe' && c.v !== 'describe'}
+                    onClick={() => { if (['micro','normal','broad'].includes(c.v)) setGranularity(c.v); handleQ5(c.v) }}
+                  />
+                </motion.div>
+              ))}
+            </div>
+            <AnimatePresence>
+              {showDescribe && <DescribeInput onSubmit={() => { setGranularity('normal'); setShowDescribe(false); setStage('q6') }} />}
+            </AnimatePresence>
+            <AnimatePresence>
+              {unsureMsg && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                style={{ fontSize: 13, color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0 }}>{unsureMsg}</motion.p>}
+            </AnimatePresence>
+          </>
+        )
+
+      case 'q6':
+        return (
+          <>
+            <motion.p initial={ENTER} animate={ENTER_T}
+              style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+              What does helpful sound like to you?
+            </motion.p>
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
+              {[
+                { v: 'warm',    l: 'Like a deep breath',         s: 'Warm and reassuring.' },
+                { v: 'direct',  l: 'Like a clear path',          s: 'Calm and to the point.' },
+                { v: 'balanced',l: 'A little of each',           s: null },
+                { v: 'describe',l: 'Let me describe what works', s: null },
+                { v: 'unsure',  l: "I'll figure it out as I go", s: null },
+              ].map((c, i) => (
+                <motion.div key={c.v} {...cardAnim(i)}>
+                  <ChoiceCard label={c.l} sub={c.s}
+                    selected={selectedCard === c.v}
+                    dimmed={!!selectedCard && selectedCard !== c.v && selectedCard !== 'describe' && c.v !== 'describe'}
+                    onClick={() => { if (['warm','direct','balanced'].includes(c.v)) setCommStyle(c.v); handleQ6(c.v) }}
+                  />
+                </motion.div>
+              ))}
+            </div>
+            <AnimatePresence>
+              {showDescribe && <DescribeInput onSubmit={() => { setCommStyle('balanced'); setShowDescribe(false); setStage('complete') }} />}
+            </AnimatePresence>
+            <AnimatePresence>
+              {unsureMsg && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                style={{ fontSize: 13, color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0 }}>{unsureMsg}</motion.p>}
+            </AnimatePresence>
+          </>
+        )
+
+      case 'complete':
+        return (
+          <motion.h2 initial={ENTER} animate={ENTER_T}
+            style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 'clamp(20px, 4vw, 26px)', color: 'var(--text-primary)', margin: 0 }}>
+            You're all set, {name}.
+          </motion.h2>
+        )
+
+      case 'final':
+        return (
+          <motion.p initial={ENTER} animate={ENTER_T}
+            style={{ fontSize: 16, color: 'var(--text-secondary)', margin: 0, letterSpacing: '0.2px' }}>
+            let me show you around.
+          </motion.p>
+        )
+
+      default:
+        return null
+    }
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────── //
+
+  return (
+    <div style={{
+      position:       'fixed',
+      inset:          0,
+      display:        'flex',
+      alignItems:     'center',
+      justifyContent: 'center',
+      background:     'var(--bg-primary)',
+      zIndex:         1000,
+      overflowY:      'auto',
+      padding:        '2rem 1rem',
+    }}>
+      <AnimatePresence mode="wait">
+
+        {/* Welcome — special internal stagger, never shares a key with the other wrapper */}
+        {stage === 'welcome' && (
+          <motion.div key="welcome" initial={{ opacity: 1 }} exit={EXIT}
+            style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.4, 0, 0.2, 1] } }}
+              style={{
+                fontFamily:   '"DM Serif Display", Georgia, serif',
+                fontSize:     'clamp(22px, 5vw, 28px)',
+                color:        'var(--text-primary)',
+                margin:       0,
+                marginBottom: '0.65rem',
+              }}
+            >
+              Welcome to Pebble.
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.6, delay: 0.45, ease: [0.4, 0, 0.2, 1] } }}
+              style={{ fontSize: 14, color: 'var(--text-secondary)', letterSpacing: '0.2px', lineHeight: 1.7, margin: 0 }}
+            >
+              I'm here to make the overwhelming feel smaller.
+            </motion.p>
+          </motion.div>
+        )}
+
+        {/* All other stages — single wrapper keyed by stage so enter/exit fires on every transition */}
+        {stage !== 'welcome' && (
+          <motion.div
+            key={stage}
+            initial={ENTER}
+            animate={ENTER_T}
+            exit={EXIT}
+            style={SHELL_STYLE}
+          >
+            {renderContent()}
+          </motion.div>
+        )}
+
+      </AnimatePresence>
+    </div>
+  )
+}

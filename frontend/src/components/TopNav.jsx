@@ -17,9 +17,30 @@ export default function TopNav() {
       transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
       aria-label="Main navigation"
     >
-      {/* Logo — left */}
-      <Link to="/" className="top-nav__logo" style={{ textDecoration: 'none' }}>
-        NeuroFocus
+      {/* Logo — left: "Pebble" + ocean sage dot */}
+      <Link
+        to="/"
+        className="top-nav__logo"
+        style={{ textDecoration: 'none', display: 'flex', alignItems: 'baseline', gap: 0 }}
+        aria-label="Pebble home"
+      >
+        <span style={{ fontFamily: '"DM Serif Display", Georgia, serif', color: 'var(--text-primary)' }}>
+          Pebble
+        </span>
+        <span
+          aria-hidden="true"
+          style={{
+            display: 'inline-block',
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: '#5A8A80',
+            marginLeft: 2,
+            marginBottom: 1,
+            verticalAlign: 'baseline',
+            flexShrink: 0,
+          }}
+        />
       </Link>
 
       {/* Nav links — center-right */}
@@ -47,7 +68,23 @@ export default function TopNav() {
         >
           <GearIcon />
         </Link>
-        <div className="top-nav__avatar" aria-label="User profile">D</div>
+        {/* Avatar: ocean sage dot — never a letter per brand spec */}
+        <div
+          className="top-nav__avatar"
+          aria-label="User profile"
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            background: 'rgba(90,138,128,0.15)',
+            border: '1.5px solid rgba(90,138,128,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#5A8A80', display: 'block' }} />
+        </div>
       </div>
     </motion.header>
   )

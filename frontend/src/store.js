@@ -4,12 +4,14 @@ const genId = () => Math.random().toString(36).slice(2, 10)
 
 function mapTasks(tasks = []) {
   return tasks.map(t => ({
-    id:               genId(),
+    id:               t.id || genId(),
     task_name:        t.task_name || t.name || 'Task',
     duration_minutes: t.duration_minutes || 15,
     motivation_nudge: t.motivation_nudge || '',
-    done:             false,
-    paused:           false,
+    due_date:         t.due_date || null,
+    due_label:        t.due_label || null,
+    done:             t.done || t.status === 'done' || false,
+    paused:           t.paused || false,
     timerStarted:     null,
     nudgeText:        null,
   }))
@@ -20,6 +22,10 @@ function mapTasks(tasks = []) {
 const prefsSlice = createSlice({
   name: 'prefs',
   initialState: {
+    name:               'there',
+    communicationStyle: 'balanced',
+    onboardingComplete: false,
+    walkthroughComplete: false,
     readingLevel: 'standard',
     fontChoice:   'default',
     bionicReading: false,
@@ -60,9 +66,14 @@ const tasksSlice = createSlice({
       state.groups.push({ id: genId(), name, source, tasks: mapTasks(tasks) })
     },
 
+    // Load groups from Cosmos DB (replaces all current groups)
+    setGroups(state, action) {
+      state.groups = action.payload
+    },
+
     // Add a single task to the "My Tasks" group (creates it if missing)
     addSimpleTask(state, action) {
-      const { task_name, duration_minutes = 15, motivation_nudge = '' } = action.payload
+      const { task_name, duration_minutes = 15, motivation_nudge = '', due_date = null, due_label = null } = action.payload
       let group = state.groups.find(g => g.name === 'My Tasks' && g.source === 'manual')
       if (!group) {
         group = { id: genId(), name: 'My Tasks', source: 'manual', tasks: [] }
@@ -70,6 +81,7 @@ const tasksSlice = createSlice({
       }
       group.tasks.push({
         id: genId(), task_name, duration_minutes, motivation_nudge,
+        due_date, due_label,
         done: false, paused: false, timerStarted: null, nudgeText: null,
       })
     },
@@ -174,8 +186,8 @@ const summariseSlice = createSlice({
   },
 })
 
-export const prefsActions    = prefsSlice.actions
-export const tasksActions    = tasksSlice.actions
+export const prefsActions     = prefsSlice.actions
+export const tasksActions     = tasksSlice.actions
 export const summariseActions = summariseSlice.actions
 
 export const store = configureStore({

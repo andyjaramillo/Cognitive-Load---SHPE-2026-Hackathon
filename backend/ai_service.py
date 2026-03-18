@@ -5,6 +5,7 @@ All prompts are engineered for neuro-inclusive, calm, factual output.
 from __future__ import annotations
 
 import json
+from datetime import date
 from typing import AsyncIterator
 
 from openai import AsyncAzureOpenAI
@@ -27,10 +28,20 @@ Rules:
 - Break the goal into steps, each ≤ 15 minutes.
 - For "micro" granularity, break further (≤ 5 min each, more steps is fine).
 - Each step MUST have:
-    task_name        : string  — short, action-verb phrase
-    duration_minutes : integer — realistic estimate
-    motivation_nudge : string  — one gentle, encouraging sentence (no exclamation marks)
-- Schema: { "steps": [ { "task_name": "...", "duration_minutes": N, "motivation_nudge": "..." } ] }
+    task_name        : string       — short, action-verb phrase
+    duration_minutes : integer      — realistic estimate
+    motivation_nudge : string       — one gentle, encouraging sentence (no exclamation marks)
+    due_date         : string|null  — ISO 8601 date string if a deadline applies, else null
+    due_label        : string|null  — friendly label ("Friday", "due today", "next week") if due_date is set, else null
+- Schema: { "steps": [ { "task_name": "...", "duration_minutes": N, "motivation_nudge": "...", "due_date": "...", "due_label": "..." } ] }
+
+Due date rules:
+- The user message will include "Today's date: YYYY-MM-DD". Use this to calculate specific dates.
+- If the user mentions a deadline or timeframe, spread tasks across available days realistically.
+  Example: "exam on Wednesday" + today is Monday → tasks get Mon/Tue dates, exam task gets Wednesday
+- If no deadline is mentioned, set due_date and due_label to null for all steps.
+- due_date format: "YYYY-MM-DDT00:00:00Z" (ISO 8601, midnight UTC)
+- due_label examples: "today", "tomorrow", "Wednesday", "Friday", "next week", "before week 2"
 """.strip()
 
 _SUMMARISE_SYSTEM = """
@@ -61,7 +72,9 @@ class AIService:
             api_key=settings.azure_openai_api_key,
             api_version=settings.azure_openai_api_version,
         )
-        self._model = settings.azure_openai_deployment_gpt4o
+        # Use AZURE_OPENAI_DEPLOYMENT from .env if set, otherwise fall back to
+        # AZURE_OPENAI_DEPLOYMENT_GPT4O (legacy field name)
+        self._model = settings.azure_openai_deployment or settings.azure_openai_deployment_gpt4o
 
     # ------------------------------------------------------------------ #
     #  Task Decomposer                                                     #
@@ -73,7 +86,8 @@ class AIService:
         granularity: str = "normal",   # "micro" | "normal" | "broad"
         context: str = "",
     ) -> dict:
-        user_msg = f"Goal: {goal}"
+        today = date.today().isoformat()
+        user_msg = f"Today's date: {today}\nGoal: {goal}"
         if context:
             user_msg += f"\nContext: {context}"
         if granularity == "micro":
@@ -117,6 +131,8 @@ class AIService:
             ],
         )
         async for chunk in stream:
+            if not chunk.choices:
+                continue
             delta = chunk.choices[0].delta.content
             if delta:
                 yield delta
@@ -155,6 +171,62 @@ class AIService:
             messages=[
                 {"role": "system", "content": _NUDGE_SYSTEM},
                 {"role": "user", "content": user_msg},
+            ],
+        )
+        return resp.choices[0].message.content.strip()
+
+    # ------------------------------------------------------------------ #
+    #  Companion Chat (streaming)                                          #
+    # ------------------------------------------------------------------ #
+
+    async def chat_stream(
+        self,
+        system_prompt: str,
+        messages: list[dict],
+    ) -> AsyncIterator[str]:
+        """
+        Stream tokens for /api/chat. Takes a pre-assembled system_prompt
+        (built by ChatService) and the conversation messages list.
+        """
+        stream = await self._client.chat.completions.create(
+            model=self._model,
+            temperature=0.7,
+            stream=True,
+            timeout=_TIMEOUT_STREAM,
+            messages=[{"role": "system", "content": system_prompt}] + messages,
+        )
+        async for chunk in stream:
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
+
+    # ------------------------------------------------------------------ #
+    #  Document summary (for Block 8 context)                             #
+    # ------------------------------------------------------------------ #
+
+    async def summarise_document(self, extracted_text: str) -> str:
+        """
+        Generate a ~100-word summary of an uploaded document.
+        Stored in Cosmos DB so it can be injected into every chat system prompt
+        without re-sending the full extracted text each time.
+        """
+        resp = await self._client.chat.completions.create(
+            model=self._model,
+            temperature=0.2,
+            timeout=_TIMEOUT_DEFAULT,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Summarize this document in 2-3 sentences (under 100 words). "
+                        "Mention: what type of document it is, the main topic, and any key "
+                        "deadlines or action items if present. Be factual and concise. "
+                        "Return only the summary text, no preamble."
+                    ),
+                },
+                {"role": "user", "content": extracted_text[:8_000]},
             ],
         )
         return resp.choices[0].message.content.strip()

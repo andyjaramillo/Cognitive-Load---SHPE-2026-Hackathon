@@ -459,7 +459,7 @@ Shown when:
    - Font-size: 11px
    - On click: navigate to /home
    
-   Button 3: "Talk to NeuroFocus"
+   Button 3: "Talk to Pebble"
    - Padding: 10px 22px
    - Border-radius: 8px
    - Background: rgba(--color-ai, 0.08)

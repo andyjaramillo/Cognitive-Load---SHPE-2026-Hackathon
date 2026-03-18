@@ -51,7 +51,7 @@ After the user clicks "Go", the input zone fades out (0.3s) and the question sta
    - Small, not prominent — just context
 
 2. AI message bubble (appears with slide-up animation):
-   - NeuroFocus avatar (22px circle, teal-soft background, "N" letter)
+   - Pebble avatar (ocean sage dot, 8px circle, #5A8A80)
    - Rounded bubble (border-radius 12px, warm card background)
    - Message: AI describes what it found — "This looks like a [type] with [details]. What would help you most right now?"
    - For the hackathon demo, this message comes from calling POST /api/chat or POST /api/summarise to analyze the document. If the backend endpoint isn't ready yet, use a smart placeholder based on the file name/word count.
@@ -83,7 +83,7 @@ The guided choices fade out and results appear as a conversation flow.
 **Elements:**
 
 1. AI message with results:
-   - NeuroFocus avatar + bubble
+   - Pebble avatar + bubble
    - Opening line varies by mode chosen:
      - "Just tell me what I need to do" → "I found [N] things you need to do across [pages] pages. Everything else is background info you don't need right now."
      - "Make it easier to read" → "Here's a simplified version at your reading level."
@@ -114,7 +114,7 @@ The guided choices fade out and results appear as a conversation flow.
    - Mentions which mode it chose: "Based on your preferences, I'm showing you the action items."
 
 3. AI follow-up (orange accent — appears after results with slight delay):
-   - NeuroFocus avatar with orange tint
+   - Pebble avatar with orange tint
    - Orange-tinted bubble
    - "Want me to do anything else with this document?"
    - Guided buttons: "Turn into tasks" (teal solid), "Simplify full text" (teal soft), "Highlight key parts" (teal soft)

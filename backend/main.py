@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from ai_service import AIService
 from blob_service import BlobService
+from chat_service import ChatService
 from config import Settings, get_settings
 from content_safety import ContentSafetyFlagged, ContentSafetyService
 from db import CosmosRepo
@@ -21,6 +22,7 @@ from doc_intelligence import MAX_FILE_BYTES, DocIntelligenceService, SUPPORTED_T
 from keyvault import patch_settings_from_keyvault
 from monitoring import configure_monitoring, track_event
 from models import (
+    ChatRequest,
     DecomposeRequest,
     DecomposeResponse,
     ExplainRequest,
@@ -30,6 +32,8 @@ from models import (
     SessionCreate,
     SessionItem,
     SummariseRequest,
+    TaskGroupsResponse,
+    TaskGroupsUpdate,
     TaskStep,
     UploadResponse,
     UserPreferences,
@@ -60,6 +64,7 @@ def make_app(settings: Settings | None = None) -> FastAPI:
     safety = ContentSafetyService(cfg.content_safety_endpoint, cfg.content_safety_key)
     blob = BlobService(cfg.blob_connection_string, cfg.blob_container_name)
     doc_intel = DocIntelligenceService(cfg.doc_intelligence_endpoint, cfg.doc_intelligence_key)
+    chat = ChatService(ai, repo, safety)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -357,6 +362,61 @@ def make_app(settings: Settings | None = None) -> FastAPI:
             )
             for d in docs
         ]
+
+    # ── AI Companion Chat (streaming SSE) ──────────────────────────────── #
+
+    @app.post("/api/chat", tags=["ai"])
+    async def companion_chat(
+        req: ChatRequest,
+        user_id: str = Depends(get_user_id),
+    ):
+        """
+        Main AI companion chat endpoint. Returns a Server-Sent Events stream.
+
+        SSE event types:
+          {"type":"token","content":"..."}   — streamed text tokens
+          {"type":"actions","buttons":[...]} — optional action buttons parsed from response
+          {"type":"replace","content":"..."}  — replaces full message if output safety fails
+          {"type":"done"}                    — stream complete
+
+        Hard-block responses (severity 5-6) are returned as a single token + done,
+        no GPT-4o call made.
+        """
+        return StreamingResponse(
+            chat.stream_chat(req, user_id),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    # ── Task Groups (persistent tasks state for Block 9 AI context) ────── #
+
+    @app.get("/api/tasks", response_model=TaskGroupsResponse, tags=["tasks"])
+    async def get_tasks(user_id: str = Depends(get_user_id)):
+        """
+        Load all task groups for the user. Called on Tasks page mount and
+        used by the chat backend to build Block 9 (task context) in the
+        system prompt.
+        """
+        groups_raw = await repo.get_task_groups(user_id)
+        return TaskGroupsResponse(groups=groups_raw)
+
+    @app.post("/api/tasks", response_model=TaskGroupsResponse, tags=["tasks"])
+    async def save_tasks(
+        body: TaskGroupsUpdate,
+        user_id: str = Depends(get_user_id),
+    ):
+        """
+        Save (replace) all task groups for the user. Called whenever the
+        frontend task state changes — task created, completed, reordered, etc.
+        The full groups array is sent; Cosmos DB stores the latest state.
+        """
+        groups_dict = [g.model_dump() for g in body.groups]
+        await repo.upsert_task_groups(user_id, groups_dict)
+        track_event("tasks_saved", {
+            "group_count": len(body.groups),
+            "user_id": user_id,
+        })
+        return TaskGroupsResponse(groups=groups_dict)
 
     return app
 

@@ -1,4 +1,4 @@
-const USER_ID = 'default-user'
+const USER_ID = 'diego'
 
 const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
@@ -104,6 +104,120 @@ export async function createSession(payload) {
 export async function listSessions() {
   const res = await apiFetch('/api/sessions')
   return res.json()
+}
+
+// ── Chat (streaming SSE) ────────────────────────────────────────────────── //
+/**
+ * Stream a chat message. SSE event types from backend:
+ *   {type:"token", content:"..."}   — streamed text token
+ *   {type:"replace", content:"..."}  — replace accumulated text (output safety)
+ *   {type:"actions", buttons:[...]} — routing/action buttons
+ *   {type:"done"}                   — stream complete
+ */
+export async function chatStream(payload, { onToken, onActions, onReplace, onDone, onError } = {}) {
+  let res
+  try {
+    res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: DEFAULT_HEADERS,
+      body: JSON.stringify(payload),
+    })
+  } catch {
+    onError?.('Something went quiet — please try again.')
+    return
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    onError?.(err.detail || 'Something went quiet — please try again.')
+    return
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop()
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const raw = line.slice(6).trim()
+        if (!raw) continue
+        try {
+          const evt = JSON.parse(raw)
+          if (evt.type === 'token')   { onToken?.(evt.content);    continue }
+          if (evt.type === 'replace') { onReplace?.(evt.content);  continue }
+          if (evt.type === 'actions') { onActions?.(evt.buttons);  continue }
+          if (evt.type === 'done')    { onDone?.();                return  }
+        } catch { /* malformed chunk — skip */ }
+      }
+    }
+  } catch {
+    onError?.('Something went quiet — please try again.')
+    return
+  }
+  onDone?.()
+}
+
+// ── Tasks ──────────────────────────────────────────────────────────────── //
+
+function _toBackendGroup(g) {
+  return {
+    id:         g.id,
+    group_name: g.name || g.group_name || 'Tasks',
+    source:     g.source || 'manual',
+    created_at: g.created_at || '',
+    tasks: (g.tasks || []).map(t => ({
+      id:               t.id,
+      task_name:        t.task_name,
+      description:      t.motivation_nudge || '',
+      duration_minutes: t.duration_minutes || 15,
+      status:           t.done ? 'done' : (t.paused ? 'in_progress' : 'pending'),
+      due_date:         t.due_date || null,
+      due_label:        t.due_label || null,
+    })),
+  }
+}
+
+function _toFrontendGroup(g) {
+  return {
+    id:         g.id,
+    name:       g.group_name || g.name || 'Tasks',
+    source:     g.source || 'manual',
+    created_at: g.created_at || '',
+    tasks: (g.tasks || []).map(t => ({
+      id:               t.id,
+      task_name:        t.task_name,
+      duration_minutes: t.duration_minutes || 15,
+      motivation_nudge: t.description || '',
+      due_date:         t.due_date || null,
+      due_label:        t.due_label || null,
+      done:             t.status === 'done',
+      paused:           t.status === 'in_progress',
+      timerStarted:     null,
+      nudgeText:        null,
+    })),
+  }
+}
+
+export async function saveTasks(groups) {
+  const res = await apiFetch('/api/tasks', {
+    method: 'POST',
+    body: JSON.stringify({ groups: groups.map(_toBackendGroup) }),
+  })
+  const data = await res.json()
+  return { groups: (data.groups || []).map(_toFrontendGroup) }
+}
+
+export async function loadTasks() {
+  const res = await apiFetch('/api/tasks')
+  const data = await res.json()
+  return { groups: (data.groups || []).map(_toFrontendGroup) }
 }
 
 // ── Upload document (multipart) ────────────────────────────────────────── //

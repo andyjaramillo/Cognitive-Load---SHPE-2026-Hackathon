@@ -248,7 +248,9 @@ input:focus, textarea:focus {
 .app-shell {
   display: flex;
   flex-direction: column;
+  height: 100vh;
   min-height: 100vh;
+  overflow: hidden;
 }
 
 .top-nav {
@@ -336,9 +338,10 @@ input:focus, textarea:focus {
 
 .main-content {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 /* ── Upload zone (Documents page) ───────────────────────────────────────── */
