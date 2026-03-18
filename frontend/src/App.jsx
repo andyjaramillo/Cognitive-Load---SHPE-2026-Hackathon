@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useDispatch, useSelector } from 'react-redux'
 import { prefsActions } from './store'
 import { fetchPreferences } from './utils/api'
@@ -10,6 +10,7 @@ import Documents from './pages/Documents'
 import Tasks from './pages/Tasks'
 import FocusMode from './pages/FocusMode'
 import Settings from './pages/Settings'
+import Onboarding from './pages/Onboarding'
 import './styles/global.css'
 
 export default function App() {
@@ -22,15 +23,19 @@ export default function App() {
   useEffect(() => {
     fetchPreferences()
       .then(p => dispatch(prefsActions.setPrefs({
+        name:               p.name,
+        communicationStyle: p.communication_style,
+        onboardingComplete: p.onboarding_complete,
+        walkthroughComplete: p.walkthrough_complete,
         readingLevel: p.reading_level,
-        fontChoice: p.font_choice,
+        fontChoice:   p.font_choice,
         bionicReading: p.bionic_reading,
-        lineHeight: p.line_height,
+        lineHeight:   p.line_height,
         letterSpacing: p.letter_spacing,
         timerLengthMinutes: p.timer_length_minutes,
-        focusMode: p.focus_mode,
-        granularity: p.granularity,
-        colorTheme: p.color_theme,
+        focusMode:    p.focus_mode,
+        granularity:  p.granularity,
+        colorTheme:   p.color_theme,
       })))
       .catch(() => dispatch(prefsActions.setPrefs({})))
   }, [dispatch])
@@ -59,6 +64,28 @@ export default function App() {
     root.style.setProperty('--line-height', prefs.lineHeight ?? 1.6)
     root.style.setProperty('--letter-spacing', `${prefs.letterSpacing ?? 0}px`)
   }, [prefs.colorTheme, prefs.fontChoice, prefs.lineHeight, prefs.letterSpacing])
+
+  // Prefs not yet loaded — show a minimal centered dot so there's no flash
+  if (!prefs.loaded) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--bg-primary)',
+      }}>
+        <motion.div
+          animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ width: 8, height: 8, borderRadius: '50%', background: '#5A8A80' }}
+        />
+      </div>
+    )
+  }
+
+  // New user — show full-screen onboarding (no nav)
+  if (!prefs.onboardingComplete) {
+    return <Onboarding />
+  }
 
   // Focus Mode: full screen, no nav, no chrome
   if (isFocusMode) {

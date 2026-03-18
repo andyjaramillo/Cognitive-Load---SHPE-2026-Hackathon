@@ -230,6 +230,67 @@ class ContentSafetyService:
         await self._check_azure(text, threshold=_OUTPUT_SEVERITY_THRESHOLD)
         return text
 
+    # ── Chat-specific methods (non-raising) ───────────────────────────────── #
+
+    def detect_cognitive_pressure(self, text: str) -> str | None:
+        """
+        Returns the first cognitive pressure category detected in text, or None.
+        Unlike _check_cognitive_pressure, this never raises — it returns the
+        category name so the caller can decide what to do with it.
+        Used by /api/chat to inform Block 6 emotional state without blocking.
+        """
+        if not text or not text.strip():
+            return None
+        if _URGENCY.search(text):
+            return FlagCategory.URGENCY
+        if _GUILT.search(text):
+            return FlagCategory.GUILT
+        if _CATASTROPHIZING.search(text):
+            return FlagCategory.CATASTROPHIZING
+        if _PERFECTIONISM.search(text):
+            return FlagCategory.PERFECTIONISM
+        if _SHAME.search(text):
+            return FlagCategory.SHAME
+        if _COMPARISON.search(text):
+            return FlagCategory.COMPARISON
+        if len(_DEMANDS.findall(text)) >= _OVERWHELM_THRESHOLD:
+            return FlagCategory.OVERWHELM
+        return None
+
+    async def get_azure_severity(self, text: str) -> tuple[int, str | None]:
+        """
+        Returns (max_severity, category_name) across all Azure Content Safety
+        categories. Returns (0, None) when the client is unavailable or the
+        API call fails — we never block a user due to an infra error.
+        Used by /api/chat to apply tiered safety handling (hard block vs soft
+        flag vs clean) instead of the binary raise/pass pattern used elsewhere.
+        """
+        if self._client is None or not text or not text.strip():
+            return 0, None
+
+        try:
+            from azure.ai.contentsafety.models import AnalyzeTextOptions
+
+            result = await self._client.analyze_text(
+                AnalyzeTextOptions(text=text[:_AZURE_MAX_CHARS])
+            )
+
+            max_severity = 0
+            max_category: str | None = None
+            for item in result.categories_analysis:
+                if item.severity is not None and item.severity > max_severity:
+                    max_severity = item.severity
+                    max_category = str(item.category)
+
+            return max_severity, max_category
+
+        except Exception as exc:
+            logger.error(
+                "content_safety.get_azure_severity",
+                extra={"event": "azure_api_error", "error": str(exc)},
+            )
+            return 0, None
+
     async def close(self) -> None:
         """Release the underlying HTTP connection pool."""
         if self._client is not None:

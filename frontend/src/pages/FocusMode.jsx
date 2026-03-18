@@ -61,15 +61,15 @@ function pickRandom(arr, exclude = null) {
 // ── State transition animation ──────────────────────────────────────────── //
 
 const fadeUp = {
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
-  exit:    { opacity: 0, y: -12, transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] } },
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.25, 0.46, 0.45, 0.94] } },
+  exit:    { opacity: 0, y: -8, transition: { duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] } },
 }
 
 const fadeUpSlow = {
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.4, 0, 0.2, 1] } },
-  exit:    { opacity: 0, transition: { duration: 0.5, ease: [0.4, 0, 0.2, 1] } },
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] } },
+  exit:    { opacity: 0, transition: { duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] } },
 }
 
 // ── Motivational quotes (standalone timer) ─────────────────────────────── //
@@ -206,15 +206,23 @@ function StandaloneFocus() {
     <div style={{ height: '100vh', width: '100vw', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
       <TopNav />
 
-      <div style={{
-        flex: 1, display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        padding: '1.5rem',
-        paddingBottom: '22vh',
-      }}>
+      <motion.div
+        variants={{ initial: {}, animate: { transition: { staggerChildren: 0.12 } } }}
+        initial="initial"
+        animate="animate"
+        style={{
+          flex: 1, display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          padding: '1.5rem',
+          paddingBottom: '22vh',
+        }}
+      >
 
         {/* ── Duration picker ── */}
-        <div style={{ marginBottom: 32 }}>
+        <motion.div
+          variants={{ initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] } } }}
+          style={{ marginBottom: 32 }}
+        >
           {durationMode === 'preset' ? (
             <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
               {DURATION_PRESETS.map(m => (
@@ -296,9 +304,12 @@ function StandaloneFocus() {
               </button>
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* ── Ring — breathes when running ── */}
+        <motion.div
+          variants={{ initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] } } }}
+        >
         <motion.div
           animate={status === 'running'
             ? { scale: [1, 1.03, 1], transition: { duration: 8, ease: 'easeInOut', repeat: Infinity } }
@@ -336,32 +347,41 @@ function StandaloneFocus() {
             </span>
           </div>
         </motion.div>
+        </motion.div>
 
         {/* ── Buttons ── */}
-        <div style={{ display: 'flex', gap: 10, marginTop: 30 }}>
+        <motion.div
+          variants={{ initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] } } }}
+          style={{ display: 'flex', gap: 10, marginTop: 30 }}
+        >
           {status === 'idle'    && <Btn color="active" onClick={handleStart}>Start</Btn>}
           {status === 'running' && <><Btn color="paused" onClick={handlePause}>Pause</Btn><Btn color="stop" onClick={handleStop}>Stop</Btn></>}
           {status === 'paused'  && <><Btn color="active" onClick={handleResume}>Resume</Btn><Btn color="stop" onClick={handleStop}>Stop</Btn></>}
-        </div>
+        </motion.div>
 
         {/* ── Quote ── */}
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={quote}
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            transition={{ duration: 0.7 }}
-            style={{
-              marginTop: 30, fontSize: 15, fontWeight: 400,
-              color: 'var(--color-ai)',
-              textAlign: 'center', maxWidth: 340, lineHeight: 1.7,
-              textShadow: '0 0 18px rgba(200,160,70,0.38), 0 0 44px rgba(200,160,70,0.16)',
-              letterSpacing: '0.01em',
-            }}
-          >
-            {quote}
-          </motion.p>
-        </AnimatePresence>
-      </div>
+        <motion.div
+          variants={{ initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] } } }}
+          style={{ marginTop: 30 }}
+        >
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={quote}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.7 }}
+              style={{
+                fontSize: 15, fontWeight: 400,
+                color: 'var(--color-ai)',
+                textAlign: 'center', maxWidth: 340, lineHeight: 1.7,
+                textShadow: '0 0 18px rgba(200,160,70,0.38), 0 0 44px rgba(200,160,70,0.16)',
+                letterSpacing: '0.01em',
+              }}
+            >
+              {quote}
+            </motion.p>
+          </AnimatePresence>
+        </motion.div>
+      </motion.div>
     </div>
   )
 }

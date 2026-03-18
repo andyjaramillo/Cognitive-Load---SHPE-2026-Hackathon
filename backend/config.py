@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     azure_openai_endpoint: str
     azure_openai_api_key: str
     azure_openai_deployment_gpt4o: str = "gpt-4o"
+    azure_openai_deployment: str = "gpt-4o"   # maps to AZURE_OPENAI_DEPLOYMENT in .env
     azure_openai_api_version: str = "2024-02-01"
 
     # Azure Cosmos DB
@@ -19,6 +20,11 @@ class Settings(BaseSettings):
     cosmos_database: str = "neurofocus"
     cosmos_container_preferences: str = "user_preferences"
     cosmos_container_sessions: str = "sessions"
+    cosmos_container_conversations: str = "conversations"
+    cosmos_container_documents: str = "documents"
+    cosmos_container_user_memory: str = "user_memory"
+    cosmos_container_learned_patterns: str = "learned_patterns"
+    cosmos_container_tasks: str = "tasks"
 
     # Azure AI Content Safety (optional — app degrades gracefully without it)
     content_safety_endpoint: Optional[str] = None
