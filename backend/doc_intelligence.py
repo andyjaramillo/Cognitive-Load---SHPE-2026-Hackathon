@@ -160,7 +160,6 @@ class DocIntelligenceService:
             poller = await self._client.begin_analyze_document(
                 _MODEL,
                 document=file_bytes,
-                content_type=content_type,
             )
             result = await poller.result()
         except Exception as exc:
