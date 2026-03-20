@@ -11,7 +11,8 @@ class Settings(BaseSettings):
     azure_openai_endpoint: str
     azure_openai_api_key: str
     azure_openai_deployment_gpt4o: str = "gpt-4o"
-    azure_openai_deployment: str = "gpt-4o"   # maps to AZURE_OPENAI_DEPLOYMENT in .env
+    # maps to AZURE_OPENAI_DEPLOYMENT in .env
+    azure_openai_deployment: str = "gpt-4o"
     azure_openai_api_version: str = "2024-02-01"
 
     # Azure Cosmos DB

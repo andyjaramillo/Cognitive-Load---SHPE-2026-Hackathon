@@ -42,6 +42,8 @@ const QUICK_ACTIONS = [
 ]
 
 const genId = () => Math.random().toString(36).slice(2, 10)
+const GREETING_DEDUPE_KEY = 'pebble_home_greeting_ts'
+const GREETING_DEDUPE_WINDOW_MS = 2500
 
 // ── Sub-components ────────────────────────────────────────────────────── //
 
@@ -225,6 +227,14 @@ export default function Home() {
 
   // Fire greeting on mount
   useEffect(() => {
+    // React Strict Mode can invoke mount effects twice in development.
+    // Keep a tiny dedupe window so only one greeting request is sent.
+    const now = Date.now()
+    const lastTsRaw = window.sessionStorage.getItem(GREETING_DEDUPE_KEY)
+    const lastTs = lastTsRaw ? Number(lastTsRaw) : 0
+    if (lastTs && now - lastTs < GREETING_DEDUPE_WINDOW_MS) return
+    window.sessionStorage.setItem(GREETING_DEDUPE_KEY, String(now))
+
     sendMessage('', true, [])
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
