@@ -1,5 +1,5 @@
 """
-NeuroFocus — FastAPI backend
+Pebble. — FastAPI backend
 Azure OpenAI + Azure Cosmos DB (NoSQL)
 """
 from __future__ import annotations
@@ -25,6 +25,7 @@ from models import (
     ChatRequest,
     DecomposeRequest,
     DecomposeResponse,
+    DocumentItem,
     ExplainRequest,
     ExplainResponse,
     NudgeRequest,
@@ -78,8 +79,8 @@ def make_app(settings: Settings | None = None) -> FastAPI:
         await doc_intel.close()
 
     app = FastAPI(
-        title="NeuroFocus API",
-        description="Neuro-inclusive AI assistant — Azure OpenAI + Cosmos DB",
+        title="Pebble. API",
+        description="Calm, neuro-inclusive AI companion — Azure OpenAI + Cosmos DB",
         version="1.0.0",
         lifespan=lifespan,
     )
@@ -116,7 +117,7 @@ def make_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/health", tags=["meta"])
     async def health():
-        return {"status": "ok", "service": "neurofocus"}
+        return {"status": "ok", "service": "pebble"}
 
     # ── Preferences ─────────────────────────────────────────────────────── #
 
@@ -155,6 +156,7 @@ def make_app(settings: Settings | None = None) -> FastAPI:
                 context=req.context,
             )
             steps = [TaskStep(**s) for s in result.get("steps", [])]
+            group_name = result.get("group_name", "")
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
@@ -171,7 +173,7 @@ def make_app(settings: Settings | None = None) -> FastAPI:
             "step_count": len(steps),
             "user_id": user_id,
         })
-        return DecomposeResponse(steps=steps)
+        return DecomposeResponse(group_name=group_name, steps=steps)
 
     # ── Summarise (streaming SSE) ────────────────────────────────────────── #
 
@@ -324,12 +326,45 @@ def make_app(settings: Settings | None = None) -> FastAPI:
             "blob_stored": blob_name is not None,
             "user_id": user_id,
         })
+
+        # Save document metadata + first 500 chars as summary to Cosmos
+        doc_id: str | None = None
+        try:
+            import uuid as _uuid
+            doc_id = str(_uuid.uuid4())
+            summary_preview = extracted_text[:500].strip() if extracted_text else ""
+            await repo.upsert_document(user_id, {
+                "id": doc_id,
+                "filename": file.filename or "document",
+                "page_count": page_count,
+                "summary": summary_preview,
+                "blob_name": blob_name,
+            })
+        except Exception as exc:
+            logger.warning("upload.cosmos_save_failed", extra={"error": str(exc)})
+
         return UploadResponse(
             extracted_text=extracted_text,
             page_count=page_count,
             filename=file.filename or "document",
             blob_name=blob_name,
+            doc_id=doc_id,
         )
+
+    @app.get("/api/documents", response_model=list[DocumentItem], tags=["documents"])
+    async def list_documents(user_id: str = Depends(get_user_id)):
+        """List the user's 10 most recently uploaded documents."""
+        docs = await repo.get_user_documents(user_id)
+        return [
+            DocumentItem(
+                id=d["id"],
+                filename=d.get("filename", "document"),
+                page_count=d.get("page_count"),
+                summary=d.get("summary"),
+                created_at=d.get("created_at", ""),
+            )
+            for d in docs
+        ]
 
     # ── Sessions ─────────────────────────────────────────────────────────── #
 
@@ -387,6 +422,24 @@ def make_app(settings: Settings | None = None) -> FastAPI:
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+
+    # ── Conversation History ─────────────────────────────────────────────── #
+
+    @app.get("/api/conversations", tags=["conversations"])
+    async def get_conversation(user_id: str = Depends(get_user_id)):
+        """
+        Load the stored conversation history for the user.
+        Returns the last 40 messages persisted by /api/chat.
+        The frontend uses this on mount to restore Pebble's memory of the user.
+        """
+        messages = await repo.get_conversation(user_id)
+        return {"messages": messages}
+
+    @app.delete("/api/conversations", tags=["conversations"])
+    async def clear_conversation(user_id: str = Depends(get_user_id)):
+        """Clear all stored conversation history for the user."""
+        await repo.upsert_conversation(user_id, [])
+        return {"cleared": True}
 
     # ── Task Groups (persistent tasks state for Block 9 AI context) ────── #
 

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { tasksActions } from '../store'
-import { decompose, fetchNudge, summariseStream } from '../utils/api'
+import { decompose, fetchNudge, summariseStream, loadTasks, saveTasks, chatStream } from '../utils/api'
 
 // ── Helpers ───────────────────────────────────────────────────────────────── //
 
@@ -79,23 +79,22 @@ function TaskCircle({ done, active, onClick, size = 20 }) {
 
 // ── MoreMenu ──────────────────────────────────────────────────────────────── //
 
-function MoreMenu({ onClose, onEdit, onPause, onDelete }) {
+function MoreMenu({ onClose, onEdit, onPause, onDelete, onChatRequest, taskName, groupName, triggerRef }) {
   const menuRef = useRef(null)
 
   useEffect(() => {
     function handleClick(e) {
+      if (triggerRef?.current && triggerRef.current.contains(e.target)) return
       if (menuRef.current && !menuRef.current.contains(e.target)) onClose()
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
-  }, [onClose])
+  }, [onClose, triggerRef])
 
   const menuItems = [
-    { id: 'edit',   dot: 'var(--color-upcoming)', label: 'Edit task',        desc: 'Change text or time estimate' },
-    { id: 'move',   dot: 'var(--color-upcoming)', label: 'Move to group',    desc: 'Reorganize between groups',   soon: true },
-    { id: 'merge',  dot: 'var(--color-ai)',        label: 'Merge with another', desc: 'Combine related tasks',    soon: true },
-    { id: 'pause',  dot: 'var(--color-paused)',   label: 'Pause',            desc: 'Set aside without deleting' },
-    { id: 'delete', dot: 'var(--color-inactive)', label: 'Delete',           desc: 'Remove permanently', divider: true },
+    { id: 'edit',   dot: 'var(--color-upcoming)', label: 'edit task',  desc: 'Change text or time estimate' },
+    { id: 'pause',  dot: 'var(--color-paused)',   label: 'pause',      desc: 'Set aside without deleting' },
+    { id: 'delete', dot: 'var(--color-inactive)', label: 'delete',     desc: 'Remove permanently', divider: true },
   ]
 
   return (
@@ -112,26 +111,31 @@ function MoreMenu({ onClose, onEdit, onPause, onDelete }) {
           {mi.divider && <div style={{ height: 1, background: 'var(--border)', margin: '0.25rem 0' }} />}
           <button
             onClick={() => {
-              if (mi.soon) return  // coming soon — no action
-              if (mi.id === 'edit')   onEdit()
-              if (mi.id === 'pause')  onPause()
-              if (mi.id === 'delete') onDelete()
-              onClose()
+              if (mi.id === 'edit')   { onEdit(); onClose() }
+              else if (mi.id === 'pause')  { onPause(); onClose() }
+              else if (mi.id === 'delete') { onDelete(); onClose() }
+              else if (mi.id === 'move')  {
+                onChatRequest?.(`move "${taskName}" to a different group`)
+                onClose()
+              }
+              else if (mi.id === 'merge') {
+                onChatRequest?.(`merge the "${groupName}" group with another group`)
+                onClose()
+              }
             }}
             style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: '0.7rem',
               padding: '0.55rem 0.25rem', background: 'none', border: 'none',
-              cursor: mi.soon ? 'default' : 'pointer', textAlign: 'left', borderRadius: 6,
-              opacity: mi.soon ? 0.45 : 1,
+              cursor: 'pointer', textAlign: 'left', borderRadius: 6,
               transition: 'background 0.15s ease',
             }}
-            onMouseEnter={e => { if (!mi.soon) e.currentTarget.style.background = 'var(--accent-soft)' }}
-            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
           >
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: mi.dot, flexShrink: 0 }} />
             <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>{mi.label}</span>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>
-              {mi.soon ? 'coming soon' : mi.desc}
+              {mi.desc}
             </span>
           </button>
         </div>
@@ -142,12 +146,13 @@ function MoreMenu({ onClose, onEdit, onPause, onDelete }) {
 
 // ── ActiveTaskCard ────────────────────────────────────────────────────────── //
 
-function ActiveTaskCard({ task, groupId, onComplete, onPause, onDelete }) {
+function ActiveTaskCard({ task, groupId, groupName, onComplete, onPause, onDelete, onChatRequest }) {
   const dispatch = useDispatch()
   const navigate = useNavigate()
   const [moreOpen, setMoreOpen]   = useState(false)
   const [breaking, setBreaking]   = useState(false)
   const [breakErr, setBreakErr]   = useState(null)
+  const moreBtnRef = useRef(null)
   const [editing, setEditing]     = useState(false)
   const [editName, setEditName]   = useState(task.task_name)
   const [editMins, setEditMins]   = useState(String(task.duration_minutes || ''))
@@ -158,15 +163,15 @@ function ActiveTaskCard({ task, groupId, onComplete, onPause, onDelete }) {
     setBreakErr(null)
     try {
       const res = await decompose({ goal: task.task_name, granularity: 'normal', reading_level: 'standard' })
-      if (res.flagged) { setBreakErr("Couldn't break that down. Try rephrasing?"); setBreaking(false); return }
+      if (res.flagged) { setBreakErr("couldn't break that down. try rephrasing?"); setBreaking(false); return }
       const steps = res.steps || []
       if (steps.length > 1) {
         dispatch(tasksActions.replaceTask({ groupId, taskId: task.id, newTasks: steps }))
       } else {
-        setBreakErr("That task is already as simple as it can be.")
+        setBreakErr("that task is already as simple as it can be.")
       }
     } catch {
-      setBreakErr("Something went quiet. Try again?")
+      setBreakErr("something went quiet. try again?")
     }
     setBreaking(false)
   }
@@ -174,10 +179,13 @@ function ActiveTaskCard({ task, groupId, onComplete, onPause, onDelete }) {
   function saveEdit() {
     const name = editName.trim()
     const mins = parseInt(editMins, 10)
+    const nameChanged = name && name !== task.task_name
     dispatch(tasksActions.updateTask({
       groupId, taskId: task.id,
       task_name: name || task.task_name,
       duration_minutes: isNaN(mins) ? task.duration_minutes : mins,
+      // Clear AI-generated nudge if task name changed — it's now stale
+      ...(nameChanged ? { motivation_nudge: '' } : {}),
     }))
     setEditing(false)
   }
@@ -219,8 +227,8 @@ function ActiveTaskCard({ task, groupId, onComplete, onPause, onDelete }) {
                   min={1}
                 />
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>min</span>
-                <button className="btn btn-primary" style={{ fontSize: '0.78rem', padding: '0.25rem 0.7rem', marginLeft: 'auto' }} onClick={saveEdit}>Save</button>
-                <button className="btn btn-ghost"   style={{ fontSize: '0.78rem', padding: '0.25rem 0.7rem' }} onClick={() => setEditing(false)}>Cancel</button>
+                <button className="btn btn-primary" style={{ fontSize: '0.78rem', padding: '0.25rem 0.7rem', marginLeft: 'auto' }} onClick={saveEdit}>save</button>
+                <button className="btn btn-ghost"   style={{ fontSize: '0.78rem', padding: '0.25rem 0.7rem' }} onClick={() => setEditing(false)}>cancel</button>
               </div>
             </div>
           ) : (
@@ -247,7 +255,7 @@ function ActiveTaskCard({ task, groupId, onComplete, onPause, onDelete }) {
               background: 'rgba(106,150,184,0.12)', padding: '0.18rem 0.6rem',
               borderRadius: 99, border: '1px solid rgba(106,150,184,0.2)',
             }}>
-              {task.duration_minutes} min
+              {formatMinutes(task.duration_minutes)}
             </span>
           )}
           <button
@@ -256,7 +264,7 @@ function ActiveTaskCard({ task, groupId, onComplete, onPause, onDelete }) {
             onClick={handleBreakDown}
             disabled={breaking}
           >
-            {breaking ? 'Breaking down…' : 'Break down'}
+            {breaking ? 'breaking down…' : 'break down'}
           </button>
           <button
             className="btn btn-ghost"
@@ -267,9 +275,10 @@ function ActiveTaskCard({ task, groupId, onComplete, onPause, onDelete }) {
               navigate('/focus')
             }}
           >
-            Focus on this
+            focus on this
           </button>
           <button
+            ref={moreBtnRef}
             className="btn btn-ghost"
             style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem' }}
             onClick={() => setMoreOpen(o => !o)}
@@ -307,6 +316,10 @@ function ActiveTaskCard({ task, groupId, onComplete, onPause, onDelete }) {
             onEdit={() => { setEditing(true); setEditName(task.task_name); setEditMins(String(task.duration_minutes || '')) }}
             onPause={onPause}
             onDelete={onDelete}
+            onChatRequest={onChatRequest}
+            taskName={task.task_name}
+            groupName={groupName}
+            triggerRef={moreBtnRef}
           />
         )}
       </AnimatePresence>
@@ -351,7 +364,7 @@ function UpcomingTaskRow({ task, dimmed, onComplete, onMakeActive }) {
       </span>
       {task.duration_minutes > 0 && (
         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', flexShrink: 0 }}>
-          {task.duration_minutes} min
+          {formatMinutes(task.duration_minutes)}
         </span>
       )}
     </motion.div>
@@ -360,7 +373,7 @@ function UpcomingTaskRow({ task, dimmed, onComplete, onMakeActive }) {
 
 // ── TaskGroupCard ─────────────────────────────────────────────────────────── //
 
-function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive }) {
+function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive, onStartNewGroup }) {
   const dispatch = useDispatch()
   const navigate = useNavigate()
 
@@ -381,19 +394,9 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive }
   const activeTask     = activeTasks.find(t => t.id === effectiveActiveId) ?? null
   const upcomingTasks  = activeTasks.filter(t => t.id !== effectiveActiveId)
 
-  // Load nudge when active task becomes visible (and doesn't have one yet)
-  useEffect(() => {
-    if (!activeTask || !isOpen || activeTask.nudgeText) return
-    fetchNudge(activeTask.task_name, 0)
-      .then(r => dispatch(tasksActions.setTaskNudge({
-        groupId: group.id, taskId: activeTask.id,
-        nudgeText: r.nudge || r.message || r.text || 'Take this one step at a time.',
-      })))
-      .catch(() => dispatch(tasksActions.setTaskNudge({
-        groupId: group.id, taskId: activeTask.id, nudgeText: 'Take this one step at a time.',
-      })))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTask?.id, isOpen])
+  // Nudge text is fetched in FocusMode when the user actively starts a task.
+  // We intentionally do NOT auto-fetch here — showing a nudge before the user
+  // has started the task is premature and adds noise.
 
   function handleComplete(taskId) {
     dispatch(tasksActions.completeTask({ groupId: group.id, taskId }))
@@ -417,8 +420,10 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive }
       }}
     >
       {/* Header — always visible */}
-      <button
+      <motion.button
         onClick={onToggle}
+        whileHover={{ background: 'var(--accent-soft)' }}
+        transition={{ duration: 0.18 }}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem',
           padding: '0.85rem 1.1rem', background: 'none', border: 'none',
@@ -456,7 +461,7 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive }
         >
           ›
         </motion.span>
-      </button>
+      </motion.button>
 
       {/* Expandable body */}
       <AnimatePresence initial={false}>
@@ -481,17 +486,17 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive }
                   }}
                 >
                   <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--color-done)', marginBottom: '0.3rem' }}>
-                    You finished all {totalUnpaused} tasks in {group.name.toLowerCase().replace('from: ', '')}
+                    you finished everything here. that's real progress.
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                     Total time: {formatMinutes(group.tasks.reduce((s, t) => s + (t.duration_minutes || 0), 0))}
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.75rem' }}>
-                    <button className="btn btn-ghost" style={{ fontSize: '0.8rem', padding: '0.3rem 0.85rem' }} onClick={onToggle}>
-                      Start another group
+                    <button className="btn btn-ghost" style={{ fontSize: '0.8rem', padding: '0.3rem 0.85rem' }} onClick={() => { onToggle(); onStartNewGroup?.() }}>
+                      start another group
                     </button>
-                    <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.3rem 0.85rem' }} onClick={() => navigate('/focus')}>
-                      Take a break
+                    <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.3rem 0.85rem' }} onClick={() => navigate('/focus', { state: { startBreak: true } })}>
+                      take a break
                     </button>
                   </div>
                 </motion.div>
@@ -508,7 +513,7 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive }
                         navigate('/focus')
                       }}
                     >
-                      Start focus mode
+                      start focus mode
                     </button>
                   </div>
 
@@ -529,9 +534,11 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive }
                         <ActiveTaskCard
                           task={activeTask}
                           groupId={group.id}
+                          groupName={group.name}
                           onComplete={() => handleComplete(activeTask.id)}
                           onPause={() => dispatch(tasksActions.pauseTask({ groupId: group.id, taskId: activeTask.id }))}
                           onDelete={() => dispatch(tasksActions.deleteTask({ groupId: group.id, taskId: activeTask.id }))}
+                          onChatRequest={handleChatRequest}
                         />
                       </div>
                     )}
@@ -577,6 +584,34 @@ export default function Tasks() {
   const { groups } = useSelector(s => s.tasks)
   const prefs = useSelector(s => s.prefs)
 
+  // Track whether initial load from Cosmos is done (prevent saving empty state on mount)
+  const [cosmosSynced, setCosmosSynced] = useState(false)
+
+  // Capture initial groups length at mount time (before any async loads).
+  // If groups are already populated (e.g., navigated here from Documents or chat),
+  // we don't overwrite Redux with Cosmos data — we just let the save effect persist them.
+  const initialGroupsLengthRef = useRef(groups.length)
+
+  // Load tasks from Cosmos on mount
+  useEffect(() => {
+    loadTasks()
+      .then(data => {
+        // Only populate from Cosmos if Redux was empty at mount time.
+        // This prevents clobbering tasks that Documents/chat created before navigating here.
+        if (data.groups && data.groups.length > 0 && initialGroupsLengthRef.current === 0) {
+          dispatch(tasksActions.setGroups(data.groups))
+        }
+      })
+      .catch(() => { /* keep whatever is in Redux */ })
+      .finally(() => setCosmosSynced(true))
+  }, [dispatch])
+
+  // Save tasks to Cosmos whenever groups change (after initial load)
+  useEffect(() => {
+    if (!cosmosSynced) return
+    saveTasks(groups).catch(() => { /* silent — don't interrupt the user */ })
+  }, [groups, cosmosSynced])
+
   // Accordion
   const [expandedGroupId, setExpandedGroupId] = useState(null)
   const [pendingExpand, setPendingExpand] = useState(null) // 'my-tasks' | 'last'
@@ -585,7 +620,8 @@ export default function Tasks() {
   const [addInput, setAddInput]     = useState('')
   const [addLoading, setAddLoading] = useState(false)
   const [addMsg, setAddMsg]         = useState(null) // { type: 'ai' | 'error', text }
-  const addMsgTimer = useRef(null)
+  const addMsgTimer   = useRef(null)
+  const addInputRef   = useRef(null)
 
   // Time filter
   const [timeFilter, setTimeFilter]             = useState('20')
@@ -594,17 +630,28 @@ export default function Tasks() {
   // Paused section
   const [pausedOpen, setPausedOpen] = useState(false)
 
-  // Q&A
-  const [qaInput, setQaInput]       = useState('')
-  const [qaAnswer, setQaAnswer]     = useState('')
-  const [qaStreaming, setQaStreaming] = useState(false)
-  const qaFadeTimer = useRef(null)
+  // Pebble chat thread (persistent during session)
+  const [qaMessages,  setQaMessages]  = useState([])   // [{id,role,content}]
+  const [qaInput,     setQaInput]     = useState('')
+  const [qaStreaming, setQaStreaming]  = useState(false)
+  const [qaStream,    setQaStream]    = useState('')    // in-flight streaming text
+  const qaInputRef  = useRef(null)
+  const qaChatRef   = useRef(null)
+  const genQaId     = () => Math.random().toString(36).slice(2, 10)
 
   // Cleanup timers on unmount
   useEffect(() => () => {
     clearTimeout(addMsgTimer.current)
-    clearTimeout(qaFadeTimer.current)
   }, [])
+
+  // Called by MoreMenu move/merge — pre-fills chat and scrolls to it
+  function handleChatRequest(text) {
+    setQaInput(text)
+    setTimeout(() => {
+      qaInputRef.current?.focus()
+      qaChatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 80)
+  }
 
   // Auto-expand document-sourced group on first mount
   useEffect(() => {
@@ -661,16 +708,16 @@ export default function Tasks() {
           motivation_nudge: steps[0]?.motivation_nudge || '',
         }))
         setPendingExpand('my-tasks')
-        setAddMsg({ type: 'ai', text: "Added to your tasks." })
+        setAddMsg({ type: 'ai', text: "added to your tasks." })
       } else {
-        const groupName = text.length > 36 ? text.slice(0, 34) + '…' : text
+        const groupName = res.group_name || (text.length > 36 ? text.slice(0, 34) + '…' : text)
         dispatch(tasksActions.addGroup({ name: groupName, source: 'ai', tasks: steps }))
         setPendingExpand('last')
-        setAddMsg({ type: 'ai', text: `That's a bigger one. I broke it into ${steps.length} steps.` })
+        setAddMsg({ type: 'ai', text: `that's a bigger one. i broke it into ${steps.length} steps.` })
       }
       setAddInput('')
     } catch {
-      setAddMsg({ type: 'error', text: "Something went quiet. Try again?" })
+      setAddMsg({ type: 'error', text: "something went quiet. try again?" })
     }
     setAddLoading(false)
     // Auto-clear the AI message after 4 seconds — clear previous timer first
@@ -678,27 +725,53 @@ export default function Tasks() {
     addMsgTimer.current = setTimeout(() => setAddMsg(null), 4000)
   }
 
-  // Q&A: stream answer using task list as context
+  // Pebble chat: full personality via /api/chat, persistent thread
   async function handleQaSubmit() {
     const q = qaInput.trim()
     if (!q || qaStreaming) return
+
+    const userMsg = { id: genQaId(), role: 'user', content: q }
+    const next = [...qaMessages, userMsg]
+    setQaMessages(next)
     setQaInput('')
     setQaStreaming(true)
-    setQaAnswer('')
-    const taskList = groups
-      .flatMap(g => g.tasks.map(t => `[${g.name}] ${t.task_name} (${t.duration_minutes || '?'} min)${t.done ? ' — done' : t.paused ? ' — paused' : ''}`))
-      .join('\n')
-    const context = `Answer this question about the user's task list. Be brief and specific.\nQuestion: "${q}"\n\nTask list:\n${taskList}`
-    await summariseStream(
-      { text: context, reading_level: prefs.readingLevel || 'standard' },
-      chunk => setQaAnswer(a => a + chunk),
-      () => {
-        setQaStreaming(false)
-        // Auto-fade answer after 10 seconds
-        clearTimeout(qaFadeTimer.current)
-        qaFadeTimer.current = setTimeout(() => setQaAnswer(''), 10000)
+    setQaStream('')
+
+    // Scroll to bottom of chat area
+    setTimeout(() => qaChatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 50)
+
+    let accumulated = ''
+    await chatStream(
+      {
+        message:              q,
+        is_greeting:          false,
+        current_page:         'tasks',
+        conversation_history: next.slice(-20).map(m => ({ role: m.role, content: m.content })),
       },
-      () => { setQaAnswer("I wasn't able to answer that. Try rephrasing?"); setQaStreaming(false) },
+      {
+        onToken: token => {
+          accumulated += token
+          setQaStream(accumulated)
+        },
+        onReplace: content => {
+          accumulated = content
+          setQaStream('')
+          setQaMessages(prev => [...prev, { id: genQaId(), role: 'assistant', content }])
+        },
+        onDone: () => {
+          if (accumulated) {
+            setQaMessages(prev => [...prev, { id: genQaId(), role: 'assistant', content: accumulated }])
+          }
+          setQaStream('')
+          setQaStreaming(false)
+          setTimeout(() => qaChatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 50)
+        },
+        onError: msg => {
+          setQaMessages(prev => [...prev, { id: genQaId(), role: 'assistant', content: msg || 'something went quiet. want to try again?' }])
+          setQaStream('')
+          setQaStreaming(false)
+        },
+      },
     )
   }
 
@@ -711,6 +784,24 @@ export default function Tasks() {
       exit="exit"
       style={{ maxWidth: 640, margin: '0 auto', width: '100%', padding: '2rem 1.5rem 6rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}
     >
+      {/* ── Page heading ──────────────────────────────────────────────── */}
+      <motion.div variants={item} style={{ paddingBottom: '0.25rem' }}>
+        <h2 style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
+          fontWeight: 400,
+          color: 'var(--text-primary)',
+          marginBottom: '0.2rem',
+        }}>
+          your tasks.
+        </h2>
+        {allTasks.length > 0 && (
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            {timeLeft > 0 ? `${formatMinutes(timeLeft)} of work left` : 'all done for now'}
+          </p>
+        )}
+      </motion.div>
+
       {/* ── Add input ─────────────────────────────────────────────────── */}
       <motion.div variants={item} style={{
         display: 'flex', gap: '0.5rem', alignItems: 'center',
@@ -718,6 +809,7 @@ export default function Tasks() {
         borderRadius: 12, padding: '0.5rem 0.5rem 0.5rem 1rem',
       }}>
         <input
+          ref={addInputRef}
           type="text"
           placeholder="Add a task or goal..."
           value={addInput}
@@ -776,33 +868,10 @@ export default function Tasks() {
           onClick={() => setTimeFilterActive(a => !a)}
           aria-pressed={timeFilterActive}
         >
-          {timeFilterActive ? 'Clear filter' : 'Show me what fits'}
+          {timeFilterActive ? 'clear filter' : 'show me what fits'}
         </button>
       </motion.div>
 
-      {/* ── Progress summary ──────────────────────────────────────────── */}
-      {allTasks.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}
-        >
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            {allTasks.length} task{allTasks.length !== 1 ? 's' : ''} total
-            {' · '}{doneCount} done
-            {timeLeft > 0 && ` · ${formatMinutes(timeLeft)} remaining`}
-          </div>
-          <div style={{ height: 4, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
-            <motion.div
-              animate={{ width: allTasks.length > 0 ? `${(doneCount / allTasks.length) * 100}%` : '0%' }}
-              transition={{ duration: 0.5, ease: 'easeOut' }}
-              style={{
-                height: '100%', borderRadius: 99,
-                background: doneCount === allTasks.length ? 'var(--color-done)' : 'var(--color-active)',
-              }}
-            />
-          </div>
-        </motion.div>
-      )}
 
       {/* ── Task groups ───────────────────────────────────────────────── */}
       <motion.div
@@ -812,9 +881,19 @@ export default function Tasks() {
         {groups.length === 0 ? (
           <motion.div
             variants={item}
-            style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)', fontSize: '0.88rem' }}
+            style={{ textAlign: 'center', padding: '3.5rem 1rem' }}
           >
-            No tasks yet. Add a goal above and I'll break it down for you.
+            <motion.div
+              animate={{ scale: [0.85, 1.1, 0.85], opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+              style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--color-active)', margin: '0 auto 1.1rem' }}
+            />
+            <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: '0.4rem', fontWeight: 400 }}>
+              nothing here yet.
+            </p>
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+              add a goal above and i'll break it into steps.
+            </p>
           </motion.div>
         ) : (
           groups.map(g => (
@@ -825,6 +904,12 @@ export default function Tasks() {
                 onToggle={() => toggleGroup(g.id)}
                 timeFilter={timeFilter}
                 timeFilterActive={timeFilterActive}
+                onStartNewGroup={() => {
+                  setTimeout(() => {
+                    addInputRef.current?.focus()
+                    addInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  }, 80)
+                }}
               />
             </motion.div>
           ))
@@ -893,64 +978,132 @@ export default function Tasks() {
         </motion.div>
       )}
 
-      {/* ── Q&A input ─────────────────────────────────────────────────── */}
-      {groups.length > 0 && (
+      {/* ── Pebble chat — hidden until fully functional ──────────────── */}
+      {false && groups.length > 0 && (
         <motion.div
+          ref={qaChatRef}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1, transition: { delay: 0.3, duration: 0.4 } }}
-          style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.5rem' }}
+          style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.25rem' }}
         >
-          {/* Inline answer */}
-          <AnimatePresence>
-            {qaAnswer && (
+          {/* Divider label */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>ask pebble</span>
+            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          </div>
+
+          {/* Chat thread */}
+          <AnimatePresence initial={false}>
+            {qaMessages.map(msg => (
               <motion.div
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                key={msg.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] } }}
                 style={{
-                  background: 'rgba(200,148,80,0.07)', border: '1px solid rgba(200,148,80,0.18)',
-                  borderRadius: 10, padding: '0.75rem 1rem',
-                  fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.65,
-                  position: 'relative',
+                  display: 'flex',
+                  gap: '0.6rem',
+                  alignItems: 'flex-start',
+                  flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
                 }}
               >
-                {qaAnswer}
-                {qaStreaming && <span className="streaming-cursor" aria-hidden="true" />}
-                {!qaStreaming && (
-                  <button
-                    onClick={() => { clearTimeout(qaFadeTimer.current); setQaAnswer('') }}
-                    aria-label="Dismiss answer"
-                    style={{
-                      position: 'absolute', top: '0.4rem', right: '0.5rem',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--text-muted)', fontSize: '1rem', lineHeight: 1, padding: '0.1rem 0.3rem',
-                    }}
-                  >
-                    ×
-                  </button>
+                {/* Avatar */}
+                {msg.role === 'assistant' ? (
+                  <motion.div
+                    animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+                    style={{ width: 8, height: 8, borderRadius: '50%', background: '#5A8A80', flexShrink: 0, marginTop: '0.9rem' }}
+                  />
+                ) : (
+                  <div style={{
+                    width: 24, height: 24, borderRadius: '50%', flexShrink: 0, marginTop: '0.2rem',
+                    background: 'rgba(42,122,144,0.12)', border: '1px solid rgba(42,122,144,0.2)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '0.65rem', fontWeight: 600, color: 'var(--color-active)',
+                  }}>
+                    {(prefs.name && prefs.name !== 'there') ? prefs.name.charAt(0).toUpperCase() : 'Y'}
+                  </div>
                 )}
+                {/* Bubble */}
+                <div style={{
+                  maxWidth: '80%',
+                  background: msg.role === 'assistant' ? 'var(--bg-card)' : 'rgba(42,122,144,0.08)',
+                  border: `1px solid ${msg.role === 'assistant' ? 'var(--border)' : 'rgba(42,122,144,0.16)'}`,
+                  borderRadius: msg.role === 'assistant' ? '16px 16px 16px 4px' : '16px 16px 4px 16px',
+                  padding: '0.75rem 1rem',
+                  fontSize: '0.88rem',
+                  color: 'var(--text-primary)',
+                  lineHeight: 1.65,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  boxShadow: msg.role === 'assistant' ? '0 2px 10px rgba(90,138,128,0.06)' : 'none',
+                }}>
+                  {msg.content}
+                </div>
+              </motion.div>
+            ))}
+
+            {/* In-flight streaming bubble */}
+            {qaStreaming && (
+              <motion.div
+                key="streaming"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0, transition: { duration: 0.25 } }}
+                style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}
+              >
+                <motion.div
+                  animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+                  style={{ width: 8, height: 8, borderRadius: '50%', background: '#5A8A80', flexShrink: 0, marginTop: '0.9rem' }}
+                />
+                <div style={{
+                  background: 'var(--bg-card)', border: '1px solid var(--border)',
+                  borderRadius: '16px 16px 16px 4px', padding: '0.75rem 1rem',
+                  fontSize: '0.88rem', color: 'var(--text-primary)', lineHeight: 1.65,
+                  maxWidth: '80%', boxShadow: '0 2px 10px rgba(90,138,128,0.06)',
+                }}>
+                  {qaStream
+                    ? qaStream
+                    : (
+                      <div style={{ display: 'flex', gap: 5, alignItems: 'center', padding: '2px 0' }}>
+                        {[0, 1, 2].map(i => (
+                          <motion.span
+                            key={i}
+                            animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.4, 1, 0.4] }}
+                            transition={{ duration: 2.2, delay: i * 0.35, repeat: Infinity, ease: 'easeInOut' }}
+                            style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: '#5A8A80' }}
+                          />
+                        ))}
+                      </div>
+                    )
+                  }
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
 
+          {/* Chat input */}
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <input
+              ref={qaInputRef}
               type="text"
-              placeholder="Ask about your tasks..."
+              placeholder="ask pebble to move, merge, prioritize, or explain..."
               value={qaInput}
               onChange={e => setQaInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleQaSubmit()}
               style={{
-                flex: 1, borderRadius: 99, padding: '0.55rem 1rem',
+                flex: 1, borderRadius: 99, padding: '0.6rem 1.1rem',
                 fontSize: '0.85rem', width: 'auto',
               }}
-              aria-label="Ask about your tasks"
+              aria-label="Ask Pebble about your tasks"
             />
             <button
               className="btn btn-ghost"
-              style={{ borderRadius: 99, padding: '0.55rem 1.1rem', fontSize: '0.85rem', flexShrink: 0, opacity: !qaInput.trim() || qaStreaming ? 0.45 : 1 }}
+              style={{ borderRadius: 99, padding: '0.6rem 1.1rem', fontSize: '0.85rem', flexShrink: 0, opacity: !qaInput.trim() || qaStreaming ? 0.45 : 1 }}
               disabled={!qaInput.trim() || qaStreaming}
               onClick={handleQaSubmit}
             >
-              Ask
+              send
             </button>
           </div>
         </motion.div>

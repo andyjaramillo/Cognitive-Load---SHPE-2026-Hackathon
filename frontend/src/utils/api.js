@@ -164,6 +164,17 @@ export async function chatStream(payload, { onToken, onActions, onReplace, onDon
   onDone?.()
 }
 
+// ── Conversation History ────────────────────────────────────────────────── //
+export async function loadConversation() {
+  const res = await apiFetch('/api/conversations')
+  return res.json()
+}
+
+export async function loadDocuments() {
+  const res = await apiFetch('/api/documents')
+  return res.json()
+}
+
 // ── Tasks ──────────────────────────────────────────────────────────────── //
 
 function _toBackendGroup(g) {

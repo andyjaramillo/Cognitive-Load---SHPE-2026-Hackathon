@@ -138,11 +138,12 @@ const tasksSlice = createSlice({
     },
 
     updateTask(state, action) {
-      const { groupId, taskId, task_name, duration_minutes } = action.payload
+      const { groupId, taskId, task_name, duration_minutes, motivation_nudge } = action.payload
       const task = state.groups.find(g => g.id === groupId)?.tasks.find(t => t.id === taskId)
       if (!task) return
-      if (task_name    !== undefined) task.task_name        = task_name
+      if (task_name        !== undefined) task.task_name        = task_name
       if (duration_minutes !== undefined) task.duration_minutes = duration_minutes
+      if (motivation_nudge !== undefined) task.motivation_nudge = motivation_nudge
     },
 
     setTaskTimer(state, action) {

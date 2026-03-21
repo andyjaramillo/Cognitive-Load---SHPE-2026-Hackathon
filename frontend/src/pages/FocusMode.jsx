@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDispatch, useSelector } from 'react-redux'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { tasksActions } from '../store'
 import { fetchNudge, decompose, createSession } from '../utils/api'
 import FocusTimer from '../components/FocusTimer'
@@ -10,47 +10,47 @@ import TopNav from '../components/TopNav'
 // ── Fallback pools ──────────────────────────────────────────────────────── //
 
 const NUDGE_FALLBACKS = [
-  'Take this one step at a time.',
-  'You already know more about this than you think.',
-  'Start with the smallest piece.',
-  "This doesn't have to be perfect.",
-  'Just getting started is the hardest part.',
+  'take this one step at a time.',
+  'you already know more about this than you think.',
+  'start with the smallest piece.',
+  "this doesn't have to be perfect.",
+  'just getting started is the hardest part.',
 ]
 
 const COMPLETION_FALLBACKS = [
-  'Nice. The next one builds on that.',
-  "That's one more handled.",
-  'Done. You\'re making progress.',
-  'Solid. Moving on.',
+  'nice. the next one builds on that.',
+  "that's one more handled.",
+  "done. you're making progress.",
+  'solid. moving on.',
 ]
 
 const OVERTIME_FALLBACKS = [
-  'Running over? No pressure. Finish when you\'re ready.',
-  'Take the time you need.',
-  'Almost there. No rush.',
+  "running over? no pressure. finish when you're ready.",
+  'take the time you need.',
+  'almost there. no rush.',
 ]
 
 const BREAK_TIPS = [
-  'Look away from the screen for a moment. Let your eyes rest on something far away.',
-  'Stretch your arms above your head and hold for a few seconds.',
-  'Roll your shoulders back slowly. Release the tension.',
-  'Close your eyes and take three deep breaths on your own.',
-  'Wiggle your fingers and toes. Reconnect with your body.',
-  'Stand up and stretch if you can. Your body will thank you.',
-  'Drink some water if you have it nearby.',
+  'look away from the screen for a moment. let your eyes rest on something far away.',
+  'stretch your arms above your head and hold for a few seconds.',
+  'roll your shoulders back slowly. release the tension.',
+  'close your eyes and take three deep breaths on your own.',
+  'wiggle your fingers and toes. reconnect with your body.',
+  'stand up and stretch if you can. your body will thank you.',
+  'drink some water if you have it nearby.',
 ]
 
 const SUMMARY_FALLBACKS = [
-  'That was a good one.',
-  'Solid session.',
-  'Nice work in there.',
-  'You showed up. That matters.',
+  'that was a good one.',
+  'solid session.',
+  'nice work in there.',
+  'you showed up. that matters.',
 ]
 
 const TIRED_FALLBACKS = [
-  'Maybe do a shorter one next.',
-  "You've been going for a while. A break after this one might help.",
-  "Take it slow. There's no deadline on this.",
+  'maybe do a shorter one next.',
+  "you've been going for a while. a break after this one might help.",
+  "take it slow. there's no deadline on this.",
 ]
 
 function pickRandom(arr, exclude = null) {
@@ -75,16 +75,16 @@ const fadeUpSlow = {
 // ── Motivational quotes (standalone timer) ─────────────────────────────── //
 
 const MOTIVATIONAL_QUOTES = [
-  'Deep work. One thing at a time.',
-  'The work in front of you is the only work.',
-  'Focus is the art of knowing what to ignore.',
-  'You don\'t have to be fast. You have to start.',
-  'Progress, not perfection.',
-  'One hour of focus moves more than a day of distraction.',
-  'Show up. Stay. See what happens.',
-  'The hardest part is already done — you started.',
-  'Wherever you are, be fully there.',
-  'Small steps. Real progress.',
+  'deep work. one thing at a time.',
+  'the work in front of you is the only work.',
+  'focus is the art of knowing what to ignore.',
+  'you don\'t have to be fast. you have to start.',
+  'progress, not perfection.',
+  'one hour of focus moves more than a day of distraction.',
+  'show up. stay. see what happens.',
+  'the hardest part is already done — you started.',
+  'wherever you are, be fully there.',
+  'small steps. real progress.',
 ]
 
 // Preset options — minutes only (hrs shown in custom)
@@ -106,8 +106,50 @@ function formatCountdown(secs) {
 // Clamp a number input value
 function clamp(val, min, max) { return Math.max(min, Math.min(max, val || 0)) }
 
-function StandaloneFocus() {
+function StandaloneFocus({ startBreak = false }) {
+  const navigate = useNavigate()
   const defaultMinutes = useSelector(s => s.prefs.timerLengthMinutes) || 25
+
+  // Break-only mode: user came here via "Take a break" from Tasks
+  if (startBreak) {
+    return (
+      <div style={{ height: '100vh', width: '100vw', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+        <TopNav />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.25, 0.46, 0.45, 0.94] } }}
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '2rem' }}
+        >
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 400, color: 'var(--text-primary)', margin: 0 }}>
+            taking a break.
+          </h2>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 28px' }}>
+            no rush.
+          </p>
+          <BreathingCircle />
+          <motion.button
+            whileHover={{ filter: 'brightness(1.08)' }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => navigate('/tasks')}
+            style={{
+              marginTop: 24,
+              padding: '10px 28px', borderRadius: 8,
+              background: 'var(--color-active)', color: 'white',
+              fontSize: 12, fontWeight: 500,
+              border: 'none', cursor: 'pointer',
+            }}
+          >
+            i'm back
+          </motion.button>
+        </motion.div>
+      </div>
+    )
+  }
+
+  // Focus topic — blank timer is broken UX; prompt user to name what they're focusing on
+  const [focusTopic, setFocusTopic] = useState('')
+  const [topicInput, setTopicInput] = useState('')
+  const [topicSet,   setTopicSet]   = useState(false)
 
   // Duration picker mode
   const [durationMode, setDurationMode] = useState('preset')
@@ -202,6 +244,48 @@ function StandaloneFocus() {
   function handleStop()   { clearInterval(intervalRef.current); setStatus('idle'); setRemaining(totalSecs) }
   function handleReset()  { clearInterval(intervalRef.current); setStatus('idle'); setRemaining(totalSecs) }
 
+  // Topic prompt — show before timer if user hasn't named their focus yet
+  if (!topicSet) {
+    return (
+      <div style={{ height: '100vh', width: '100vw', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+        <TopNav />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] } }}
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18, padding: '2rem', paddingBottom: '20vh' }}
+        >
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, letterSpacing: '0.02em' }}>what are you focusing on?</p>
+          <input
+            autoFocus
+            type="text"
+            placeholder="name this session..."
+            value={topicInput}
+            onChange={e => setTopicInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && (topicInput.trim() ? (setFocusTopic(topicInput.trim()), setTopicSet(true)) : setTopicSet(true))}
+            style={{
+              background: 'var(--bg-card)', border: '1.5px solid var(--border)',
+              borderRadius: 10, padding: '0.65rem 1.2rem',
+              fontSize: '1.05rem', color: 'var(--text-primary)',
+              outline: 'none', textAlign: 'center',
+              width: '100%', maxWidth: 300,
+              transition: 'border-color 0.2s ease',
+            }}
+            onFocus={e => { e.target.style.borderColor = 'var(--color-active)' }}
+            onBlur={e => { e.target.style.borderColor = 'var(--border)' }}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Btn color="active" onClick={() => { setFocusTopic(topicInput.trim()); setTopicSet(true) }}>
+              start
+            </Btn>
+            <Btn color="ghost" onClick={() => setTopicSet(true)}>
+              skip
+            </Btn>
+          </div>
+        </motion.div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ height: '100vh', width: '100vw', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
       <TopNav />
@@ -217,6 +301,17 @@ function StandaloneFocus() {
           paddingBottom: '22vh',
         }}
       >
+
+        {/* ── Focus topic label (shown when timer is running) ── */}
+        {focusTopic && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { duration: 0.5 } }}
+            style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, letterSpacing: '0.02em', textAlign: 'center' }}
+          >
+            {focusTopic}
+          </motion.p>
+        )}
 
         {/* ── Duration picker ── */}
         <motion.div
@@ -254,7 +349,7 @@ function StandaloneFocus() {
                   transition: 'all 0.2s ease',
                 }}
               >
-                Custom
+                custom
               </button>
             </div>
           ) : (
@@ -294,7 +389,7 @@ function StandaloneFocus() {
                   color: 'var(--color-active)', cursor: 'pointer',
                 }}
               >
-                Set
+                set
               </button>
               <button
                 onClick={() => setDurationMode('preset')}
@@ -354,9 +449,9 @@ function StandaloneFocus() {
           variants={{ initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] } } }}
           style={{ display: 'flex', gap: 10, marginTop: 30 }}
         >
-          {status === 'idle'    && <Btn color="active" onClick={handleStart}>Start</Btn>}
-          {status === 'running' && <><Btn color="paused" onClick={handlePause}>Pause</Btn><Btn color="stop" onClick={handleStop}>Stop</Btn></>}
-          {status === 'paused'  && <><Btn color="active" onClick={handleResume}>Resume</Btn><Btn color="stop" onClick={handleStop}>Stop</Btn></>}
+          {status === 'idle'    && <Btn color="active" onClick={handleStart}>start</Btn>}
+          {status === 'running' && <><Btn color="paused" onClick={handlePause}>pause</Btn><Btn color="stop" onClick={handleStop}>stop</Btn></>}
+          {status === 'paused'  && <><Btn color="active" onClick={handleResume}>resume</Btn><Btn color="stop" onClick={handleStop}>stop</Btn></>}
         </motion.div>
 
         {/* ── Quote ── */}
@@ -391,7 +486,7 @@ function Btn({ color, onClick, children }) {
   const styles = {
     active: { bg: 'var(--color-active)', shadow: '0 2px 12px rgba(42,122,144,0.22)',   text: 'white' },
     paused: { bg: 'var(--color-paused)', shadow: '0 2px 12px rgba(138,120,174,0.22)', text: 'white' },
-    stop:   { bg: '#C0655E',             shadow: '0 2px 12px rgba(192,101,94,0.22)',   text: 'white' },
+    stop:   { bg: 'var(--color-paused)',  shadow: '0 2px 12px rgba(154,136,180,0.22)', text: 'white' },
     ghost:  { bg: 'transparent',         shadow: 'none', text: 'var(--text-secondary)', border: '1px solid var(--border)' },
   }
   const s = styles[color] ?? styles.ghost
@@ -412,35 +507,85 @@ function Btn({ color, onClick, children }) {
   )
 }
 
-// ── Progress dots ───────────────────────────────────────────────────────── //
+// ── Pebble skip trail (calm visual progress, no gamification) ──────────── //
 
-function ProgressDots({ tasks, currentTaskId }) {
+function RippleDot({ x, y }) {
   return (
-    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-      {tasks.map(t => {
-        const isCurrent = t.id === currentTaskId
-        const isDone    = t.done
+    <g>
+      <motion.circle
+        cx={x} cy={y} r={3}
+        fill="rgba(90,138,128,0.55)"
+        initial={{ r: 3, opacity: 0.6 }}
+        animate={{ r: 3, opacity: 0.55 }}
+      />
+      <motion.circle
+        cx={x} cy={y}
+        fill="none"
+        stroke="rgba(90,138,128,0.35)"
+        strokeWidth={1}
+        initial={{ r: 3, opacity: 0.5 }}
+        animate={{ r: 13, opacity: 0 }}
+        transition={{ duration: 1.1, ease: 'easeOut' }}
+      />
+    </g>
+  )
+}
+
+function ActiveDot({ x, y }) {
+  return (
+    <motion.circle
+      cx={x} cy={y} r={4}
+      fill="rgba(90,138,128,0.85)"
+      animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.7, 1, 0.7] }}
+      transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+      style={{ transformOrigin: `${x}px ${y}px` }}
+    />
+  )
+}
+
+function PebbleSkipTrail({ tasks, currentTaskId }) {
+  const total = tasks.length
+  if (total <= 1) return null
+
+  const W       = 160
+  const H       = 36
+  const WATER_Y = 26
+  const DOT_Y   = WATER_Y - 10
+  const gap     = Math.min(22, (W - 16) / Math.max(total - 1, 1))
+  const startX  = (W - gap * (total - 1)) / 2
+
+  return (
+    <svg
+      width={W}
+      height={H}
+      viewBox={`0 0 ${W} ${H}`}
+      style={{ overflow: 'visible' }}
+      aria-hidden="true"
+    >
+      {/* Gentle water line */}
+      <path
+        d={`M 0 ${WATER_Y} Q ${W * 0.25} ${WATER_Y - 2} ${W * 0.5} ${WATER_Y} Q ${W * 0.75} ${WATER_Y + 2} ${W} ${WATER_Y}`}
+        stroke="rgba(90,138,128,0.18)"
+        strokeWidth={1}
+        fill="none"
+      />
+
+      {tasks.map((task, i) => {
+        const x       = startX + i * gap
+        const isDone  = task.done
+        const isCurr  = task.id === currentTaskId
+
+        if (isDone)  return <RippleDot key={task.id} x={x} y={WATER_Y} />
+        if (isCurr)  return <ActiveDot  key={task.id} x={x} y={DOT_Y}   />
         return (
-          <div
-            key={t.id}
-            style={{
-              width: 6, height: 6,
-              borderRadius: '50%',
-              background: isDone
-                ? 'var(--color-done)'
-                : isCurrent
-                  ? 'var(--color-active)'
-                  : 'transparent',
-              border: isDone || isCurrent
-                ? 'none'
-                : '1.5px solid var(--color-inactive)',
-              transition: 'background 0.4s ease, border-color 0.4s ease',
-              flexShrink: 0,
-            }}
+          <circle
+            key={task.id}
+            cx={x} cy={DOT_Y} r={2.5}
+            fill="rgba(90,138,128,0.15)"
           />
         )
       })}
-    </div>
+    </svg>
   )
 }
 
@@ -463,22 +608,32 @@ function BreathingCircle() {
     return () => clearTimeout(timeout)
   }, [])
 
-  const scale = phase === 'in' ? 1.12 : phase === 'hold' ? 1.12 : 0.88
-  const label = phase === 'in' ? 'Breathe in...' : phase === 'hold' ? 'Hold...' : 'Breathe out...'
+  const scale     = phase === 'in' ? 1.18 : phase === 'hold' ? 1.18 : 0.82
+  const ringScale = phase === 'in' ? 1.28 : phase === 'hold' ? 1.28 : 0.88
+  const label = phase === 'in' ? 'breathe in' : phase === 'hold' ? 'hold' : 'breathe out'
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', width: 220, height: 220 }}>
+      {/* Ghost ring — outer, more subtle */}
+      <motion.div
+        animate={{ scale: ringScale, opacity: phase === 'hold' ? 0.15 : 0.08 }}
+        transition={{ duration: phase === 'hold' ? 0.1 : 4, ease: 'easeInOut' }}
+        style={{
+          position: 'absolute',
+          width: 200, height: 200,
+          borderRadius: '50%',
+          border: '1px solid rgba(80,148,106,0.25)',
+        }}
+      />
+      {/* Main circle */}
       <motion.div
         animate={{ scale }}
-        transition={{
-          duration: phase === 'hold' ? 0.1 : 4,
-          ease: 'easeInOut',
-        }}
+        transition={{ duration: phase === 'hold' ? 0.1 : 4, ease: 'easeInOut' }}
         style={{
-          width: 120, height: 120,
+          width: 160, height: 160,
           borderRadius: '50%',
-          border: '2px solid rgba(80,148,106,0.2)',
-          background: 'radial-gradient(circle, rgba(80,148,106,0.08) 0%, transparent 70%)',
+          border: '1.5px solid rgba(80,148,106,0.3)',
+          background: 'radial-gradient(circle, rgba(80,148,106,0.12) 0%, transparent 70%)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
       >
@@ -488,7 +643,7 @@ function BreathingCircle() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, transition: { duration: 0.5 } }}
             exit={{ opacity: 0, transition: { duration: 0.4 } }}
-            style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', padding: '0 12px' }}
+            style={{ fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center', padding: '0 16px', letterSpacing: '0.3px' }}
           >
             {label}
           </motion.span>
@@ -501,8 +656,10 @@ function BreathingCircle() {
 // ── Main FocusMode ──────────────────────────────────────────────────────── //
 
 export default function FocusMode() {
-  const dispatch  = useDispatch()
-  const navigate  = useNavigate()
+  const dispatch   = useDispatch()
+  const navigate   = useNavigate()
+  const location   = useLocation()
+  const startBreak = location.state?.startBreak ?? false
   const { groups, focusGroupId, focusTaskId } = useSelector(s => s.tasks)
   const timerRef  = useRef(null)
 
@@ -606,7 +763,7 @@ export default function FocusMode() {
     if (appState !== 'focusing' || checkinVisible) return
     const interval = setInterval(() => {
       const minutesSince = (Date.now() - checkinTimerStartRef.current) / 60000
-      if (completionsSinceCheckinRef.current >= 2 || minutesSince >= 15) {
+      if (minutesSince >= 30) {
         if (!checkinShownRef.current) {
           checkinShownRef.current = true
           setCheckinVisible(true)
@@ -787,8 +944,8 @@ export default function FocusMode() {
     // Generate heading
     const allDone = tasksDoneThisSessionRef.current > 0 &&
       (group?.tasks.filter(t => !t.paused).every(t => t.done) ?? false)
-    setSummaryMsg(allDone ? 'You finished everything.' : pickRandom(SUMMARY_FALLBACKS))
-    setSummaryCtx('You put in focused time on what matters. The rest can wait.')
+    setSummaryMsg(allDone ? 'you finished everything.' : pickRandom(SUMMARY_FALLBACKS))
+    setSummaryCtx('you put in focused time on what matters. the rest can wait.')
 
     // Save session (once)
     if (!sessionSavedRef.current) {
@@ -815,7 +972,7 @@ export default function FocusMode() {
   // ── No tasks: show standalone timer ──────────────────────────────────── //
 
   if (!group || groupTasks.length === 0) {
-    return <StandaloneFocus />
+    return <StandaloneFocus startBreak={startBreak} />
   }
 
   // Compute elapsed minutes for summary
@@ -849,19 +1006,14 @@ export default function FocusMode() {
               position: 'relative',
             }}
           >
-            {/* Progress dots — top left */}
-            <div style={{ position: 'absolute', top: 18, left: 18 }}>
-              <ProgressDots tasks={groupTasks} currentTaskId={currentTaskId} />
-            </div>
-
             {/* EXIT — top right */}
             <button
               onClick={goToSummary}
               style={{
                 position: 'absolute', top: 18, right: 18,
                 background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 9, letterSpacing: '0.3px', textTransform: 'uppercase',
-                color: 'var(--text-muted)',
+                fontSize: 11, letterSpacing: '0.3px', textTransform: 'uppercase',
+                color: 'var(--text-muted)', padding: '4px 8px', minHeight: 32,
               }}
             >
               EXIT
@@ -876,7 +1028,7 @@ export default function FocusMode() {
               {/* Task name */}
               <AnimatePresence mode="wait">
                 <motion.h2
-                  key={currentTaskId + (completing ? '-completing' : '')}
+                  key={currentTaskId}
                   initial={slideDir === 'skip'
                     ? { opacity: 0, x: -40 }
                     : { opacity: 0, y: 8 }}
@@ -885,8 +1037,9 @@ export default function FocusMode() {
                     ? { opacity: 0, x: 40, transition: { duration: 0.3 } }
                     : { opacity: 0, y: -12, transition: { duration: 0.4 } }}
                   style={{
-                    fontSize: 20, fontWeight: 500, color: 'var(--text-primary)',
-                    letterSpacing: '-0.3px', textAlign: 'center',
+                    fontFamily: 'var(--font-display)',
+                    fontSize: 22, fontWeight: 400, color: 'var(--text-primary)',
+                    letterSpacing: '-0.2px', textAlign: 'center',
                     maxWidth: 360, lineHeight: 1.4,
                     marginBottom: 24,
                     textDecoration: crossedOut ? 'line-through' : 'none',
@@ -930,7 +1083,7 @@ export default function FocusMode() {
                   transition: 'opacity 0.2s ease',
                 }}
               >
-                Done
+                done
               </motion.button>
 
               {/* Skip / Break links */}
@@ -940,21 +1093,28 @@ export default function FocusMode() {
                   disabled={completing}
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: 10, color: 'var(--text-muted)',
+                    fontSize: 13, color: 'var(--text-muted)',
+                    padding: '6px 10px', minHeight: 36,
                   }}
                 >
-                  Skip
+                  skip
                 </button>
                 <button
                   onClick={handleBreak}
                   disabled={completing}
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: 10, color: 'var(--color-upcoming)',
+                    fontSize: 13, color: 'var(--color-upcoming)',
+                    padding: '6px 10px', minHeight: 36,
                   }}
                 >
-                  Break
+                  break
                 </button>
+              </div>
+
+              {/* Pebble skip trail */}
+              <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>
+                <PebbleSkipTrail tasks={groupTasks} currentTaskId={currentTaskId} />
               </div>
 
               {/* AI nudge */}
@@ -966,8 +1126,8 @@ export default function FocusMode() {
                     transition={{ duration: 0.4 }}
                     style={{
                       marginTop: 20,
-                      fontSize: 10, color: 'var(--color-ai)',
-                      textAlign: 'center', maxWidth: 340, lineHeight: 1.5,
+                      fontSize: 12, color: 'var(--color-ai)',
+                      textAlign: 'center', maxWidth: 340, lineHeight: 1.6,
                     }}
                   >
                     {completionNudge || nudgeText}
@@ -981,11 +1141,12 @@ export default function FocusMode() {
               onClick={handleEscape}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 9, color: 'var(--color-paused)',
-                marginBottom: 16,
+                fontSize: 13, color: 'var(--color-paused)',
+                padding: '8px 16px', minHeight: 40,
+                marginBottom: 8,
               }}
             >
-              I need a pause
+              i need a pause
             </button>
 
             {/* ── Energy check-in overlay ── */}
@@ -996,11 +1157,11 @@ export default function FocusMode() {
                   animate={{ opacity: 1, y: 0, transition: { duration: 0.4 } }}
                   exit={{ opacity: 0, transition: { duration: 0.3 } }}
                   style={{
-                    position: 'absolute', inset: 0,
+                    position: 'fixed', inset: 0,
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center',
                     background: 'var(--bg)',
-                    zIndex: 10,
+                    zIndex: 50,
                   }}
                 >
                   {/* Ghost ring behind check-in — per spec: focusing content fades to 0.12 */}
@@ -1016,17 +1177,17 @@ export default function FocusMode() {
                   </div>
 
                   <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                    <h3 style={{ fontSize: 17, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
-                      Quick check-in
+                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 400, color: 'var(--text-primary)', margin: 0 }}>
+                      quick check-in
                     </h3>
                     <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 20px' }}>
-                      How are you feeling?
+                      how are you feeling?
                     </p>
                     <div style={{ display: 'flex', gap: 10 }}>
                       {[
-                        { label: 'Good',         bg: 'rgba(80,148,106,0.12)', border: 'rgba(80,148,106,0.2)',   color: 'var(--color-done)',   action: 'good' },
-                        { label: 'Getting tired', bg: 'rgba(200,160,70,0.1)',  border: 'rgba(200,160,70,0.15)',  color: 'var(--color-ai)',     action: 'tired' },
-                        { label: 'Too much',      bg: 'rgba(138,120,174,0.1)', border: 'rgba(138,120,174,0.15)', color: 'var(--color-paused)', action: 'escape' },
+                        { label: 'good',          bg: 'rgba(80,148,106,0.12)', border: 'rgba(80,148,106,0.2)',   color: 'var(--color-done)',   action: 'good' },
+                        { label: 'getting tired', bg: 'rgba(200,160,70,0.1)',  border: 'rgba(200,160,70,0.15)',  color: 'var(--color-ai)',     action: 'tired' },
+                        { label: 'too much',      bg: 'rgba(138,120,174,0.1)', border: 'rgba(138,120,174,0.15)', color: 'var(--color-paused)', action: 'escape' },
                       ].map(btn => (
                         <button
                           key={btn.action}
@@ -1036,10 +1197,9 @@ export default function FocusMode() {
                             completionsSinceCheckinRef.current = 0
                             checkinTimerStartRef.current = Date.now()
                             if (btn.action === 'good') {
-                              // continue
+                              // continue — check-in dismissed, back to focusing
                             } else if (btn.action === 'tired') {
-                              const msg = pickRandom(TIRED_FALLBACKS)
-                              setNudgeText(msg)
+                              handleBreak()
                             } else {
                               handleEscape()
                             }
@@ -1077,19 +1237,19 @@ export default function FocusMode() {
               padding: '2rem',
             }}
           >
-            <h2 style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
-              Taking a break.
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, color: 'var(--text-primary)', margin: 0 }}>
+              taking a break.
             </h2>
             <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 28px' }}>
-              No rush.
+              no rush.
             </p>
 
             <BreathingCircle />
 
             <p style={{
               marginTop: 20,
-              fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic',
-              textAlign: 'center', maxWidth: 260, lineHeight: 1.5,
+              fontSize: 12, color: 'var(--text-muted)',
+              textAlign: 'center', maxWidth: 260, lineHeight: 1.65,
             }}>
               {breakTip}
             </p>
@@ -1107,7 +1267,7 @@ export default function FocusMode() {
                 border: 'none', cursor: 'pointer',
               }}
             >
-              I'm back
+              i'm back
             </motion.button>
           </motion.div>
         )}
@@ -1128,17 +1288,17 @@ export default function FocusMode() {
             {!microTimerActive ? (
               <>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px' }}>
-                  One small thing:
+                  one small thing:
                 </p>
                 <h2 style={{
-                  fontSize: 22, fontWeight: 500, color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: 'var(--text-primary)',
                   textAlign: 'center', maxWidth: 320, lineHeight: 1.4,
                   margin: 0,
                 }}>
                   {microTask ?? currentTask?.task_name ?? '…'}
                 </h2>
                 <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '10px 0 28px', opacity: 0.65 }}>
-                  That's it. Nothing else.
+                  that's it. nothing else.
                 </p>
                 <motion.button
                   whileHover={{ filter: 'brightness(1.08)' }}
@@ -1152,7 +1312,7 @@ export default function FocusMode() {
                     border: 'none', cursor: 'pointer',
                   }}
                 >
-                  I can do this
+                  i can do this
                 </motion.button>
               </>
             ) : (
@@ -1179,7 +1339,7 @@ export default function FocusMode() {
                     border: 'none', cursor: 'pointer',
                   }}
                 >
-                  Done
+                  done
                 </button>
               </motion.div>
             )}
@@ -1196,16 +1356,43 @@ export default function FocusMode() {
               maxWidth: 440, width: '100%',
               display: 'flex', flexDirection: 'column',
               alignItems: 'center', gap: 0,
-              padding: '2rem',
+              padding: '3rem 2rem',
+              position: 'relative',
             }}
           >
-            <h2 style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0, textAlign: 'center' }}>
-              You did something. That counts.
+            {/* Pebble dot */}
+            <motion.div
+              animate={{ scale: [0.88, 1.1, 0.88], opacity: [0.6, 1, 0.6] }}
+              transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+              style={{ width: 10, height: 10, borderRadius: '50%', background: '#5A8A80', marginBottom: 24 }}
+            />
+
+            {/* Breathing ring */}
+            <motion.div
+              animate={{ scale: [1, 1.06, 1], opacity: [0.18, 0.32, 0.18] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              style={{
+                position: 'absolute',
+                width: 180, height: 180, borderRadius: '50%',
+                border: '2px solid var(--color-paused)',
+                pointerEvents: 'none',
+              }}
+            />
+
+            <h2 style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0, textAlign: 'center', position: 'relative' }}>
+              you did something. that counts.
             </h2>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '8px 0 28px' }}>
-              Seriously.
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '8px 0 0', textAlign: 'center', lineHeight: 1.6, maxWidth: 280, position: 'relative' }}>
+              seriously. taking a step back takes courage.
             </p>
-            <div style={{ display: 'flex', gap: 10 }}>
+            {currentTask && (
+              <p style={{ fontSize: 11, color: 'var(--color-paused)', margin: '12px 0 28px', position: 'relative' }}>
+                paused: {currentTask.task_name}
+              </p>
+            )}
+            {!currentTask && <div style={{ marginBottom: 28 }} />}
+
+            <div style={{ display: 'flex', gap: 10, position: 'relative' }}>
               <button
                 onClick={handleKeepGoing}
                 style={{
@@ -1214,19 +1401,19 @@ export default function FocusMode() {
                   fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer',
                 }}
               >
-                Keep going
+                keep going
               </button>
               <button
                 onClick={goToSummary}
                 style={{
                   padding: '10px 24px', borderRadius: 8,
                   background: 'transparent',
-                  border: '1px solid rgba(180,170,154,0.2)',
+                  border: '1px solid var(--border)',
                   color: 'var(--text-secondary)',
                   fontSize: 12, cursor: 'pointer',
                 }}
               >
-                I'm done for now
+                i'm done for now
               </button>
             </div>
           </motion.div>
@@ -1246,7 +1433,8 @@ export default function FocusMode() {
             }}
           >
             <h2 style={{
-              fontSize: 20, fontWeight: 500, color: 'var(--text-primary)',
+              fontFamily: 'var(--font-display)',
+              fontSize: 22, fontWeight: 400, color: 'var(--text-primary)',
               textAlign: 'center', margin: '0 0 18px',
             }}>
               {summaryMsg}
@@ -1258,20 +1446,20 @@ export default function FocusMode() {
                 <div style={{ fontSize: 28, fontWeight: 500, color: 'var(--color-done)', lineHeight: 1 }}>
                   {tasksDoneThisSessionRef.current}
                 </div>
-                <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2 }}>completed</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>completed</div>
               </div>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 28, fontWeight: 500, color: 'var(--color-active)', lineHeight: 1 }}>
                   {totalMinutesSpent}
                 </div>
-                <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2 }}>minutes</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>minutes</div>
               </div>
               {tasksSkippedRef.current > 0 && (
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: 28, fontWeight: 500, color: 'var(--color-upcoming)', lineHeight: 1 }}>
                     {tasksSkippedRef.current}
                   </div>
-                  <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2 }}>for later</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>for later</div>
                 </div>
               )}
             </div>
@@ -1292,34 +1480,22 @@ export default function FocusMode() {
                 style={{
                   padding: '10px 22px', borderRadius: 8,
                   background: 'var(--color-active)', color: 'white',
-                  fontSize: 11, fontWeight: 500, border: 'none', cursor: 'pointer',
+                  fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer',
                 }}
               >
-                Back to tasks
+                back to tasks
               </button>
               <button
-                onClick={() => { dispatch(tasksActions.clearFocus()); navigate('/home') }}
-                style={{
-                  padding: '10px 22px', borderRadius: 8,
-                  background: 'transparent',
-                  border: '1px solid rgba(180,170,154,0.2)',
-                  color: 'var(--text-secondary)',
-                  fontSize: 11, cursor: 'pointer',
-                }}
-              >
-                Done for now
-              </button>
-              <button
-                onClick={() => { dispatch(tasksActions.clearFocus()); navigate('/home') }}
+                onClick={() => { dispatch(tasksActions.clearFocus()); navigate('/') }}
                 style={{
                   padding: '10px 22px', borderRadius: 8,
                   background: 'rgba(200,148,80,0.08)',
                   border: '1px solid rgba(200,148,80,0.12)',
                   color: 'var(--color-ai)',
-                  fontSize: 11, cursor: 'pointer',
+                  fontSize: 12, cursor: 'pointer',
                 }}
               >
-                Talk to NeuroFocus
+                talk to pebble
               </button>
             </div>
           </motion.div>

@@ -2,10 +2,10 @@ import { NavLink, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 
 const NAV_ITEMS = [
-  { to: '/',          label: 'Home',      end: true  },
-  { to: '/documents', label: 'Documents', end: false },
-  { to: '/tasks',     label: 'Tasks',     end: false },
-  { to: '/focus',     label: 'Focus',     end: false },
+  { to: '/',          label: 'Home',      end: true,  dataNav: null         },
+  { to: '/documents', label: 'Documents', end: false, dataNav: 'documents'  },
+  { to: '/tasks',     label: 'Tasks',     end: false, dataNav: 'tasks'      },
+  { to: '/focus',     label: 'Focus',     end: false, dataNav: 'focus'      },
 ]
 
 export default function TopNav() {
@@ -45,13 +45,14 @@ export default function TopNav() {
 
       {/* Nav links — center-right */}
       <nav role="navigation" aria-label="Pages" className="top-nav__links">
-        {NAV_ITEMS.map(({ to, label, end }) => (
+        {NAV_ITEMS.map(({ to, label, end, dataNav }) => (
           <NavLink
             key={to}
             to={to}
             end={end}
             className={({ isActive }) => `top-nav__item${isActive ? ' active' : ''}`}
             style={{ textDecoration: 'none' }}
+            {...(dataNav ? { 'data-nav': dataNav } : {})}
           >
             {label}
           </NavLink>
