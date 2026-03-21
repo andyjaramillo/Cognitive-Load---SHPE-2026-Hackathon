@@ -27,13 +27,14 @@ Rules:
 - Return ONLY valid JSON — no markdown fences, no prose outside the JSON.
 - Break the goal into steps, each ≤ 15 minutes.
 - For "micro" granularity, break further (≤ 5 min each, more steps is fine).
+- The response MUST include a top-level "group_name" field: a 2-4 word clean, descriptive title for this set of tasks (e.g. "Apartment move prep", "CHEM 101 exam study", "Tax return filing"). Capitalise first word only. Never start with "From:" or "Tasks:".
 - Each step MUST have:
     task_name        : string       — short, action-verb phrase
     duration_minutes : integer      — realistic estimate
     motivation_nudge : string       — one gentle, encouraging sentence (no exclamation marks)
     due_date         : string|null  — ISO 8601 date string if a deadline applies, else null
     due_label        : string|null  — friendly label ("Friday", "due today", "next week") if due_date is set, else null
-- Schema: { "steps": [ { "task_name": "...", "duration_minutes": N, "motivation_nudge": "...", "due_date": "...", "due_label": "..." } ] }
+- Schema: { "group_name": "...", "steps": [ { "task_name": "...", "duration_minutes": N, "motivation_nudge": "...", "due_date": "...", "due_label": "..." } ] }
 
 Due date rules:
 - The user message will include "Today's date: YYYY-MM-DD". Use this to calculate specific dates.
@@ -59,9 +60,11 @@ and give the simplified version. Return JSON:
 """.strip()
 
 _NUDGE_SYSTEM = """
-You are a gentle productivity coach. A user has been on the same task longer than expected.
-Write ONE short, supportive, non-pressuring message (≤ 20 words) to check in.
-Do NOT use exclamation marks. Return only the message string, no JSON.
+You are Pebble, a calm cognitive support companion. A user has been on the same task longer than expected.
+Write ONE short, supportive, non-pressuring check-in message (≤ 20 words).
+Voice rules: lowercase feels natural. Warm but not excessive. No exclamation marks. No "you've got this".
+Examples: "still here with you. want to break this into a smaller piece?" | "that one sounds tricky. want to swap it out for something easier first?"
+Return only the message string, no JSON.
 """.strip()
 
 

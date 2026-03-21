@@ -14,7 +14,7 @@ const ENTER_T = { opacity: 1, y:   0, transition: { duration: 0.5,  ease: [0.4, 
 function cardAnim(i) {
   return {
     initial:  { opacity: 0, y: 6 },
-    animate:  { opacity: 1, y: 0, transition: { delay: 0.15 + i * 0.06, duration: 0.38, ease: [0.4, 0, 0.2, 1] } },
+    animate:  { opacity: 1, y: 0, transition: { delay: 0.18 + i * 0.08, duration: 0.42, ease: [0.4, 0, 0.2, 1] } },
   }
 }
 
@@ -22,7 +22,7 @@ const SHELL_STYLE = {
   display:        'flex',
   flexDirection:  'column',
   alignItems:     'center',
-  gap:            '1.1rem',
+  gap:            '1.35rem',
   textAlign:      'center',
   padding:        '1.5rem 1.5rem',
   maxWidth:       440,
@@ -44,27 +44,44 @@ function ChoiceCard({ label, sub, selected, dimmed, fontCss, onClick }) {
   return (
     <motion.button
       onClick={onClick}
-      whileHover={!selected && !dimmed ? { borderColor: 'rgba(42,122,144,0.18)', background: 'rgba(255,253,250,0.8)' } : {}}
+      whileHover={!selected && !dimmed ? {
+        background: 'var(--accent-soft)',
+        borderColor: 'rgba(42,122,144,0.4)',
+      } : {}}
       whileTap={{ scale: 0.98 }}
-      animate={selected ? { scale: [1, 1.02, 1], borderColor: 'rgba(42,122,144,0.5)' } : {}}
+      animate={selected ? { scale: [1, 1.02, 1] } : {}}
       transition={{ duration: 0.15 }}
       style={{
         width:       '100%',
         textAlign:   'left',
-        background:  selected ? 'rgba(42,122,144,0.06)' : 'rgba(255,253,250,0.5)',
-        border:      selected ? '1.5px solid rgba(42,122,144,0.4)' : '1px solid rgba(210,200,188,0.25)',
+        background:  selected ? 'rgba(42,122,144,0.12)' : 'var(--bg-card)',
+        border:      selected ? '1.5px solid rgba(42,122,144,0.5)' : '1px solid var(--border)',
+        borderLeft:  selected ? '3px solid rgba(42,122,144,0.7)' : '3px solid transparent',
+        boxShadow:   selected ? '0 0 0 3px rgba(42,122,144,0.08)' : 'none',
         borderRadius: 12,
         padding:     '14px 18px',
         cursor:      'pointer',
-        opacity:     dimmed ? 0.3 : 1,
-        transition:  'opacity 0.2s ease, background 0.2s ease, border-color 0.2s ease',
+        opacity:     dimmed ? 0.35 : 1,
+        transition:  'opacity 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
         fontFamily:  fontCss || 'inherit',
+        display:     'flex',
+        alignItems:  'flex-start',
+        gap:         10,
       }}
     >
-      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', fontFamily: fontCss || 'inherit' }}>
-        {label}
+      <div style={{
+        width: 6, height: 6, borderRadius: '50%',
+        background: selected ? '#5A8A80' : 'var(--border)',
+        marginTop: 5, flexShrink: 0,
+        transition: 'background 0.2s ease, transform 0.2s ease',
+        transform: selected ? 'scale(1.4)' : 'scale(1)',
+      }} />
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-primary)', fontFamily: fontCss || 'inherit' }}>
+          {label}
+        </div>
+        {sub && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{sub}</div>}
       </div>
-      {sub && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3 }}>{sub}</div>}
     </motion.button>
   )
 }
@@ -279,7 +296,7 @@ export default function Onboarding() {
         return (
           <>
             <motion.p initial={ENTER} animate={ENTER_T}
-              style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+              style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 'clamp(22px, 4vw, 26px)', color: 'var(--text-primary)', margin: 0, lineHeight: 1.3 }}>
               First, who will I be helping?
             </motion.p>
             <motion.form initial={ENTER} animate={{ ...ENTER_T, transition: { ...ENTER_T.transition, delay: 0.18 } }}
@@ -287,7 +304,7 @@ export default function Onboarding() {
               style={{ width: '100%', maxWidth: 300 }}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <input ref={nameRef} value={nameInput} onChange={e => setNameInput(e.target.value)}
-                  placeholder="your name" autoComplete="given-name"
+                  placeholder="Your name" autoComplete="given-name"
                   style={{ width: '100%', height: 48, borderRadius: 12, paddingRight: 48, paddingLeft: 16, fontSize: 15, textAlign: 'center', boxSizing: 'border-box' }} />
                 <button type="submit" disabled={!nameInput.trim()} aria-label="Submit"
                   style={{
@@ -309,7 +326,7 @@ export default function Onboarding() {
         return (
           <>
             <motion.p initial={ENTER} animate={ENTER_T}
-              style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+              style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 'clamp(22px, 4vw, 26px)', color: 'var(--text-primary)', margin: 0, lineHeight: 1.3 }}>
               {name}, is that right?
             </motion.p>
             <motion.div initial={ENTER} animate={{ ...ENTER_T, transition: { ...ENTER_T.transition, delay: 0.15 } }}
@@ -327,10 +344,10 @@ export default function Onboarding() {
       case 'meet':
         return (
           <motion.p initial={ENTER} animate={ENTER_T}
-            style={{ fontSize: 16, color: 'var(--text-secondary)', lineHeight: 1.75, margin: 0 }}>
-            Nice to meet you, {name}.<br />
-            <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-              Let me set a few things up so this feels right for you.
+            style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 'clamp(18px, 4vw, 22px)', color: 'var(--text-primary)', lineHeight: 1.5, margin: 0 }}>
+            nice to meet you, {name}.<br />
+            <span style={{ fontSize: '0.82em', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', fontWeight: 400, letterSpacing: '0.01em' }}>
+              a few quick questions so this feels right for you.
             </span>
           </motion.p>
         )
@@ -339,7 +356,7 @@ export default function Onboarding() {
         return (
           <>
             <motion.p initial={ENTER} animate={ENTER_T}
-              style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+              style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 'clamp(20px, 4vw, 24px)', color: 'var(--text-primary)', margin: 0, lineHeight: 1.3 }}>
               How would you like me to walk you through things?
             </motion.p>
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
@@ -374,7 +391,7 @@ export default function Onboarding() {
         return (
           <>
             <motion.p initial={ENTER} animate={ENTER_T}
-              style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+              style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 'clamp(20px, 4vw, 24px)', color: 'var(--text-primary)', margin: 0, lineHeight: 1.3 }}>
               Is there a font that feels easier to read?
             </motion.p>
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
@@ -396,7 +413,7 @@ export default function Onboarding() {
         return (
           <>
             <motion.p initial={ENTER} animate={ENTER_T}
-              style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+              style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 'clamp(20px, 4vw, 24px)', color: 'var(--text-primary)', margin: 0, lineHeight: 1.3 }}>
               Choose the space that feels most comfortable.
             </motion.p>
             <motion.div initial={ENTER} animate={{ ...ENTER_T, transition: { ...ENTER_T.transition, delay: 0.18 } }}
@@ -425,7 +442,7 @@ export default function Onboarding() {
         return (
           <>
             <motion.p initial={ENTER} animate={ENTER_T}
-              style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+              style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 'clamp(20px, 4vw, 24px)', color: 'var(--text-primary)', margin: 0, lineHeight: 1.3 }}>
               When something needs to get done, how should I break it down?
             </motion.p>
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
@@ -459,7 +476,7 @@ export default function Onboarding() {
         return (
           <>
             <motion.p initial={ENTER} animate={ENTER_T}
-              style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>
+              style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 'clamp(20px, 4vw, 24px)', color: 'var(--text-primary)', margin: 0, lineHeight: 1.3 }}>
               What does helpful sound like to you?
             </motion.p>
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
@@ -493,7 +510,7 @@ export default function Onboarding() {
         return (
           <motion.h2 initial={ENTER} animate={ENTER_T}
             style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 'clamp(20px, 4vw, 26px)', color: 'var(--text-primary)', margin: 0 }}>
-            You're all set, {name}.
+            you're all set, {name}.
           </motion.h2>
         )
 
@@ -560,9 +577,45 @@ export default function Onboarding() {
             initial={ENTER}
             animate={ENTER_T}
             exit={EXIT}
-            style={SHELL_STYLE}
+            style={{ ...SHELL_STYLE, position: 'relative' }}
           >
+            {/* Pebble wordmark — subtle, top of every non-welcome stage */}
+            {!['complete', 'final'].includes(stage) && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1, transition: { duration: 0.5, delay: 0.1 } }}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: '0.25rem' }}
+              >
+                <span style={{
+                  fontFamily: '"DM Serif Display", Georgia, serif',
+                  fontSize: 15,
+                  color: 'var(--text-muted)',
+                  letterSpacing: '0.01em',
+                }}>Pebble</span>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5A8A80', display: 'inline-block', marginBottom: 1 }} />
+              </motion.div>
+            )}
+
             {renderContent()}
+
+            {/* Stage progress dots — shown only during question stages q2–q6 */}
+            {['q2','q3','q4','q5','q6'].includes(stage) && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1, transition: { duration: 0.4, delay: 0.3 } }}
+                style={{ display: 'flex', gap: 6, marginTop: '0.5rem' }}
+              >
+                {['q2','q3','q4','q5','q6'].map(s => (
+                  <div key={s} style={{
+                    width:        s === stage ? 16 : 6,
+                    height:       6,
+                    borderRadius: 3,
+                    background:   s === stage ? '#5A8A80' : 'var(--border)',
+                    transition:   'all 0.3s ease',
+                  }} />
+                ))}
+              </motion.div>
+            )}
           </motion.div>
         )}
 

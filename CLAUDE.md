@@ -44,7 +44,7 @@ All code should be calibrated for solo-builder reality. Efficiency matters, neve
 
 ---
 
-## Build Status — Current State (as of Session 5, March 18 2026)
+## Build Status — Current State (as of Session 6, March 20 2026)
 
 ### What's FULLY BUILT AND WORKING
 
@@ -52,7 +52,7 @@ All code should be calibrated for solo-builder reality. Efficiency matters, neve
 |-----------|--------|-------|
 | Backend FastAPI app | ✅ Complete | All routes working |
 | `/api/preferences` GET + PUT | ✅ Working | Cosmos DB backed |
-| `/api/decompose` POST | ✅ Working | GPT-4o, breaks goals into tasks |
+| `/api/decompose` POST | ✅ Working | GPT-4o, breaks goals into tasks, now returns `group_name` |
 | `/api/summarise` POST (SSE) | ✅ Working | Streaming, Content Safety screened |
 | `/api/explain` POST | ✅ Working | Sentence-level explanation |
 | `/api/nudge` POST | ✅ Working | Supportive task nudge |
@@ -64,44 +64,108 @@ All code should be calibrated for solo-builder reality. Efficiency matters, neve
 | Redux store | ✅ Complete | prefs, tasks, summarise slices |
 | `api.js` utilities | ✅ Complete | chatStream, saveTasks, loadTasks, all endpoints |
 | App.jsx | ✅ Complete | Loading gate, onboarding gate, theme system |
-| Onboarding flow | ✅ Complete | 11-stage state machine, saves to Cosmos |
-| Home page (chat) | ✅ Complete | SSE streaming, quick actions, AI greeting |
-| Documents page | ✅ Working | Upload, processing, results (see gaps below) |
-| Tasks page | ✅ Working | Accordion groups, task actions (see gaps below) |
-| FocusMode page | ✅ Working | Full screen, circular timer, 6 states |
-| Settings page | ⚠️ Stub | Basic layout, not wired to preferences yet |
+| Onboarding flow | ✅ Complete | 11-stage state machine, saves to Cosmos, dark-theme cards fixed |
+| Home page (chat) | ✅ Complete | SSE streaming, quick actions, AI greeting, dedup from Cosmos |
+| Documents page | ✅ Working | Upload, processing, results, click-based tooltips |
+| Tasks page | ✅ Working | Accordion groups, task actions, gamification removed |
+| FocusMode page | ✅ Working | Full screen, enhanced BreathingCircle, accessible button sizes |
+| Settings page | ✅ Working | Font, theme, timer, comm style, reading level, granularity all wired |
+| WalkthroughOverlay | ✅ Complete | 5-step teal glow spotlight tour, skip-able, portal-based |
 | `global.css` themes | ✅ Complete | 4 time-of-day themes, all design tokens |
 
 ### What's MISSING / NOT YET BUILT
 
 | Feature | Priority | Where to Build | Spec Reference |
 |---------|----------|---------------|----------------|
-| Post-onboarding walkthrough | 🔴 High | `Home.jsx` + new `WalkthroughOverlay.jsx` | SESSION5_PART3_COMPLETE.md §5 |
-| Settings page full UI | 🔴 High | `Settings.jsx` | Session 6 (not yet started) |
-| Chat history load on reload | 🟡 Medium | `Home.jsx` `useEffect` → `GET /api/conversations` | SESSION5_PART3_COMPLETE.md |
-| Tasks ↔ Cosmos sync | 🟡 Medium | `Tasks.jsx` mount + state change | `api.js` `loadTasks`/`saveTasks` ready |
-| Documents saved doc cards | 🟡 Medium | `Documents.jsx` lower section | SESSION2_PROMPT.md |
-| `GET /api/conversations` endpoint | 🟡 Medium | `backend/main.py` | SESSION5_PART3_COMPLETE.md |
-| `GET /api/documents` endpoint | 🟡 Medium | `backend/main.py` | SESSION5_PART3_COMPLETE.md |
+| Post-onboarding walkthrough | ✅ Built | `Home.jsx` + `WalkthroughOverlay.jsx` | SESSION5_PART3_COMPLETE.md §5 |
+| Chat history load on reload | ✅ Built | `GET /api/conversations` + `loadConversation()` in `Home.jsx` | SESSION5_PART3_COMPLETE.md |
+| Tasks ↔ Cosmos sync | ✅ Built | `Tasks.jsx` anti-clobber pattern | `api.js` `loadTasks`/`saveTasks` |
+| Documents saved doc cards | ✅ Built | `Documents.jsx` saved docs section + `GET /api/documents` | SESSION8 |
+| `GET /api/conversations` endpoint | ✅ Built | `backend/main.py` line ~394 | — |
+| `GET /api/documents` endpoint | ✅ Built | `backend/main.py` (added Session 8) | — |
 | Focus Mode → chat routing | 🟢 Lower | `FocusMode.jsx` → Redux state | SESSION4_FINAL.md |
-| Pebble dot avatar on chat bubbles | 🟢 Lower | `Home.jsx` AiBubble component | SESSION5_GAPS.md |
 | App Service deployment | 🟢 Lower | Azure portal + GitHub Actions | — |
+| P0-5: Clear Chapter 5 seed data | 🟡 Medium | needs running backend — `curl -X POST http://localhost:8000/api/tasks -H "X-User-Id: diego" -d '{"groups":[]}'` | — |
 
 ---
 
-## Known Issues / Bugs (from Diego's testing session, March 18)
+## Known Issues / Bugs — Updated March 20 2026 (Session 6)
 
-1. **Settings page is a stub** — clicking Settings goes to a mostly empty page. Full preferences UI hasn't been built yet. All preferences ARE saved correctly via onboarding; the Settings page just can't edit them yet.
+### Fixed in Session 6
+1. ✅ **Settings page wired** — Font, theme, timer buttons all dispatch to Redux + call `savePreferences`. Active state shown on selected button. Font applies instantly via `data-font` attribute.
+2. ✅ **Double AI messages on load** — Deduplication filter added in `Home.jsx` `loadConversation()`: consecutive assistant messages from Cosmos are collapsed to the last one only.
+3. ✅ **Documents tooltip black boxes** — Switched `SentenceTooltip` from `onMouseEnter` to `onClick` (mobile-safe). Tooltip shows "thinking…" while loading. Closes on outside click. `cursor: 'pointer'` instead of `cursor: 'help'`.
+4. ✅ **Onboarding cards flat gray in dark theme** — `ChoiceCard` now uses `var(--bg-card)` and `var(--border)` CSS variables instead of hardcoded `rgba(255,253,250,0.5)`. Selected state increased from 6% to 12% opacity + 3px glow `boxShadow`. `whileHover` no longer overwrites background with hardcoded cream.
+5. ✅ **Onboarding name placeholder** — Changed `"your name"` → `"Your name"`.
+6. ✅ **Onboarding branding** — Added small "Pebble●" wordmark (DM Serif Display, 15px, `var(--text-muted)`) above each non-welcome stage. Added 5 pill-shaped progress indicators (active pill: 16×6px teal, inactive: 6×6px `var(--border)`) shown only during q2–q6 stages.
+7. ✅ **Tasks gamification removed** — Deleted the global progress bar + "X tasks total · X done · Y remaining" stats section (was lines 858–880). The per-group mini progress bar and "X of Y done" count inside each accordion header remain (they're contextual, not pressuring).
+8. ✅ **Tasks completion message** — Changed `"You finished all {N} tasks in {group.name...}"` → `"you finished everything here. that's real progress."` (Pebble voice, lowercase, no raw group name).
+9. ✅ **Tasks More menu toggle bug** — Added `triggerRef` prop to `MoreMenu`. Outside-click handler now skips if click target is the trigger button, preventing the mousedown→close→click→reopen cycle.
+10. ✅ **Focus Mode accessibility** — "I need a pause" button: `fontSize 9` → `13`, added `padding: '8px 16px'`, `minHeight: 40`. Skip/Break buttons: `fontSize 10` → `13`, added `padding: '6px 10px'`, `minHeight: 36`. EXIT button: `fontSize 9` → `11`, added `padding: '4px 8px'`, `minHeight: 32`.
+11. ✅ **Focus Mode BreathingCircle enhanced** — Size 120px → 160px. Scale range 0.88↔1.12 → 0.82↔1.18 (more dramatic). Added concentric ghost ring (200px, animates to `ringScale` = 0.88↔1.28). Lowercase phase labels ("breathe in", "hold", "breathe out").
+12. ✅ **Focus Mode progress dots replaced** — Gamification-style colored dots replaced with `TaskCount` component: shows "N left" in `var(--text-muted)` at 11px. Hidden when `total <= 1`.
+13. ✅ **AI group names** — `/api/decompose` backend now includes `group_name` in response. System prompt instructs GPT-4o to generate a 2–4 word clean descriptive title. `DecomposeResponse` Pydantic model has `group_name: str = ""`. Route handler reads `result.get("group_name", "")`. All three frontend call sites (Tasks smart add, Home chat navigate, Documents turn-into-tasks) now use `res.group_name` as the group name, falling back to the old heuristic only if empty.
 
-2. **Chat history doesn't reload on refresh** — conversation is lost on page refresh because `GET /api/conversations` endpoint doesn't exist yet in the backend, and Home.jsx doesn't call it on mount. Each page load starts fresh with just the greeting.
+### Fixed in Session 7 (March 20 2026)
+14. ✅ **Pebble voice enforced in system prompt** — `_BLOCK_1` and `_BLOCK_12_BASE` in `chat_service.py` now include explicit labeled rules: lowercase, ONE QUESTION PER RESPONSE (ABSOLUTE RULE), max 3 list items, `###ACTIONS` for navigation suggestions.
+15. ✅ **Nudge system prompt updated** — `_NUDGE_SYSTEM` in `ai_service.py` now uses Pebble voice rules (lowercase, no exclamation marks, no "you've got this").
+16. ✅ **Focus Mode "Getting tired" bug** — Check-in button now calls `handleBreak()` (pauses timer, records break start, picks break tip) instead of bare `setAppState('break')`.
+17. ✅ **Focus Mode after-escape layout** — Container now has `position: relative` so BreathingCircle (position: absolute) positions inside it, not the viewport.
+18. ✅ **Focus Mode summary duplicate button** — Removed duplicate "Talk to Pebble" button; "Done for now" renamed to "Talk to Pebble" + `navigate('/')`.
+19. ✅ **Standalone Focus topic picker** — StandaloneFocus now shows topic input screen before the timer (if no task is set). User names the session or skips. Topic label shows above timer when set.
+20. ✅ **Tasks time display** — Duration now shows as `~15 min` (with `~` prefix via `formatMinutes()`) in `ActiveTaskCard` and `UpcomingTaskRow`.
+21. ✅ **Tasks auto-nudge removed** — Nudge no longer auto-fetches on component mount; now only loaded in FocusMode when user actively starts a task.
+22. ✅ **Tasks "Start another group" UX** — Button collapses current group + scrolls/focuses the add-group input below.
+23. ✅ **Tasks "Take a break" routing** — Now navigates to `/focus` with `{ state: { startBreak: true } }` so StandaloneFocus shows break screen instead of timer.
+24. ✅ **Documents upload breathing animation** — Enhanced `@keyframes breathe` with warm double box-shadow (0px → 14px outer ring + 4px→28px glow), 4s ease-in-out.
+25. ✅ **Onboarding visual pass** — All question headings now use DM Serif Display at `clamp(20px,4vw,24px)–26px`. Card stagger delay increased (`0.18 + i*0.08`). `ChoiceCard` label font-size 13→15, sub 10→12, padding 14×18→16×20. SHELL_STYLE gap 1.1→1.35rem.
+26. ✅ **WalkthroughOverlay built** — 5-step teal spotlight tour after onboarding. Spotlight via transparent div + enormous box-shadow technique. Steps 1–4 highlight chat input / Documents / Tasks / Focus nav items. Step 5 is closing. "skip tour" always visible. `walkthroughComplete` pref saved to Cosmos on finish/skip. `data-nav` attributes added to TopNav NavLinks, `data-walkthrough="chat-input"` on Home.jsx textarea.
+27. ✅ **Settings communication style, reading level, granularity wired** — New "Communication & AI" card in Settings with all three preferences as styled choice buttons, dispatching to Redux + `savePreferences`.
 
-3. **Tasks not persisted to Cosmos** — `loadTasks()` and `saveTasks()` utilities exist in `api.js` but Tasks.jsx doesn't call them. Tasks disappear on refresh. The backend `/api/tasks` GET + POST exist and work — just need wiring.
+### Fixed in Session 8 (March 20 2026)
+28. ✅ **P5-2 Pebble skip trail** — `TaskCount` replaced with `PebbleSkipTrail` SVG component in `FocusMode.jsx`. Gentle water line + completed ripple rings + active dot pulse + ghost pending dots. Positioned centered below Skip/Break row.
+29. ✅ **P5-4 Task-to-task transition glitch** — Root cause: `key={currentTaskId + (completing ? '-completing' : '')}` caused AnimatePresence exit+re-enter with same content when `completing` flipped. Fixed to `key={currentTaskId}` only.
+30. ✅ **P5-7 Energy check-in background bug** — Check-in overlay used `position: absolute, inset: 0` relative to centered flex child (not viewport). Fixed to `position: fixed, inset: 0, zIndex: 50`.
+31. ✅ **P3-1 Documents Q&A Pebble voice** — `handleQaSubmit` now uses `chatStream` (full 12-block Pebble personality) instead of `summariseStream`. First message includes document context. `onToken`/`onReplace`/`onDone`/`onError` callbacks.
+32. ✅ **P3-2 Documents conversational flow** — Question phase now shows user's input as a `UserBubble` (truncated to 160 chars for text, filename for files) before the AI bubble. Input "stays visible" in conversational form.
+33. ✅ **P3-3 Document type detection** — `detectDocType(text, fileName)` heuristic detects academic/legal/instructions/article/work/unknown. `buildAiDesc()` generates context-appropriate AI message. Smart aiDesc shown instead of generic "X words here."
+34. ✅ **P3-4 Documents history** — `GET /api/documents` endpoint added to `backend/main.py`. `DocumentItem` model added to `models.py`. Upload handler now saves metadata to Cosmos (`upsert_document`). `loadDocuments()` added to `api.js`. Saved docs section renders in Documents input phase, refreshes after upload.
+35. ✅ **P3-5 Upload breathing animation** — Already present: `@keyframes breathe` on `.upload-zone` (enhanced in Session 7). Confirmed working.
+36. ✅ **File emoji replaced** — 📄 in upload zone replaced with inline SVG file icon.
 
-4. **Documents page missing "Your documents" section** — uploaded documents are saved to Cosmos/Blob Storage but there's no UI to browse previously uploaded docs. The upload + processing flow works.
+### Fixed in Session 9 (March 20 2026)
+37. ✅ **Tasks.jsx saveEdit clears stale motivation_nudge** — `updateTask` reducer now accepts `motivation_nudge` field. `saveEdit()` in `ActiveTaskCard` clears the AI-generated sub-description when the task name changes (`nameChanged` guard).
+38. ✅ **Documents contextual follow-up buttons** — `docType` stored as state (set in `handleGo()` for both file + text paths). "Turn into tasks" only shown when `docType !== 'article'`. Articles get "want to explore this further?" prompt instead. `detectDocType` local variable renamed to `detectedType` to avoid shadowing the state.
+39. ✅ **Tasks page DM Serif heading** — "your tasks." in DM Serif Display (`font-weight: 400`, `clamp(1.25rem, 3vw, 1.5rem)`) with muted sub-line showing time remaining or "all done for now".
+40. ✅ **Tasks empty state redesigned** — Replaced flat gray text with animated teal breathing dot + DM Serif "nothing here yet." + lowercase supporting line.
+41. ✅ **Tasks accordion hover state** — Group header `<button>` → `<motion.button>` with `whileHover={{ background: 'var(--accent-soft)' }}` (0.18s transition).
+42. ✅ **Documents choice cards hover** — `hoveredChoice` state added. On hover: background → `var(--accent-soft)`, border → dot's color (`choice.dot`), dot scale → 1.4×. Replaced imperceptible `whileHover={{ scale: 1.005 }}`.
+43. ✅ **Documents saved docs cards** — Added teal left accent border (`borderLeft: '3px solid var(--color-active)'`), `whileHover={{ background: 'var(--accent-soft)' }}`. Matches visual language of task group cards.
+44. ✅ **Focus Mode task name font** — Task `h2` now uses `var(--font-display)` (DM Serif Display) at `fontSize: 22, fontWeight: 400`. Brings the timer state into Pebble brand.
+45. ✅ **Focus Mode nudge text size** — AI nudge below the timer: `fontSize: 10` → `fontSize: 12`, `lineHeight: 1.5` → `1.6`. Was unreadably small per audit.
 
-5. **Walkthrough not built** — after onboarding completes, there's supposed to be a 5-step teal glow tour of the nav. `walkthroughComplete` preference is tracked in Redux/Cosmos but the `WalkthroughOverlay.jsx` component hasn't been built.
+### Fixed in Session 10 (March 20 2026)
+46. ✅ **Onboarding ChoiceCard hover** — `whileHover` now sets `background: var(--accent-soft)` + `borderColor: rgba(42,122,144,0.4)`. Previously only border color changed (imperceptible). Cards now visibly respond on hover.
+47. ✅ **Onboarding ChoiceCard left accent + dot** — Each card now has `borderLeft: 3px solid transparent` (unselected) → `3px solid rgba(42,122,144,0.7)` (selected). Small indicator dot added to left of each label — scales to 1.4× and turns teal on selection. Consistent with task/doc card visual language.
+48. ✅ **Onboarding "you're all set" voice** — "You're all set" → "you're all set" (Pebble lowercase voice).
+49. ✅ **Onboarding meet stage** — Moved to DM Serif Display at clamp(18–22px). Text rewritten to lowercase Pebble voice: "nice to meet you, {name}." with muted sub-line "a few quick questions so this feels right for you."
+50. ✅ **Home chat raw markdown** (P1-6) — Added `stripMarkdown()` to Home.jsx. Applied at render time in `AiBubble` and at storage time in `sendMessage`/`onReplace`. `**bold**` / `*italic*` / `# headers` / `- bullets` no longer render as raw text.
+51. ✅ **Sidebar.jsx deleted** — Dead code removed. Was never imported anywhere. Removed the only remaining `NeuroFocus` string in the frontend.
+52. ✅ **FocusMode Pebble voice** — All fallback string pools (NUDGE, COMPLETION, OVERTIME, BREAK_TIPS, SUMMARY, TIRED) converted to lowercase Pebble voice. Break room heading: "Taking a break." → "taking a break.", "No rush." → "no rush.", "I'm back" → "i'm back". Summary: "Back to tasks" → "back to tasks", "Talk to Pebble" → "talk to pebble". Summary heading uses DM Serif Display. Stat labels fontSize 9 → 11. Break tip fontSize 10 → 12.
+53. ✅ **Backend NeuroFocus branding** — `main.py` FastAPI title "NeuroFocus API" → "Pebble. API", description updated, `/health` response `service: "neurofocus"` → `service: "pebble"`. Azure resource names in `.env`/`config.py` intentionally unchanged (actual infrastructure).
 
-6. **Font choices in onboarding use Google Fonts not loaded** — Lexend, Atkinson Hyperlegible, OpenDyslexic are referenced in the onboarding font picker but not loaded in `index.html`. The font preview in onboarding Q3 will fall back to sans-serif. Add the font links to fix.
+### Fixed in Session 11 (March 20 2026)
+54. ✅ **Tasks voice pass** — Lowercased all user-facing button labels: "Break down" → "break down", "Breaking down…" → "breaking down…", "Focus on this" → "focus on this", "Start another group" → "start another group", "Take a break" → "take a break", "Start focus mode" → "start focus mode", "Save" → "save", "Cancel" → "cancel", "More ···" menu: "Edit task" → "edit task", "Pause" → "pause", "Delete" → "delete". Time filter: "Clear filter" → "clear filter", "Show me what fits" → "show me what fits". Error messages lowercased.
+55. ✅ **Tasks inline AI messages** — "Added to your tasks." → "added to your tasks.", "That's a bigger one..." → "that's a bigger one...", "Something went quiet. Try again?" → "something went quiet. try again?"
+56. ✅ **Settings heading** — "Settings" → "settings." (DM Serif Display, fontWeight 400). Sub-line lowercased. `var(--text-secondary)` → `var(--text-muted)`.
+57. ✅ **FocusMode comprehensive voice pass** — All remaining capitals lowercased: motivational quotes, "Taking a break." / "No rush." (break-only mode), "I'm back" (break-only mode), "Quick check-in" → "quick check-in", "How are you feeling?" → "how are you feeling?", check-in button labels lowercased. "Start/pause/stop/resume" Btn labels lowercased. "Start/Skip" topic picker lowercased. "Custom/Set" duration picker lowercased. "Done/Skip/Break" task action buttons lowercased. "One small thing:" → "one small thing:", "That's it. Nothing else." → "that's it. nothing else.", "I can do this" → "i can do this", "I need a pause" → "i need a pause". Summary msg "You finished everything." → "you finished everything.", summary ctx lowercased. Escape hatch h2 uses DM Serif Display + fontWeight 400. Check-in h3 uses DM Serif Display + fontWeight 400.
+58. ✅ **Home.jsx voice pass** — Placeholder texts lowercased ("What's on your mind?" → "what's on your mind?" etc.). Quick action hints lowercased. Error fallback "Something went quiet" → "something went quiet". Quick action labels: "Break down a goal" → "break down a goal", "Start focus mode" → "start focus mode".
+59. ✅ **Documents.jsx voice pass** — Upload error message lowercased. "+ Upload file" → "+ upload file".
+
+### Still Open
+1. **P0-5: Chapter 5 seed data** — Needs running backend: `curl -X POST http://localhost:8000/api/tasks -H "Content-Type: application/json" -H "X-User-Id: diego" -d '{"groups":[]}'`
+2. ✅ **Walkthrough built** — `WalkthroughOverlay.jsx` complete, integrated in `Home.jsx`.
+3. ✅ **Fonts in onboarding** — All three fonts (Lexend, Atkinson, OpenDyslexic) already loaded in `index.html`.
 
 ---
 
@@ -266,8 +330,8 @@ On save: calls `savePreferences()` → dispatches `prefsActions.setPrefs({ ..., 
 | POST | `/api/chat` | AI companion chat (SSE stream, 12-block prompt) | ✅ Working |
 | GET | `/api/tasks` | Load task groups from Cosmos | ✅ Working |
 | POST | `/api/tasks` | Save task groups to Cosmos | ✅ Working |
-| GET | `/api/conversations` | Load chat history | ❌ Not built yet |
-| GET | `/api/documents` | List user's documents | ❌ Not built yet |
+| GET | `/api/conversations` | Load chat history | ✅ Working |
+| GET | `/api/documents` | List user's documents | ✅ Working |
 
 ---
 
@@ -318,7 +382,7 @@ frontend/
     ├── store.js         ← Redux: prefsSlice, tasksSlice, summariseSlice
     ├── components/
     │   ├── TopNav.jsx             ← "Pebble●" logo + 4 nav pills + settings gear
-    │   ├── WalkthroughOverlay.jsx ← TODO: 5-step tour with teal glow (not yet built)
+    │   ├── WalkthroughOverlay.jsx ← 5-step teal spotlight tour, portal-based, shown once after onboarding
     │   ├── Decomposer.jsx         ← Task decomposition widget (used in Tasks page)
     │   ├── Refactor.jsx           ← Text simplification widget (used in Documents page)
     │   ├── PreferenceDashboard.jsx← Preferences widget (adapt for Settings page)
@@ -466,6 +530,106 @@ Full spec in `PEBBLE_PERSONALITY.md` (1,652 lines). Key points:
 
 ---
 
+## PEBBLE DESIGN PRINCIPLES & KNOWN PATTERNS
+
+This section guides design and development decisions. These are principles with context, not rigid bans. Use good judgment — if something serves the user and fits Pebble's personality, it's probably right.
+
+---
+
+### Pebble's Core Identity
+Pebble is a calm, creative, neurodiverse-friendly life companion. Everything should feel warm, breathing, alive, soothing, and useful. Think: sitting by a calm lake, skipping pebbles, breathing slowly. NOT: clinical productivity app, corporate dashboard, generic chatbot, or anxiety-inducing checklist.
+
+The voice is quiet poet 70% + playful sage 30%. Short sentences. Gentle metaphors. Lowercase feels natural for Pebble. Every interaction should reduce cognitive load, never add to it.
+
+---
+
+### Branding
+- The app name is "Pebble." (with period). Internal codename "neurofocus" can stay in code paths, Azure resource names, and folder structures — but ALL user-facing text must say "Pebble." Grep the entire frontend before shipping: `grep -ri "neurofocus" frontend/src/`
+- Logo is "Pebble●" — DM Serif Display text with an ocean sage (#5A8A80) dot at baseline
+- The subtitle "a calm place to start" currently lives on the Home hero. This placement may change — don't hardcode assumptions about where it can/can't appear
+- Pebble's avatar is the ocean sage dot (small filled #5A8A80 circle). Never a letter avatar for the AI
+- The USER can have their initial(s) as their avatar — that's personalization. First initial, or first + last if they gave two names. This appears on user chat bubbles and could link to a profile/settings view later. Pebble = dot, User = their initial(s)
+
+### Color Philosophy
+- Colors have meanings in Pebble (see color_system.md for exact hex values across all 4 time-of-day themes):
+  - **Green:** completion, safety — "you did it"
+  - **Teal/ocean sage:** primary actions, Pebble's identity — "click me" / "I'm Pebble"
+  - **Sky blue:** upcoming, queued — "no rush"
+  - **Lilac:** paused, reflective — "resting, no judgment"
+  - **Soft orange:** AI companion voice, warmth — "Pebble is here"
+  - **Warm gray:** neutral, inactive
+- **Red and its shades:** OK as an aesthetic color or for explicit destructive actions (stop, delete) where the user is deliberately choosing to end something. NOT OK for: status indicators, error alerts, overdue warnings, urgency pressure, "you haven't done this" messaging, or anything that creates anxiety. The vibe test: does this red make someone feel alarmed or pressured? If yes, don't use it.
+- Avoid: neon colors, pure black backgrounds, pure white backgrounds, salmon/coral on status indicators
+- The palette isn't limited to just our 6 named colors — small accent elements (dots, decorative touches) can use complementary warm tones that fit the temperature and hue of our themes. Be creative within the warm spectrum.
+
+### Typography
+- **Headings:** DM Serif Display (loaded from Google Fonts in index.html). This MUST be loaded — if missing, headings fall back to generic serif and the whole app looks wrong
+- **Body text:** Clean sans-serif. DM Sans is the default, with Lexend, Atkinson Hyperlegible, and OpenDyslexic as user-selectable alternatives
+- All user-selectable fonts must be loaded in index.html from Google Fonts. If a font isn't loaded, the picker preview won't work and the user can't see what they're choosing
+- Button labels: Pebble's voice tends toward lowercase ("add task", "let's begin") because it feels calmer. But use uppercase when clarity requires it (e.g., "EXIT" in Focus Mode for visibility). Default to lowercase, deviate when it helps the user.
+
+### Layout & Spacing
+- Generous border-radius: roughly 12-16px for cards, 20-24px for chat bubbles. These aren't rigid pixel values — the principle is "rounded and soft, never sharp or boxy"
+- Generous padding and whitespace. Things should breathe. Nothing cramped
+- Shadows should be subtle and warm-toned, barely visible. Not harsh drop shadows
+- The overall feel: organic, not grid-locked. Content has room to exist
+
+### Animation & Motion
+- Everything breathes. Animation durations typically 0.3s-0.5s for interactions, up to 2.2s for ambient breathing/pulsing effects
+- Use ease-out or gentle cubic-bezier curves, not linear easing
+- Loading states: gentle breathing/pulsing dots or the Pebble dot expanding/contracting. Never spinning loaders or progress bars
+- Page transitions: gentle fade + slight vertical movement (Framer Motion AnimatePresence)
+- **Reduced motion:** respect `prefers-reduced-motion` media query, BUT only enforce simplified animations when the user has this set in their system OR toggles it in Pebble's Settings. Don't reduce motion by default — the breathing animations ARE the experience
+- When something appears or disappears, animate it. Things sliding in, fading in, breathing in. Never just popping into existence
+
+### AI Personality & Behavior
+- Pebble's voice: quiet poet 70% + playful sage 30%. Short sentences. Gentle metaphors. "that's a lot to hold. let's set one piece down." NOT "That sounds important. We can make a plan."
+- Prefer fewer questions per message. One question is ideal. Two is OK when they're closely related. Never three or more in a single message. The principle: don't overwhelm with choices or demands
+- When the user asks for something to be broken down or turned into tasks, Pebble should actually DO it — dispatch to the task system, create the tasks, then tell the user it's done. Don't just list things in chat text
+- Before asking the user what to do with something (a document, a goal, etc.), Pebble should analyze it first and offer smart, contextual suggestions. A Wikipedia article doesn't need "turn into tasks" — it needs "want me to help you study this?" or "want the key points?"
+- Every "no" includes a "but here's what I can do." Pebble never just refuses
+- Error messages sound like Pebble talking: "something went quiet. let's try that again." Never technical jargon, HTTP codes, or alarming language
+- The AI should feel like it knows you and is building a relationship over time. Reference past conversations, remember preferences, adapt its approach
+
+### Progress & Gamification
+- No anxiety-inducing progress pressure. No "you have 4 tasks remaining" countdowns, no streak tracking, no points/badges/leaderboards
+- Progress visualization IS allowed when it's calming and motivating, not pressuring. Example: the pebble-skipping-on-water concept — each completed task = a pebble skip across a calm lake. It shows progress without creating a checklist anxiety. Creative metaphors > number counters
+- Time estimates should be gentle: "about 15 minutes" not "15:00 remaining." Time is a suggestion, not a countdown
+- Completion moments should be warm acknowledgment, not scoreboard. "you finished everything in this group. that's real progress." — with a gentle animation, not fireworks
+
+### Page-Level Guidance
+
+**Home:** Primarily the chat. Returning users see a centered hero greeting (name + time of day in DM Serif Display) with quick action pills, then the chat area below. Pebble should be able to guide users to other tabs and help them understand what to do — it's a companion, not a router. The quick actions ("I have a document", "break down a goal", "start focus mode") should feel like friendly suggestions, not a menu.
+
+**Documents:** A conversational document processing flow. User pastes/uploads → Pebble analyzes and offers contextual help based on what the document actually is. The user's input should stay visible (slides up) as Pebble's response appears below. Previously processed documents should be browsable.
+
+**Tasks:** A living checklist where Pebble helps break goals into doable steps. Group titles should be AI-generated (clean and descriptive), not raw user input. Tasks are created by Pebble's intelligence, not just listed. The chat at the bottom should be functional — if it can't execute actions, hide it until it can.
+
+**Focus Mode:** An immersive, calm focus experience. When coming from Tasks, it shows the current task. When accessed directly, it should offer to pick a task or name what you're focusing on. The escape hatch ("I need a pause") must be clearly visible, not hidden. The break room breathing animation should be alive (circle expands/contracts). Post-focus check-ins trigger by time elapsed, not task count.
+
+**Settings:** Every preference from onboarding should be adjustable here with live preview. Theme options match our 4 time-of-day system. All font options from onboarding are available. No development placeholder text visible.
+
+### Cross-Page Integration
+- Home chat → Tasks: when Pebble creates tasks from a conversation, they actually appear in the Tasks page via Redux + Cosmos
+- Documents → Tasks: "turn into tasks" should dispatch structured tasks, not just navigate
+- Tasks → Focus: "Focus on this" should carry the task context into Focus Mode
+- Focus → Home: after a focus session, returning to Home should feel like a warm "welcome back" moment
+- Everything persists: chat history, tasks, documents, preferences. Refreshing the page should NOT reset anything. Use localStorage as interim persistence where backend endpoints aren't ready yet.
+
+### Before Shipping / Demo
+1. Run `grep -ri "neurofocus" frontend/src/` — zero results
+2. Every AI message has the Pebble dot avatar (ocean sage circle), user messages have their initial
+3. No raw ###ACTIONS markers visible in any chat
+4. No "coming soon", "Session 6", or development language visible anywhere
+5. Refreshing the page preserves state (onboarding complete, chat history, tasks)
+6. DM Serif Display is loading for headings
+7. Every page has the time-of-day theme applied
+8. Features that don't work are hidden, not shown with errors
+9. Test the full flow: onboarding → home greeting → chat → create tasks → go to tasks → focus mode → break → session summary → back to home
+
+
+---
+
 ## Standing Code Quality Rules
 
 Before committing or pushing ANY code:
@@ -495,6 +659,23 @@ Before committing or pushing ANY code:
 - Respect `prefers-reduced-motion` throughout
 - Existing components (`Decomposer`, `Refactor`, `TimerRing`) should be ADAPTED, not rebuilt from scratch
 - `Sidebar.jsx` is dead code — not used anywhere, safe to delete
+
+---
+
+## How to Clear Chapter 5 Seed Data (P0-5)
+
+Stale Cosmos data causes Pebble to hallucinate tasks the user never created. Clear it:
+
+```bash
+# Clear tasks
+curl -s -X POST http://localhost:8000/api/tasks \
+  -H "Content-Type: application/json" \
+  -H "X-User-Id: diego" \
+  -d '{"groups": []}'
+
+# Clear conversation history (once GET /api/conversations is built, also clear via PUT)
+# For now, clear localStorage manually in DevTools: localStorage.removeItem('pebble_chat_messages')
+```
 
 ---
 

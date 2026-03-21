@@ -39,6 +39,7 @@ class TaskStep(BaseModel):
 
 
 class DecomposeResponse(BaseModel):
+    group_name: str = ""
     steps: list[TaskStep]
 
 
@@ -78,6 +79,15 @@ class UploadResponse(BaseModel):
     page_count: int
     filename: str
     blob_name: str | None = None   # None if Blob Storage not configured
+    doc_id: str | None = None      # Cosmos doc ID, set after successful save
+
+
+class DocumentItem(BaseModel):
+    id: str
+    filename: str
+    page_count: int | None = None
+    summary: str | None = None
+    created_at: str
 
 
 # ── Sessions ─────────────────────────────────────────────────────────────── #

@@ -1,4 +1,4 @@
-/* NeuroFocus — Global Styles */
+/* Pebble. — Global Styles */
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap');
 
@@ -34,8 +34,10 @@
 
   /* Afternoon defaults (12pm–5pm: warm coast) */
   --bg: radial-gradient(ellipse at 50% 40%, #FFFAF5 0%, #F5EDE4 35%, #EAE4DC 65%, #F0EBE5 100%);
+  --bg-primary: #F5EDE4;
   --bg-card: rgba(255,255,255,0.68);
   --bg-sidebar: rgba(240,234,226,0.82);
+  --surface: rgba(255,255,255,0.82);
   --text-primary: #2A2622;
   --text-secondary: #7A7060;
   --text-muted: #8A7E6E;
@@ -120,8 +122,10 @@
 [data-time-theme="night"] {
   --focus-ring-shadow: drop-shadow(0 0 8px rgba(68,160,174,0.3));
   --bg: radial-gradient(ellipse at 50% 46%, #2C2434 0%, #241E2C 25%, #201A26 45%, #1C1822 65%, #1E1A22 85%, #201C24 100%);
+  --bg-primary: #201A26;
   --bg-card: rgba(40,34,48,0.7);
   --bg-sidebar: rgba(32,26,40,0.85);
+  --surface: rgba(44,36,56,0.92);
   --text-primary: #EDE8EC;
   --text-secondary: #C0B8C4;
   --text-muted: #9A90A0;
@@ -144,8 +148,10 @@
 
 [data-theme="dark"] {
   --bg: radial-gradient(ellipse at 50% 46%, #2C2434 0%, #241E2C 25%, #201A26 45%, #1C1822 65%, #1E1A22 85%, #201C24 100%);
+  --bg-primary: #201A26;
   --bg-card: rgba(40,34,48,0.7);
   --bg-sidebar: rgba(32,26,40,0.85);
+  --surface: rgba(44,36,56,0.92);
   --text-primary: #DCD4DA;
   --text-secondary: #A098A4;
   --text-muted: #6A5E6E;
@@ -361,8 +367,8 @@ input:focus, textarea:focus {
 }
 
 @keyframes breathe {
-  0%, 100% { box-shadow: 0 0 0 0px rgba(42,122,144,0.04); }
-  50%       { box-shadow: 0 0 0 12px rgba(42,122,144,0.02); }
+  0%, 100% { box-shadow: 0 0 0 0px rgba(42,122,144,0.06), 0 2px 16px rgba(42,122,144,0.04); }
+  50%       { box-shadow: 0 0 0 14px rgba(42,122,144,0.04), 0 4px 28px rgba(42,122,144,0.08); }
 }
 
 /* ── Card ────────────────────────────────────────────────────────────────── */
@@ -497,18 +503,19 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.25); }
 .toggle input:checked ~ .toggle-slider::before { transform: translateX(18px); }
 
 /* ── Tooltip ─────────────────────────────────────────────────────────────── */
-.tooltip-wrapper { position: relative; display: inline; }
+.tooltip-wrapper { position: relative; display: inline-block; }
 .tooltip-box {
   position: absolute;
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--text-primary);
-  color: var(--bg);
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
   font-size: 0.78rem;
   padding: 0.5rem 0.75rem;
   border-radius: var(--radius-sm);
-  white-space: nowrap;
   max-width: 260px;
   white-space: normal;
   z-index: 999;
