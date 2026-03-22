@@ -47,7 +47,7 @@ const STEPS = [
   {
     selector: null,
     message:  "that's everything. i'm here whenever you need me.",
-    primary:  { label: 'let's begin', action: 'done' },
+    primary: { label: "let's begin", action: 'done' },
     secondary: null,
     padding:  0,
   },
