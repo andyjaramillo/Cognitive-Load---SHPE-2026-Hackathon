@@ -270,33 +270,43 @@ function StandaloneFocus({ startBreak = false }) {
                 outline: 'none', textAlign: 'left',
                 width: '100%', boxSizing: 'border-box',
                 transition: 'border-color 0.2s ease',
-                caretColor: 'transparent',
               }}
               onFocus={e => { e.target.style.borderColor = 'var(--color-active)' }}
               onBlur={e => { e.target.style.borderColor = 'var(--border)' }}
             />
-            {/* Bouncing Pebble dot — shows when input is empty, hides once typing starts */}
+            {/* Custom placeholder with wave dots — hides once user starts typing */}
             <AnimatePresence>
               {topicInput === '' && (
                 <motion.div
-                  key="waiting-dot"
+                  key="wave-placeholder"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                  exit={{ opacity: 0, transition: { duration: 0.12 } }}
                   style={{
                     position: 'absolute', top: 0, bottom: 0, left: '1.2rem',
-                    display: 'flex', alignItems: 'center',
+                    display: 'flex', alignItems: 'center', gap: 5,
                     pointerEvents: 'none',
                   }}
                 >
-                  <motion.span
-                    animate={{ y: [0, -10, 0] }}
-                    transition={{ duration: 0.7, repeat: Infinity, ease: [0.45, 0, 0.55, 1] }}
-                    style={{
-                      display: 'inline-block', width: 9, height: 9,
-                      borderRadius: '50%', background: '#5A8A80',
-                    }}
-                  />
+                  <span style={{ fontSize: '1.05rem', color: 'var(--text-muted)' }}>
+                    name this session
+                  </span>
+                  {[
+                    { color: '#5A8A80', delay: 0 },
+                    { color: '#C89450', delay: 0.18 },
+                    { color: '#9B8AB8', delay: 0.36 },
+                  ].map((dot, i) => (
+                    <motion.span
+                      key={i}
+                      animate={{ y: [0, -6, 0] }}
+                      transition={{ duration: 0.65, repeat: Infinity, ease: 'easeInOut', delay: dot.delay, repeatDelay: 0.3 }}
+                      style={{
+                        display: 'inline-block', width: 6, height: 6,
+                        borderRadius: '50%', background: dot.color,
+                        flexShrink: 0,
+                      }}
+                    />
+                  ))}
                 </motion.div>
               )}
             </AnimatePresence>
