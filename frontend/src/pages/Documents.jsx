@@ -75,13 +75,14 @@ function AIBubble({ children, orange = false }) {
       <PebbleDot />
       <div style={{
         flex: 1,
-        background: orange ? 'rgba(200,148,80,0.07)' : 'var(--bg-card)',
-        border: `1px solid ${orange ? 'rgba(200,148,80,0.2)' : 'var(--border)'}`,
-        borderRadius: '12px',
+        background: orange ? 'rgba(200,148,80,0.07)' : 'rgba(200,148,80,0.05)',
+        border: `1px solid ${orange ? 'rgba(200,148,80,0.2)' : 'rgba(200,148,80,0.12)'}`,
+        borderRadius: '18px 18px 18px 5px',
         padding: '0.9rem 1.1rem',
         fontSize: '0.9rem',
         color: 'var(--text-primary)',
         lineHeight: 1.65,
+        boxShadow: '0 3px 14px rgba(200,148,80,0.07)',
       }}>
         {children}
       </div>
@@ -96,12 +97,13 @@ function UserBubble({ text, userName }) {
       <div style={{
         background: 'var(--accent-2-soft)',
         border: '1px solid rgba(80,148,106,0.2)',
-        borderRadius: '12px',
+        borderRadius: '18px 18px 5px 18px',
         padding: '0.9rem 1.1rem',
         fontSize: '0.9rem',
         color: 'var(--text-primary)',
         lineHeight: 1.65,
         maxWidth: '80%',
+        boxShadow: '0 3px 14px rgba(42,122,144,0.06)',
       }}>
         {text}
       </div>
