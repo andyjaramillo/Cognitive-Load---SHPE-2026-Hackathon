@@ -150,7 +150,7 @@ function PulseDot({ phrase }) {
       <motion.div
         animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
         transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-        style={{ width: 8, height: 8, borderRadius: '50%', background: '#5A8A80', flexShrink: 0, marginTop: '1.05rem' }}
+        style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '1.05rem' }}
       />
       <div style={{
         ...AI_BUBBLE_STYLE,
@@ -165,7 +165,7 @@ function PulseDot({ phrase }) {
               key={i}
               animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.35, 0.9, 0.35] }}
               transition={{ duration: 2.2, delay: i * 0.35, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: '#5A8A80' }}
+              style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: 'var(--color-pebble)' }}
             />
           ))}
         </div>
@@ -188,7 +188,7 @@ function AiBubble({ content, buttons, navigate, onTaskNavigate }) {
       <motion.div
         animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
         transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-        style={{ width: 8, height: 8, borderRadius: '50%', background: '#5A8A80', flexShrink: 0, marginTop: '1.05rem' }}
+        style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '1.05rem' }}
       />
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
         {parts.map((part, i) => (
@@ -656,7 +656,7 @@ export default function Home() {
                   width:        10,
                   height:       10,
                   borderRadius: '50%',
-                  background:   '#5A8A80',
+                  background:   'var(--color-pebble)',
                   marginLeft:   6,
                   marginBottom: 4,
                   verticalAlign: 'baseline',
@@ -686,7 +686,7 @@ export default function Home() {
                         key={i}
                         animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.4, 1, 0.4] }}
                         transition={{ duration: 2.2, delay: i * 0.35, repeat: Infinity, ease: 'easeInOut' }}
-                        style={{ display: 'block', width: 7, height: 7, borderRadius: '50%', background: '#5A8A80' }}
+                        style={{ display: 'block', width: 7, height: 7, borderRadius: '50%', background: 'var(--color-pebble)' }}
                       />
                     ))}
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem', fontStyle: 'italic' }}>

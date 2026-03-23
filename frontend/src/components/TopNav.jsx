@@ -38,7 +38,7 @@ export default function TopNav() {
             width: 8,
             height: 8,
             borderRadius: '50%',
-            background: '#5A8A80',
+            background: 'var(--color-pebble)',
             marginLeft: 2,
             marginBottom: 1,
             verticalAlign: 'baseline',
@@ -82,8 +82,8 @@ export default function TopNav() {
             width: 28,
             height: 28,
             borderRadius: '50%',
-            background: initial ? 'rgba(42,122,144,0.12)' : 'rgba(90,138,128,0.15)',
-            border: initial ? '1.5px solid rgba(42,122,144,0.28)' : '1.5px solid rgba(90,138,128,0.35)',
+            background: 'var(--color-pebble-soft)',
+            border: '1.5px solid color-mix(in srgb, var(--color-pebble) 35%, transparent)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -93,8 +93,8 @@ export default function TopNav() {
           }}
         >
           {initial
-            ? <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-active)', letterSpacing: '0.02em' }}>{initial}</span>
-            : <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#5A8A80', display: 'block' }} />
+            ? <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-pebble)', letterSpacing: '0.02em' }}>{initial}</span>
+            : <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', display: 'block' }} />
           }
         </Link>
       </div>

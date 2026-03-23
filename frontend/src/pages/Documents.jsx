@@ -49,7 +49,7 @@ function PebbleDot() {
     <motion.div
       animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
       transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-      style={{ width: 8, height: 8, borderRadius: '50%', background: '#5A8A80', flexShrink: 0, marginTop: '0.65rem' }}
+      style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '0.65rem' }}
     />
   )
 }
@@ -482,7 +482,7 @@ export default function Documents() {
               <motion.div variants={staggerItem} style={{ textAlign: 'center' }}>
                 <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', color: 'var(--text-primary)', marginBottom: '0.4rem', display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0 }}>
                   Share what's overwhelming you
-                  <span aria-hidden="true" style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: '#5A8A80', marginLeft: 5, marginBottom: 2, verticalAlign: 'baseline', flexShrink: 0 }} />
+                  <span aria-hidden="true" style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: 'var(--color-pebble)', marginLeft: 5, marginBottom: 2, verticalAlign: 'baseline', flexShrink: 0 }} />
                 </h2>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>
                   We'll make it make sense.
@@ -559,7 +559,7 @@ export default function Documents() {
                     onClick={handleGo}
                     aria-label="Process document"
                   >
-                    {isLoading ? 'reading…' : 'go'}
+                    {isLoading ? 'reading…' : 'Go'}
                   </button>
                 </div>
               </motion.div>

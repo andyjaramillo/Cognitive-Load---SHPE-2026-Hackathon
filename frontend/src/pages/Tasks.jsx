@@ -779,7 +779,7 @@ function BreakdownChatPanel({ task, groupId, onClose, onReplaceTask }) {
               <motion.div
                 animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
                 transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-                style={{ width: 7, height: 7, borderRadius: '50%', background: '#5A8A80', flexShrink: 0, marginTop: '0.85rem' }}
+                style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '0.85rem' }}
               />
             ) : (
               <div style={{
@@ -811,7 +811,7 @@ function BreakdownChatPanel({ task, groupId, onClose, onReplaceTask }) {
             <motion.div
               animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
               transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ width: 7, height: 7, borderRadius: '50%', background: '#5A8A80', flexShrink: 0, marginTop: '0.85rem' }}
+              style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '0.85rem' }}
             />
             <div style={{
               maxWidth: '84%', background: 'rgba(200,148,80,0.07)',
@@ -824,7 +824,7 @@ function BreakdownChatPanel({ task, groupId, onClose, onReplaceTask }) {
                     <motion.span key={i}
                       animate={{ scale: [0.85,1.15,0.85], opacity: [0.35,0.9,0.35] }}
                       transition={{ duration: 2.2, delay: i*0.35, repeat: Infinity, ease: 'easeInOut' }}
-                      style={{ display: 'block', width: 5, height: 5, borderRadius: '50%', background: '#5A8A80' }}
+                      style={{ display: 'block', width: 5, height: 5, borderRadius: '50%', background: 'var(--color-pebble)' }}
                     />
                   ))}
                 </div>
@@ -1087,7 +1087,7 @@ export default function Tasks() {
           gap: 0,
         }}>
           Your tasks
-          <span aria-hidden="true" style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: '#5A8A80', marginLeft: 5, marginBottom: 2, verticalAlign: 'baseline', flexShrink: 0 }} />
+          <span aria-hidden="true" style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: 'var(--color-pebble)', marginLeft: 5, marginBottom: 2, verticalAlign: 'baseline', flexShrink: 0 }} />
         </h2>
         {allTasks.length > 0 && (
           <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
@@ -1121,7 +1121,7 @@ export default function Tasks() {
           onClick={handleAdd}
           disabled={!addInput.trim() || addLoading}
         >
-          {addLoading ? '…' : 'add'}
+          {addLoading ? '…' : 'Add'}
         </button>
       </motion.div>
 
@@ -1180,7 +1180,7 @@ export default function Tasks() {
             <motion.div
               animate={{ scale: [0.85, 1.1, 0.85], opacity: [0.4, 1, 0.4] }}
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--color-ai)', margin: '0 auto 1.1rem' }}
+              style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--color-pebble)', margin: '0 auto 1.1rem' }}
             />
             <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: '0.4rem', fontWeight: 400 }}>
               Nothing here yet.
@@ -1308,7 +1308,7 @@ export default function Tasks() {
                   <motion.div
                     animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
                     transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-                    style={{ width: 8, height: 8, borderRadius: '50%', background: '#5A8A80', flexShrink: 0, marginTop: '0.9rem' }}
+                    style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '0.9rem' }}
                   />
                 ) : (
                   <div style={{
@@ -1352,7 +1352,7 @@ export default function Tasks() {
                 <motion.div
                   animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
                   transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-                  style={{ width: 8, height: 8, borderRadius: '50%', background: '#5A8A80', flexShrink: 0, marginTop: '0.9rem' }}
+                  style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '0.9rem' }}
                 />
                 <div style={{
                   background: 'rgba(200,148,80,0.07)', border: '1px solid rgba(200,148,80,0.16)',
@@ -1369,7 +1369,7 @@ export default function Tasks() {
                             key={i}
                             animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.4, 1, 0.4] }}
                             transition={{ duration: 2.2, delay: i * 0.35, repeat: Infinity, ease: 'easeInOut' }}
-                            style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: '#5A8A80' }}
+                            style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: 'var(--color-pebble)' }}
                           />
                         ))}
                       </div>

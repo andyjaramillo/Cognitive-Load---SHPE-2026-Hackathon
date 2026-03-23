@@ -180,7 +180,7 @@ function StandaloneFocus({ startBreak = false }) {
 
   const fraction   = totalSecs > 0 ? Math.max(0, remaining / totalSecs) : 1
   const dashOffset = CIRC * (1 - fraction)
-  const ringColor  = fraction > 0.5 ? 'var(--color-done)' : fraction > 0.2 ? 'var(--color-active)' : 'var(--color-ai)'
+  const ringColor  = fraction > 0.5 ? 'var(--color-done)' : fraction > 0.2 ? 'var(--color-pebble)' : 'var(--color-ai)'
   const glowHex    = fraction > 0.5 ? '#50946A'            : fraction > 0.2 ? '#2A7A90'             : '#C8A046'
 
   // Countdown label — real H:MM:SS
@@ -271,7 +271,7 @@ function StandaloneFocus({ startBreak = false }) {
                 width: '100%', boxSizing: 'border-box',
                 transition: 'border-color 0.2s ease',
               }}
-              onFocus={e => { e.target.style.borderColor = 'var(--color-active)' }}
+              onFocus={e => { e.target.style.borderColor = 'var(--color-pebble)' }}
               onBlur={e => { e.target.style.borderColor = 'var(--border)' }}
             />
             {/* Custom placeholder with wave dots — hides once user starts typing */}
@@ -292,7 +292,7 @@ function StandaloneFocus({ startBreak = false }) {
                     Name this session
                   </span>
                   {[
-                    { color: '#5A8A80', delay: 0 },
+                    { color: 'var(--color-pebble)', delay: 0 },
                     { color: '#C89450', delay: 0.18 },
                     { color: '#9B8AB8', delay: 0.36 },
                   ].map((dot, i) => (
@@ -528,7 +528,7 @@ function StandaloneFocus({ startBreak = false }) {
 // Small helper to keep button styles DRY
 function Btn({ color, onClick, children }) {
   const styles = {
-    active: { bg: 'var(--color-active)', shadow: '0 2px 12px rgba(42,122,144,0.22)',   text: 'white' },
+    active: { bg: 'var(--color-pebble)', shadow: '0 2px 12px rgba(42,122,144,0.22)',   text: 'white' },
     paused: { bg: 'var(--color-paused)', shadow: '0 2px 12px rgba(138,120,174,0.22)', text: 'white' },
     stop:   { bg: 'var(--color-paused)',  shadow: '0 2px 12px rgba(154,136,180,0.22)', text: 'white' },
     ghost:  { bg: 'transparent',         shadow: 'none', text: 'var(--text-secondary)', border: '1px solid var(--border)' },
@@ -1334,7 +1334,7 @@ export default function FocusMode() {
               style={{
                 marginTop: 24,
                 padding: '10px 28px', borderRadius: 8,
-                background: 'var(--color-active)',
+                background: 'var(--color-pebble)',
                 color: 'white',
                 fontSize: 12, fontWeight: 500,
                 border: 'none', cursor: 'pointer',
@@ -1379,7 +1379,7 @@ export default function FocusMode() {
                   onClick={handleCanDo}
                   style={{
                     padding: '12px 32px', borderRadius: 8,
-                    background: 'var(--color-active)',
+                    background: 'var(--color-pebble)',
                     color: 'white',
                     fontSize: 13, fontWeight: 500,
                     border: 'none', cursor: 'pointer',
@@ -1433,6 +1433,24 @@ export default function FocusMode() {
               position: 'relative',
             }}
           >
+            {/* Pebble dot */}
+            <motion.div
+              animate={{ scale: [0.88, 1.1, 0.88], opacity: [0.6, 1, 0.6] }}
+              transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+              style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--color-pebble)', marginBottom: 24 }}
+            />
+
+            {/* Breathing ring */}
+            <motion.div
+              animate={{ scale: [1, 1.06, 1], opacity: [0.18, 0.32, 0.18] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              style={{
+                position: 'absolute',
+                width: 180, height: 180, borderRadius: '50%',
+                border: '2px solid var(--color-paused)',
+                pointerEvents: 'none',
+              }}
+            />
 
             <h2 style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0, textAlign: 'center', position: 'relative' }}>
               you did something. that counts.
@@ -1534,7 +1552,7 @@ export default function FocusMode() {
                 onClick={() => { dispatch(tasksActions.clearFocus()); navigate('/tasks') }}
                 style={{
                   padding: '10px 22px', borderRadius: 8,
-                  background: 'var(--color-active)', color: 'white',
+                  background: 'var(--color-pebble)', color: 'white',
                   fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer',
                 }}
               >
@@ -1596,7 +1614,7 @@ function MiniTimer({ durationMinutes = 5, onDone }) {
         <circle cx={SIZE/2} cy={SIZE/2} r={R} stroke="var(--color-inactive)" strokeOpacity={0.1} strokeWidth={STROKE} fill="none" />
         <circle
           cx={SIZE/2} cy={SIZE/2} r={R}
-          stroke="var(--color-active)"
+          stroke="var(--color-pebble)"
           strokeWidth={STROKE}
           strokeLinecap="round"
           strokeDasharray={CIRC}

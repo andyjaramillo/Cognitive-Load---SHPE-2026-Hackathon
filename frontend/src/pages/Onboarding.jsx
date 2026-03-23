@@ -71,7 +71,7 @@ function ChoiceCard({ label, sub, selected, dimmed, fontCss, onClick }) {
     >
       <div style={{
         width: 6, height: 6, borderRadius: '50%',
-        background: selected ? '#5A8A80' : 'rgba(200,148,80,0.55)',
+        background: selected ? 'var(--color-pebble)' : 'var(--border)',
         marginTop: 5, flexShrink: 0,
         transition: 'background 0.2s ease, transform 0.2s ease',
         transform: selected ? 'scale(1.4)' : 'scale(1)',
@@ -116,8 +116,8 @@ function ThemePreviewCard({ label, themeKey, selected, onClick }) {
       }}
     >
       <div style={{ height: 7,  background: themeKey === 'night' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)', borderRadius: 4 }} />
-      <div style={{ height: 18, background: 'rgba(200,148,80,0.22)', borderRadius: 7, marginTop: 2 }} />
-      <div style={{ height: 11, background: 'rgba(200,148,80,0.12)', borderRadius: 5, width: '65%' }} />
+      <div style={{ height: 18, background: 'rgba(90,138,128,0.18)', borderRadius: 7, marginTop: 2 }} />
+      <div style={{ height: 11, background: 'rgba(90,138,128,0.10)', borderRadius: 5, width: '65%' }} />
       <div style={{ height: 14, borderRadius: 7, marginLeft: 'auto', background: themeKey === 'night' ? 'rgba(42,122,144,0.25)' : 'rgba(42,122,144,0.15)', width: '50%' }} />
       <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#5A8A80', marginTop: 'auto' }} />
       <div style={{
@@ -154,9 +154,9 @@ function DescribeInput({ onSubmit }) {
 
 function SettingsNote() {
   return (
-    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 0.5, transition: { duration: 0.4, delay: 0.55 } }}
-      style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>
-      You can change any of these anytime in settings
+    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.4, delay: 0.55 } }}
+      style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+      You can change any of these anytime in settings.
     </motion.p>
   )
 }
@@ -680,7 +680,7 @@ export default function Onboarding() {
                     width:        s === stage ? 16 : 6,
                     height:       6,
                     borderRadius: 3,
-                    background:   s === stage ? '#5A8A80' : 'rgba(200,148,80,0.38)',
+                    background:   s === stage ? 'var(--color-pebble)' : 'var(--border)',
                     transition:   'all 0.3s ease',
                   }} />
                 ))}

@@ -60,6 +60,13 @@ const GRANULARITIES = [
   { label: 'big picture',  value: 'broad',  sub: "i'll figure out the rest" },
 ]
 
+const PEBBLE_COLORS = [
+  { value: 'sage',  hex: '#5A8A80', label: 'sage'   },
+  { value: 'sky',   hex: '#6A96B8', label: 'sky'    },
+  { value: 'lilac', hex: '#9A88B4', label: 'lilac'  },
+  { value: 'amber', hex: '#C89450', label: 'amber'  },
+]
+
 async function persist(updates) {
   // Convert camelCase Redux keys to snake_case backend keys
   const backendMap = {
@@ -118,6 +125,11 @@ export default function Settings() {
   function setGranularity(value) {
     dispatch(prefsActions.setPrefs({ granularity: value }))
     persist({ granularity: value })
+  }
+
+  function setPebbleColor(value) {
+    dispatch(prefsActions.setPrefs({ pebbleColor: value }))
+    persist({ pebble_color: value })
   }
 
   return (
@@ -281,6 +293,41 @@ export default function Settings() {
                 </button>
               ))}
             </div>
+          </div>
+        </motion.div>
+
+        {/* Pebble color */}
+        <motion.div variants={staggerItem} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>Your Pebble</h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>Pick the color that feels like you.</p>
+          </div>
+          <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+            {PEBBLE_COLORS.map(c => (
+              <button
+                key={c.value}
+                onClick={() => setPebbleColor(c.value)}
+                aria-label={`Set Pebble color to ${c.label}`}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+                }}
+              >
+                <div style={{
+                  width: 36, height: 36, borderRadius: '50%', background: c.hex,
+                  outline: prefs.pebbleColor === c.value ? `3px solid ${c.hex}` : '3px solid transparent',
+                  outlineOffset: 3,
+                  transform: prefs.pebbleColor === c.value ? 'scale(1.15)' : 'scale(1)',
+                  transition: 'transform 0.2s ease, outline 0.2s ease',
+                  boxShadow: prefs.pebbleColor === c.value ? `0 2px 12px ${c.hex}55` : 'none',
+                }} />
+                <span style={{
+                  fontSize: '0.72rem', color: prefs.pebbleColor === c.value ? 'var(--text-primary)' : 'var(--text-muted)',
+                  fontWeight: prefs.pebbleColor === c.value ? 600 : 400,
+                  transition: 'color 0.2s ease',
+                }}>{c.label}</span>
+              </button>
+            ))}
           </div>
         </motion.div>
 
