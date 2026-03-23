@@ -68,6 +68,7 @@ export default function TopNav() {
         <Link
           to="/settings"
           className="top-nav__icon-btn"
+          data-walkthrough="settings"
           aria-label="Settings"
           style={{ textDecoration: 'none' }}
         >

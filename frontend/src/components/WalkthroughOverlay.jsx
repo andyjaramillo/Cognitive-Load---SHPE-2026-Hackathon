@@ -1,9 +1,10 @@
 /**
- * WalkthroughOverlay — 5-step teal glow tour after first onboarding
+ * WalkthroughOverlay — 8-step post-onboarding feature tour
  *
- * Technique: a transparent fixed div positioned over the target element
- * uses an enormous box-shadow to dim everything around it (the "spotlight" trick).
- * The teal glow ring is layered into the same box-shadow.
+ * Spotlight technique: transparent fixed div over target, enormous box-shadow
+ * dims everything else. Pebble glow ring layered in the same box-shadow.
+ * Card renders heading (DM Serif Display) + bullet list, never paragraphs.
+ * No em dashes. Sentence case throughout.
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -13,78 +14,126 @@ import { useDispatch } from 'react-redux'
 import { prefsActions } from '../store'
 import { savePreferences } from '../utils/api'
 
-// ── Step definitions ──────────────────────────────────────────────────── //
+// ── Step definitions ────────────────────────────────────────────────────── //
 
 const STEPS = [
   {
+    id:       'welcome',
+    selector: null,
+    heading:  'Welcome to Pebble.',
+    bullets:  [
+      'Your calm place to get things done.',
+      'Tell me what you need and I will help you figure it out.',
+      'Here is a quick look at how everything works.',
+    ],
+    padding:  0,
+  },
+  {
+    id:       'nav',
+    selector: 'nav[aria-label="Pages"]',
+    heading:  'Your four tabs',
+    bullets:  [
+      'Home, Documents, Tasks, and Focus are always up here.',
+      'Each one is a different way I can help you.',
+      'You can switch between them anytime.',
+    ],
+    padding:  8,
+  },
+  {
+    id:       'home',
     selector: '[data-walkthrough="chat-input"]',
-    message:  'this is home. whenever you need anything — a question answered, a document simplified, a task broken down, or just someone to talk to — start here.',
-    primary:  { label: 'got it',       action: 'done' },
-    secondary:{ label: 'show me more', action: 'next' },
+    heading:  'Home',
+    bullets:  [
+      'This is where you talk to me.',
+      'Ask anything, share something overwhelming, or just start typing.',
+      'I remember what we talk about between sessions.',
+    ],
     padding:  12,
   },
   {
+    id:       'documents',
     selector: '[data-nav="documents"]',
-    message:  "when something feels overwhelming — a long document, a confusing email, pages of text — bring it here. i'll break it down and pull out what matters.",
-    primary:  { label: 'next', action: 'next' },
-    secondary: null,
+    heading:  'Documents',
+    bullets:  [
+      'Paste text or upload a file and I will make sense of it.',
+      'I can pull out key points, explain confusing parts, or turn it into tasks.',
+    ],
     padding:  8,
   },
   {
+    id:       'tasks',
     selector: '[data-nav="tasks"]',
-    message:  "tasks is where things get organized. tell me what you need to do and i'll help you break them into small, doable pieces.",
-    primary:  { label: 'next', action: 'next' },
-    secondary: null,
+    heading:  'Tasks',
+    bullets:  [
+      'Tell me a goal and I will break it into small, doable steps.',
+      'You can set time estimates and work through things at your own pace.',
+    ],
     padding:  8,
   },
   {
+    id:       'focus',
     selector: '[data-nav="focus"]',
-    message:  "when you're ready to get things done, focus mode clears everything away. just you, one task, and a timer. if it gets to be too much, there's always an exit.",
-    primary:  { label: 'next', action: 'next' },
-    secondary: null,
+    heading:  'Focus',
+    bullets:  [
+      'A full-screen timer that clears everything away.',
+      'Just you and one task. No distractions.',
+      "If it gets to be too much, there's always a way out.",
+    ],
     padding:  8,
   },
   {
+    id:       'settings',
+    selector: '[data-walkthrough="settings"]',
+    heading:  'Settings',
+    bullets:  [
+      'Adjust fonts, themes, and how I communicate with you.',
+      'Everything you set during setup can be changed here anytime.',
+    ],
+    padding:  10,
+  },
+  {
+    id:       'done',
     selector: null,
-    message:  "that's everything. i'm here whenever you need me.",
-    primary: { label: "let's begin", action: 'done' },
-    secondary: null,
+    heading:  "That's everything.",
+    bullets:  [
+      "I'm here whenever you need me.",
+      'Start by telling me what is on your mind.',
+    ],
     padding:  0,
   },
 ]
 
-// ── Spotlight ring — animated via Framer Motion keyframes ─────────────── //
+const TOTAL = STEPS.length
 
-const GLOW_KEYFRAMES = {
-  animate: {
-    boxShadow: [
-      '0 0 0 4px rgba(90,138,128,0.25), 0 0 0 8px rgba(90,138,128,0.10), 0 0 0 9999px rgba(0,0,0,0.22)',
-      '0 0 0 6px rgba(90,138,128,0.18), 0 0 0 12px rgba(90,138,128,0.06), 0 0 0 9999px rgba(0,0,0,0.22)',
-      '0 0 0 4px rgba(90,138,128,0.25), 0 0 0 8px rgba(90,138,128,0.10), 0 0 0 9999px rgba(0,0,0,0.22)',
-    ],
-    transition: { duration: 2.1, repeat: Infinity, ease: 'easeInOut' },
-  },
+// ── Spotlight glow animation ─────────────────────────────────────────────── //
+
+const glowAnimation = {
+  boxShadow: [
+    '0 0 0 4px rgba(90,138,128,0.22), 0 0 0 8px rgba(90,138,128,0.08), 0 0 0 9999px rgba(0,0,0,0.30)',
+    '0 0 0 6px rgba(90,138,128,0.16), 0 0 0 14px rgba(90,138,128,0.05), 0 0 0 9999px rgba(0,0,0,0.30)',
+    '0 0 0 4px rgba(90,138,128,0.22), 0 0 0 8px rgba(90,138,128,0.08), 0 0 0 9999px rgba(0,0,0,0.30)',
+  ],
+  transition: { duration: 2.2, repeat: Infinity, ease: 'easeInOut' },
 }
 
-// Fallback dim when no target (step 5)
-const DIM_ONLY = '0 0 0 9999px rgba(0,0,0,0.15)'
-
-// ── WalkthroughOverlay ───────────────────────────────────────────────── //
+// ── Component ────────────────────────────────────────────────────────────── //
 
 export default function WalkthroughOverlay({ onComplete }) {
-  const dispatch    = useDispatch()
-  const [step,      setStep]    = useState(1)
-  const [rect,      setRect]    = useState(null)
-  const [visible,   setVisible] = useState(true)
+  const dispatch = useDispatch()
+  const [step,    setStep]    = useState(0)   // 0-indexed
+  const [rect,    setRect]    = useState(null)
+  const [visible, setVisible] = useState(true)
 
-  const content = STEPS[step - 1]
+  const current  = STEPS[step]
+  const isFirst  = step === 0
+  const isLast   = step === TOTAL - 1
 
-  // Measure target element, re-measure on resize
+  // Measure spotlight target
   useEffect(() => {
-    if (!content.selector) { setRect(null); return }
+    if (!current.selector) { setRect(null); return }
 
     function measure() {
-      const el = document.querySelector(content.selector)
+      const el = document.querySelector(current.selector)
       if (!el) { setRect(null); return }
       const r = el.getBoundingClientRect()
       setRect({ top: r.top, left: r.left, width: r.width, height: r.height })
@@ -97,51 +146,53 @@ export default function WalkthroughOverlay({ onComplete }) {
       window.removeEventListener('resize', measure)
       window.removeEventListener('scroll', measure, true)
     }
-  }, [step, content.selector])
+  }, [step, current.selector])
 
   const finish = useCallback(async () => {
     setVisible(false)
     try { localStorage.setItem('pebble_walkthrough_complete', 'true') } catch {}
-    try {
-      await savePreferences({ walkthrough_complete: true })
-    } catch { /* best effort */ }
+    try { await savePreferences({ walkthrough_complete: true }) } catch {}
     dispatch(prefsActions.setPrefs({ walkthroughComplete: true }))
     setTimeout(onComplete, 300)
   }, [dispatch, onComplete])
 
-  const handleAction = useCallback((action) => {
-    if (action === 'done')  { finish(); return }
-    if (action === 'next')  { setStep(s => Math.min(s + 1, 5)); return }
-  }, [finish])
+  const goNext = () => {
+    if (isLast) { finish(); return }
+    setStep(s => s + 1)
+  }
+  const goBack = () => setStep(s => Math.max(s - 1, 0))
 
-  // Message card position: below target (or above if near bottom)
+  // Card positioning: below target, or above if near bottom, or centered if no target
   function cardStyle() {
-    const pad = content.padding || 0
-    const CARD_HEIGHT = 160 // approximate
-
     if (!rect) {
-      // No target — center bottom
       return {
-        position: 'fixed',
-        bottom:   '10vh',
-        left:     '50%',
-        transform:'translateX(-50%)',
-        width:    'min(360px, 90vw)',
-        zIndex:   502,
+        position:  'fixed',
+        bottom:    '12vh',
+        left:      '50%',
+        transform: 'translateX(-50%)',
+        width:     'min(380px, 92vw)',
+        zIndex:    502,
       }
     }
 
+    const pad        = current.padding || 0
+    const CARD_H     = 200
     const spaceBelow = window.innerHeight - rect.top - rect.height - pad
-    const showAbove  = spaceBelow < CARD_HEIGHT + 24
+    const showAbove  = spaceBelow < CARD_H + 28
+
+    const left = Math.min(
+      Math.max(rect.left, 12),
+      window.innerWidth - 392
+    )
 
     return {
       position: 'fixed',
-      left:     Math.min(Math.max(rect.left, 12), window.innerWidth - 380),
-      top:      showAbove
-        ? rect.top - CARD_HEIGHT - 16 - pad
-        : rect.top + rect.height + 16 + pad,
-      width:    'min(360px, 90vw)',
-      zIndex:   502,
+      left,
+      top: showAbove
+        ? rect.top - CARD_H - 18 - pad
+        : rect.top + rect.height + 18 + pad,
+      width:  'min(380px, 92vw)',
+      zIndex: 502,
     }
   }
 
@@ -151,147 +202,159 @@ export default function WalkthroughOverlay({ onComplete }) {
         <motion.div
           key="walkthrough-root"
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: { duration: 0.35 } }}
+          animate={{ opacity: 1, transition: { duration: 0.3 } }}
           exit={{ opacity: 0, transition: { duration: 0.25 } }}
           style={{ position: 'fixed', inset: 0, zIndex: 499, pointerEvents: 'none' }}
         >
-          {/* ── Spotlight mask (or plain dim when no target) ─────────────── */}
-          {rect ? (
-            <motion.div
-              key={`spotlight-${step}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1, ...GLOW_KEYFRAMES.animate, transition: { opacity: { duration: 0.3 }, ...GLOW_KEYFRAMES.animate.transition } }}
-              style={{
-                position:     'fixed',
-                top:          rect.top    - content.padding,
-                left:         rect.left   - content.padding,
-                width:        rect.width  + content.padding * 2,
-                height:       rect.height + content.padding * 2,
-                borderRadius: 10,
-                pointerEvents:'none',
-                zIndex:       500,
-              }}
-            />
-          ) : (
-            <motion.div
-              key={`dim-${step}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              style={{
-                position:    'fixed',
-                inset:       0,
-                background:  'rgba(0,0,0,0.15)',
-                pointerEvents:'none',
-                zIndex:      500,
-              }}
-            />
-          )}
-
-          {/* ── Message card ──────────────────────────────────────────────── */}
-          <motion.div
-            key={`card-${step}`}
-            initial={{ opacity: 0, y: 8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] } }}
-            exit={{ opacity: 0, y: -4, transition: { duration: 0.2 } }}
-            style={{
-              ...cardStyle(),
-              background:   'var(--bg-card)',
-              border:       '1px solid rgba(90,138,128,0.25)',
-              borderRadius: 14,
-              padding:      '1.1rem 1.25rem 1rem',
-              boxShadow:    '0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(90,138,128,0.12)',
-              pointerEvents:'auto',
-            }}
-          >
-            {/* Pebble dot + message */}
-            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', marginBottom: '0.85rem' }}>
+          {/* ── Spotlight or soft dim ─────────────────────────────────────── */}
+          <AnimatePresence mode="wait">
+            {rect ? (
               <motion.div
-                animate={{ scale: [0.85, 1.1, 0.85], opacity: [0.65, 1, 0.65] }}
-                transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+                key={`spot-${step}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1, ...glowAnimation }}
+                exit={{ opacity: 0, transition: { duration: 0.2 } }}
                 style={{
-                  width: 8, height: 8, borderRadius: '50%',
-                  background: '#5A8A80', flexShrink: 0, marginTop: '0.32rem',
+                  position:      'fixed',
+                  top:           rect.top    - current.padding,
+                  left:          rect.left   - current.padding,
+                  width:         rect.width  + current.padding * 2,
+                  height:        rect.height + current.padding * 2,
+                  borderRadius:  10,
+                  pointerEvents: 'none',
+                  zIndex:        500,
                 }}
               />
-              <p style={{
-                margin: 0,
-                fontSize: '0.9rem',
-                lineHeight: 1.7,
-                color: 'var(--text-primary)',
-              }}>
-                {content.message}
-              </p>
-            </div>
+            ) : (
+              <motion.div
+                key={`dim-${step}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                style={{
+                  position:      'fixed',
+                  inset:         0,
+                  background:    'rgba(0,0,0,0.18)',
+                  pointerEvents: 'none',
+                  zIndex:        500,
+                }}
+              />
+            )}
+          </AnimatePresence>
 
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                {content.primary && (
+          {/* ── Tooltip card ─────────────────────────────────────────────── */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`card-${step}`}
+              initial={{ opacity: 0, y: 10, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1, transition: { duration: 0.28, ease: [0.4, 0, 0.2, 1] } }}
+              exit={{ opacity: 0, y: -6, scale: 0.97, transition: { duration: 0.18 } }}
+              style={{
+                ...cardStyle(),
+                background:    'var(--bg-card)',
+                border:        '1px solid color-mix(in srgb, var(--color-pebble) 22%, transparent)',
+                borderRadius:  14,
+                padding:       '1.2rem 1.3rem 1rem',
+                boxShadow:     '0 8px 32px rgba(0,0,0,0.14), 0 0 0 1px color-mix(in srgb, var(--color-pebble) 10%, transparent)',
+                pointerEvents: 'auto',
+              }}
+            >
+              {/* Heading */}
+              <h3 style={{
+                fontFamily:  '"DM Serif Display", Georgia, serif',
+                fontWeight:  400,
+                fontSize:    '1.15rem',
+                color:       'var(--text-primary)',
+                margin:      '0 0 0.7rem',
+                lineHeight:  1.3,
+              }}>
+                {current.heading}
+              </h3>
+
+              {/* Bullet list */}
+              <ul style={{ margin: '0 0 1rem', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                {current.bullets.map((b, i) => (
+                  <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.55rem' }}>
+                    <span style={{
+                      display:    'block',
+                      width:      6,
+                      height:     6,
+                      borderRadius: '50%',
+                      background: 'var(--color-pebble)',
+                      flexShrink: 0,
+                      marginTop:  '0.42rem',
+                      opacity:    0.7,
+                    }} />
+                    <span style={{ fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+                      {b}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Navigation row */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                {/* Back + Next */}
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  {!isFirst && (
+                    <button
+                      className="btn btn-ghost"
+                      onClick={goBack}
+                      style={{ fontSize: '0.82rem', padding: '0.38rem 0.85rem' }}
+                    >
+                      Back
+                    </button>
+                  )}
                   <button
                     className="btn btn-primary"
-                    onClick={() => handleAction(content.primary.action)}
-                    style={{ fontSize: '0.82rem', padding: '0.38rem 0.9rem' }}
+                    onClick={goNext}
+                    style={{ fontSize: '0.82rem', padding: '0.38rem 1rem' }}
                   >
-                    {content.primary.label}
+                    {isLast ? "Let's go" : 'Next'}
                   </button>
-                )}
-                {content.secondary && (
-                  <button
-                    className="btn"
-                    onClick={() => handleAction(content.secondary.action)}
-                    style={{
-                      fontSize: '0.82rem',
-                      padding: '0.38rem 0.9rem',
-                      background: 'var(--accent-soft)',
-                      color: 'var(--color-active)',
-                      border: '1px solid rgba(42,122,144,0.2)',
-                    }}
-                  >
-                    {content.secondary.label}
-                  </button>
-                )}
-              </div>
-
-              {/* Step indicator + skip */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                {/* Progress dots */}
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {STEPS.map((_, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        width:        i + 1 === step ? 14 : 5,
-                        height:       5,
-                        borderRadius: 3,
-                        background:   i + 1 === step ? '#5A8A80' : 'var(--border)',
-                        transition:   'all 0.3s ease',
-                      }}
-                    />
-                  ))}
                 </div>
 
-                <button
-                  onClick={finish}
-                  style={{
-                    background: 'none',
-                    border:     'none',
-                    cursor:     'pointer',
-                    fontSize:   '0.76rem',
-                    color:      'var(--text-muted)',
-                    padding:    '0.2rem 0.3rem',
-                    opacity:    0.65,
-                    transition: 'opacity 0.2s ease',
-                    whiteSpace: 'nowrap',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
-                  onMouseLeave={e => { e.currentTarget.style.opacity = '0.65' }}
-                  aria-label="Skip tour"
-                >
-                  skip tour
-                </button>
+                {/* Progress pills + skip */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {STEPS.map((_, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          width:        i === step ? 14 : 5,
+                          height:       5,
+                          borderRadius: 3,
+                          background:   i === step ? 'var(--color-pebble)' : 'var(--border)',
+                          transition:   'all 0.3s ease',
+                        }}
+                      />
+                    ))}
+                  </div>
+                  {!isLast && (
+                    <button
+                      onClick={finish}
+                      style={{
+                        background:  'none',
+                        border:      'none',
+                        cursor:      'pointer',
+                        fontSize:    '0.76rem',
+                        color:       'var(--text-muted)',
+                        padding:     '0.2rem 0.3rem',
+                        opacity:     0.7,
+                        transition:  'opacity 0.2s ease',
+                        whiteSpace:  'nowrap',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
+                      onMouseLeave={e => { e.currentTarget.style.opacity = '0.7' }}
+                      aria-label="Skip tour"
+                    >
+                      Skip tour
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>
