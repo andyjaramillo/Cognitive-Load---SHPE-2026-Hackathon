@@ -207,12 +207,7 @@ export default function Onboarding() {
 
   // Welcome stage advances only on explicit button click — no auto-advance
 
-  // Meet → q2 (hold 1.5s)
-  useEffect(() => {
-    if (stage !== 'meet') return
-    const t = setTimeout(() => setStage('q2'), 1600)
-    return () => clearTimeout(t)
-  }, [stage])
+  // Meet stage advances only on explicit button click — no auto-advance
 
   // Complete → final
   useEffect(() => {
@@ -338,13 +333,41 @@ export default function Onboarding() {
 
       case 'meet':
         return (
-          <motion.p initial={ENTER} animate={ENTER_T}
-            style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 'clamp(18px, 4vw, 22px)', color: 'var(--text-primary)', lineHeight: 1.5, margin: 0 }}>
-            nice to meet you, {name}.<br />
-            <span style={{ fontSize: '0.82em', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', fontWeight: 400, letterSpacing: '0.01em' }}>
-              a few quick questions so this feels right for you.
-            </span>
-          </motion.p>
+          <>
+            <motion.p initial={ENTER} animate={ENTER_T}
+              style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 'clamp(18px, 4vw, 22px)', color: 'var(--text-primary)', lineHeight: 1.6, margin: 0 }}>
+              nice to meet you, {name}.
+            </motion.p>
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: 0.5, ease: [0.4, 0, 0.2, 1] } }}
+              style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', fontWeight: 400, margin: 0, lineHeight: 1.6 }}>
+              A few quick questions so this feels right for you.
+            </motion.p>
+            <motion.button
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.45, delay: 1.1, ease: [0.4, 0, 0.2, 1] } }}
+              onClick={() => setStage('q2')}
+              whileHover={{ opacity: 0.85 }}
+              whileTap={{ scale: 0.97 }}
+              style={{
+                marginTop:     '0.25rem',
+                background:    'var(--color-active)',
+                color:         '#fff',
+                border:        'none',
+                borderRadius:  24,
+                padding:       '0.72rem 2.2rem',
+                fontSize:      '0.92rem',
+                fontWeight:    500,
+                cursor:        'pointer',
+                minHeight:     44,
+                letterSpacing: '0.02em',
+                transition:    'opacity 0.2s ease',
+              }}
+            >
+              Sounds good
+            </motion.button>
+          </>
         )
 
       case 'q2':
@@ -356,9 +379,9 @@ export default function Onboarding() {
             </motion.p>
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
               {[
-                { v: 'simple',   l: 'short and clear',            s: 'just the essentials.' },
-                { v: 'standard', l: 'a good balance',             s: 'enough detail, nothing extra.' },
-                { v: 'detailed', l: 'give me everything',         s: "i like having the full picture." },
+                { v: 'simple',   l: 'Short and clear',             s: 'Just the essentials.' },
+                { v: 'standard', l: 'A good balance',             s: 'Enough detail, nothing extra.' },
+                { v: 'detailed', l: 'Give me everything',         s: 'I like having the full picture.' },
                 { v: 'describe', l: 'Let me describe what I need', s: null },
                 { v: 'unsure',   l: "I'm not sure yet",           s: null },
               ].map((c, i) => (
@@ -414,9 +437,9 @@ export default function Onboarding() {
             <motion.div initial={ENTER} animate={{ ...ENTER_T, transition: { ...ENTER_T.transition, delay: 0.18 } }}
               style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               {[
-                { v: 'morning', l: 'warm' },
-                { v: 'night',   l: 'dark' },
-                { v: 'auto',    l: 'match the time' },
+                { v: 'morning', l: 'Warm' },
+                { v: 'night',   l: 'Dark' },
+                { v: 'auto',    l: 'Match the time' },
               ].map((t, i) => (
                 <motion.div key={t.v} {...cardAnim(i)}>
                   <ThemePreviewCard label={t.l} themeKey={t.v} selected={themeChoice === t.v}
@@ -442,9 +465,9 @@ export default function Onboarding() {
             </motion.p>
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
               {[
-                { v: 'micro',   l: 'walk me through it step by step', s: 'the smaller, the better.' },
-                { v: 'normal',  l: 'give me a clear plan',            s: 'not too detailed, not too vague.' },
-                { v: 'broad',   l: 'just show me the big picture',    s: "i'll figure out the rest." },
+                { v: 'micro',   l: 'Walk me through it step by step', s: 'The smaller, the better.' },
+                { v: 'normal',  l: 'Give me a clear plan',            s: 'Not too detailed, not too vague.' },
+                { v: 'broad',   l: 'Just show me the big picture',    s: "I'll figure out the rest." },
                 { v: 'describe',l: 'Let me describe what I need',     s: null },
                 { v: 'unsure',  l: "I'm not sure yet",                s: null },
               ].map((c, i) => (
@@ -476,9 +499,9 @@ export default function Onboarding() {
             </motion.p>
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
               {[
-                { v: 'warm',    l: 'like a deep breath',         s: 'warm and reassuring.' },
-                { v: 'direct',  l: 'like a clear path',          s: 'calm and to the point.' },
-                { v: 'balanced',l: 'a little of each',           s: null },
+                { v: 'warm',    l: 'Like a deep breath',         s: 'Warm and reassuring.' },
+                { v: 'direct',  l: 'Like a clear path',          s: 'Calm and to the point.' },
+                { v: 'balanced',l: 'A little of each',           s: null },
                 { v: 'describe',l: "Let me describe what works", s: null },
                 { v: 'unsure',  l: "I'll figure it out as I go", s: null },
               ].map((c, i) => (
