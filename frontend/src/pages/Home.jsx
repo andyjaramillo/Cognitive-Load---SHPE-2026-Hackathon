@@ -572,24 +572,24 @@ export default function Home() {
     navigate(route)
   }, [prefs.granularity, prefs.readingLevel, dispatch, navigate])
 
-  // Stable poetic greeting — cached in sessionStorage but invalidates each hour
+  // Stable poetic greeting — cached in sessionStorage, invalidates when hour or name changes
   const heroGreeting = useMemo(() => {
     const hour = new Date().getHours()
+    const firstName = (prefs.name && prefs.name !== 'there')
+      ? prefs.name.split(' ')[0]
+      : null
     try {
       const cached = JSON.parse(sessionStorage.getItem(HERO_GREETING_SESSION_KEY) || 'null')
-      // Only reuse cache if it was generated in the same hour
-      if (cached?.text && cached?.hour === hour) return cached.text
+      // Reuse only if same hour AND same name — catches stale caches from old code
+      if (cached?.text && cached?.hour === hour && cached?.name === (firstName ?? '')) return cached.text
     } catch {}
 
     const tod    = getTimeOfDay()
     const pool   = HERO_GREETING_POOLS[tod]
     const phrase = pool[Math.floor(Math.random() * pool.length)]
-    const firstName = (prefs.name && prefs.name !== 'there')
-      ? prefs.name.split(' ')[0]
-      : null
-    const text = firstName ? `${phrase}, ${firstName}` : phrase
+    const text   = firstName ? `${phrase}, ${firstName}` : phrase
 
-    try { sessionStorage.setItem(HERO_GREETING_SESSION_KEY, JSON.stringify({ text, hour })) } catch {}
+    try { sessionStorage.setItem(HERO_GREETING_SESSION_KEY, JSON.stringify({ text, hour, name: firstName ?? '' })) } catch {}
     return text
   }, [prefs.name])
 
