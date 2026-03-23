@@ -287,7 +287,13 @@ function StandaloneFocus({ startBreak = false }) {
   }
 
   return (
-    <div style={{ height: '100vh', width: '100vw', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100vh', width: '100vw', background: 'var(--bg)', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      {/* Ambient glow */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse 60% 50% at 50% 55%, rgba(42,122,144,0.07) 0%, transparent 70%)',
+        zIndex: 0,
+      }} />
       <TopNav />
 
       <motion.div
@@ -988,7 +994,14 @@ export default function FocusMode() {
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       overflow: 'hidden',
+      position: 'relative',
     }}>
+      {/* Ambient glow — breathes at page level, color shifts with timer state */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse 60% 50% at 50% 55%, rgba(42,122,144,0.07) 0%, transparent 70%)',
+        zIndex: 0,
+      }} />
       <AnimatePresence mode="wait">
 
         {/* ════════════════════════════════════════ STATE 1: FOCUSING ══ */}
@@ -1002,8 +1015,8 @@ export default function FocusMode() {
               display: 'flex', flexDirection: 'column',
               alignItems: 'center',
               minHeight: '100vh',
+              position: 'relative', zIndex: 1,
               padding: '18px',
-              position: 'relative',
             }}
           >
             {/* EXIT — top right */}

@@ -198,11 +198,12 @@ function ActiveTaskCard({ task, groupId, groupName, onComplete, onPause, onDelet
       exit={{ opacity: 0, y: -4 }}
       transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
       style={{
-        background: 'var(--bg-card)',
+        background: 'rgba(42,122,144,0.04)',
         border: '1.5px solid var(--color-active)',
-        borderRadius: 12,
+        borderLeft: '3px solid var(--color-active)',
+        borderRadius: 14,
         padding: '0.95rem 1rem',
-        boxShadow: '0 2px 12px rgba(42,122,144,0.09)',
+        boxShadow: '0 4px 20px rgba(42,122,144,0.12)',
       }}
     >
       {/* Header row */}

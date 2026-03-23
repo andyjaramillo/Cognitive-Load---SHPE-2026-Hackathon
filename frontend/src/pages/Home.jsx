@@ -127,8 +127,8 @@ function AiBubble({ content, buttons, navigate, onTaskNavigate }) {
       />
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
         <div style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border)',
+          background: 'rgba(200,148,80,0.07)',
+          border: '1px solid rgba(200,148,80,0.16)',
           borderRadius: '20px 20px 20px 6px',
           padding: '1rem 1.2rem',
           color: 'var(--text-primary)',
@@ -136,7 +136,7 @@ function AiBubble({ content, buttons, navigate, onTaskNavigate }) {
           lineHeight: 1.7,
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
-          boxShadow: '0 2px 14px rgba(90,138,128,0.07)',
+          boxShadow: '0 4px 18px rgba(200,148,80,0.08)',
         }}>
           {clean}
         </div>
