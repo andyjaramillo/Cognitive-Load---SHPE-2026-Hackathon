@@ -267,7 +267,7 @@ function StandaloneFocus({ startBreak = false }) {
                 background: 'var(--bg-card)', border: '1.5px solid var(--border)',
                 borderRadius: 10, padding: '0.65rem 1.2rem',
                 fontSize: '1.05rem', color: 'var(--text-primary)',
-                outline: 'none', textAlign: 'center',
+                outline: 'none', textAlign: 'left',
                 width: '100%', boxSizing: 'border-box',
                 transition: 'border-color 0.2s ease',
                 caretColor: 'transparent',
@@ -284,16 +284,16 @@ function StandaloneFocus({ startBreak = false }) {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0, transition: { duration: 0.15 } }}
                   style={{
-                    position: 'absolute', inset: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    position: 'absolute', top: 0, bottom: 0, left: '1.2rem',
+                    display: 'flex', alignItems: 'center',
                     pointerEvents: 'none',
                   }}
                 >
                   <motion.span
-                    animate={{ y: [0, -5, 0] }}
-                    transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+                    animate={{ y: [0, -10, 0] }}
+                    transition={{ duration: 0.7, repeat: Infinity, ease: [0.45, 0, 0.55, 1] }}
                     style={{
-                      display: 'inline-block', width: 8, height: 8,
+                      display: 'inline-block', width: 9, height: 9,
                       borderRadius: '50%', background: '#5A8A80',
                     }}
                   />
