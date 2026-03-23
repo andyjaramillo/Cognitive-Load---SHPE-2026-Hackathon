@@ -285,7 +285,7 @@ function StandaloneFocus({ startBreak = false }) {
                   style={{
                     position: 'absolute', top: 0, bottom: 0, left: 0, right: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                    pointerEvents: 'none', paddingTop: 10,
+                    pointerEvents: 'none',
                   }}
                 >
                   <span style={{ fontSize: '1.05rem', color: 'var(--text-muted)' }}>
@@ -303,7 +303,7 @@ function StandaloneFocus({ startBreak = false }) {
                       style={{
                         display: 'inline-block', width: 6, height: 6,
                         borderRadius: '50%', background: dot.color,
-                        flexShrink: 0,
+                        flexShrink: 0, alignSelf: 'flex-end', marginBottom: 3,
                       }}
                     />
                   ))}
