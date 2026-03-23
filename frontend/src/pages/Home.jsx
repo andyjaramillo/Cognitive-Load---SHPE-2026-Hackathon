@@ -994,7 +994,7 @@ export default function Home() {
             style={{ flexShrink: 0 }}
             aria-label="Send message"
           >
-            send
+            Send
           </button>
         </div>
       </div>
