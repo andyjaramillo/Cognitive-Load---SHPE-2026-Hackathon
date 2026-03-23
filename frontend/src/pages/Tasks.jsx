@@ -1082,8 +1082,12 @@ export default function Tasks() {
           fontWeight: 400,
           color: 'var(--text-primary)',
           marginBottom: '0.2rem',
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 0,
         }}>
-          your tasks.
+          Your tasks
+          <span aria-hidden="true" style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: '#5A8A80', marginLeft: 5, marginBottom: 2, verticalAlign: 'baseline', flexShrink: 0 }} />
         </h2>
         {allTasks.length > 0 && (
           <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
@@ -1101,7 +1105,7 @@ export default function Tasks() {
         <input
           ref={addInputRef}
           type="text"
-          placeholder="add a task or goal..."
+          placeholder="Add a task or goal..."
           value={addInput}
           onChange={e => setAddInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleAdd()}
