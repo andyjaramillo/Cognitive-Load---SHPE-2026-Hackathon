@@ -205,8 +205,17 @@ class DocIntelligenceService:
 def _build_text(result) -> str:
     """
     Concatenate extracted text from all pages into a single clean string.
-    Preserves paragraph breaks between pages. Strips excessive whitespace.
+
+    Prefers result.content (available in azure-ai-formrecognizer 3.3.x and
+    azure-ai-documentintelligence) which is the canonical full-text string
+    returned by prebuilt-read. Falls back to assembling from page.lines for
+    older SDK behaviour.
     """
+    # Preferred path: direct content string on the result object
+    if getattr(result, "content", None):
+        return result.content.strip()
+
+    # Fallback: assemble from pages → lines
     if not result.pages:
         return ""
 
