@@ -121,10 +121,10 @@ function StandaloneFocus({ startBreak = false }) {
           style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '2rem' }}
         >
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 400, color: 'var(--text-primary)', margin: 0 }}>
-            Taking a break.
+            taking a break.
           </h2>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 28px' }}>
-            No rush.
+            no rush.
           </p>
           <BreathingCircle />
           <motion.button
@@ -139,7 +139,7 @@ function StandaloneFocus({ startBreak = false }) {
               border: 'none', cursor: 'pointer',
             }}
           >
-            I'm back
+            i'm back
           </motion.button>
         </motion.div>
       </div>
@@ -1251,10 +1251,10 @@ export default function FocusMode() {
             }}
           >
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, color: 'var(--text-primary)', margin: 0 }}>
-              Taking a break.
+              taking a break.
             </h2>
             <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 28px' }}>
-              No rush.
+              no rush.
             </p>
 
             <BreathingCircle />
@@ -1280,7 +1280,7 @@ export default function FocusMode() {
                 border: 'none', cursor: 'pointer',
               }}
             >
-              I'm back
+              i'm back
             </motion.button>
           </motion.div>
         )}

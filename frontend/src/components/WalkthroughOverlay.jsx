@@ -101,6 +101,7 @@ export default function WalkthroughOverlay({ onComplete }) {
 
   const finish = useCallback(async () => {
     setVisible(false)
+    try { localStorage.setItem('pebble_walkthrough_complete', 'true') } catch {}
     try {
       await savePreferences({ walkthrough_complete: true })
     } catch { /* best effort */ }

@@ -24,15 +24,22 @@ export default function App() {
   useEffect(() => {
     fetchPreferences()
       .then(p => {
-        // Persist onboarding status to localStorage as a fallback for offline/error cases
-        if (p.onboarding_complete) {
-          try { localStorage.setItem('pebble_onboarding_complete', 'true') } catch {}
+        // Persist completion flags to localStorage so offline/error refreshes don't reset them
+        if (p.onboarding_complete)  try { localStorage.setItem('pebble_onboarding_complete',  'true') } catch {}
+        if (p.walkthrough_complete) try { localStorage.setItem('pebble_walkthrough_complete', 'true') } catch {}
+
+        // If Cosmos returns undefined for a completion flag, fall back to localStorage
+        // (handles edge case where Cosmos record is stale or partially written)
+        let walkthroughComplete = p.walkthrough_complete
+        if (!walkthroughComplete) {
+          try { walkthroughComplete = localStorage.getItem('pebble_walkthrough_complete') === 'true' } catch {}
         }
+
         dispatch(prefsActions.setPrefs({
           name:               p.name,
           communicationStyle: p.communication_style,
           onboardingComplete: p.onboarding_complete,
-          walkthroughComplete: p.walkthrough_complete,
+          walkthroughComplete,
           readingLevel: p.reading_level,
           fontChoice:   p.font_choice,
           bionicReading: p.bionic_reading,
@@ -49,11 +56,12 @@ export default function App() {
         }
       })
       .catch(() => {
-        // Backend unreachable — use localStorage fallback so the user doesn't
-        // get looped back into onboarding every time there's a network hiccup
-        let onboardingComplete = false
-        try { onboardingComplete = localStorage.getItem('pebble_onboarding_complete') === 'true' } catch {}
-        dispatch(prefsActions.setPrefs({ onboardingComplete }))
+        // Backend unreachable — restore both completion flags from localStorage
+        let onboardingComplete  = false
+        let walkthroughComplete = false
+        try { onboardingComplete  = localStorage.getItem('pebble_onboarding_complete')  === 'true' } catch {}
+        try { walkthroughComplete = localStorage.getItem('pebble_walkthrough_complete') === 'true' } catch {}
+        dispatch(prefsActions.setPrefs({ onboardingComplete, walkthroughComplete }))
       })
   }, [dispatch]) // eslint-disable-line react-hooks/exhaustive-deps
 
