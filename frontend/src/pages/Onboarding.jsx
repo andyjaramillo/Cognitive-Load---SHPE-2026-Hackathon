@@ -71,7 +71,7 @@ function ChoiceCard({ label, sub, selected, dimmed, fontCss, onClick }) {
     >
       <div style={{
         width: 6, height: 6, borderRadius: '50%',
-        background: selected ? '#5A8A80' : 'var(--border)',
+        background: selected ? '#5A8A80' : 'rgba(200,148,80,0.55)',
         marginTop: 5, flexShrink: 0,
         transition: 'background 0.2s ease, transform 0.2s ease',
         transform: selected ? 'scale(1.4)' : 'scale(1)',
@@ -680,7 +680,7 @@ export default function Onboarding() {
                     width:        s === stage ? 16 : 6,
                     height:       6,
                     borderRadius: 3,
-                    background:   s === stage ? '#5A8A80' : 'var(--border)',
+                    background:   s === stage ? '#5A8A80' : 'rgba(200,148,80,0.38)',
                     transition:   'all 0.3s ease',
                   }} />
                 ))}

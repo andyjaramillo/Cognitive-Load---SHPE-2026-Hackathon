@@ -416,7 +416,7 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive, 
           </div>
 
           {/* Mini progress bar */}
-          <div style={{ width: 56, height: 3, background: 'var(--border)', borderRadius: 99, flexShrink: 0 }}>
+          <div style={{ width: 56, height: 3, background: 'rgba(200,148,80,0.22)', borderRadius: 99, flexShrink: 0 }}>
             <motion.div
               animate={{ width: totalUnpaused > 0 ? `${(doneCount / totalUnpaused) * 100}%` : '0%' }}
               transition={{ duration: 0.4, ease: 'easeOut' }}
@@ -1180,13 +1180,13 @@ export default function Tasks() {
             <motion.div
               animate={{ scale: [0.85, 1.1, 0.85], opacity: [0.4, 1, 0.4] }}
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--color-active)', margin: '0 auto 1.1rem' }}
+              style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--color-ai)', margin: '0 auto 1.1rem' }}
             />
             <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: '0.4rem', fontWeight: 400 }}>
-              nothing here yet.
+              Nothing here yet.
             </p>
             <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-              add a goal above and i'll break it into steps.
+              Add a goal above and I'll break it into steps.
             </p>
           </motion.div>
         ) : (
