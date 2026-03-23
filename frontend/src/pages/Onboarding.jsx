@@ -541,40 +541,51 @@ export default function Onboarding() {
         {/* Welcome — breathes in, waits for the user to begin */}
         {stage === 'welcome' && (
           <motion.div key="welcome" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.5 } }} exit={EXIT}
-            style={{ textAlign: 'center', padding: '2.5rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+            style={{ textAlign: 'center', padding: '2.5rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.2rem' }}>
 
-            {/* Breathing Pebble dot */}
+            {/* Logo — "Pebble" + inline pulsing dot, matching TopNav brand mark */}
             <motion.div
-              animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ width: 10, height: 10, borderRadius: '50%', background: '#5A8A80', marginBottom: '0.5rem' }}
-            />
-
-            <motion.h1
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0, transition: { duration: 0.65, delay: 0.2, ease: [0.4, 0, 0.2, 1] } }}
-              style={{
-                fontFamily:   '"DM Serif Display", Georgia, serif',
-                fontSize:     'clamp(24px, 5vw, 32px)',
-                fontWeight:   400,
-                color:        'var(--text-primary)',
-                margin:       0,
-                lineHeight:   1.2,
-              }}
+              style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}
             >
-              Pebble.
-            </motion.h1>
+              <span style={{
+                fontFamily:  '"DM Serif Display", Georgia, serif',
+                fontSize:    'clamp(32px, 6vw, 44px)',
+                fontWeight:  400,
+                color:       'var(--text-primary)',
+                lineHeight:  1.1,
+              }}>
+                Pebble
+              </span>
+              <motion.span
+                aria-hidden="true"
+                animate={{ scale: [0.85, 1.18, 0.85], opacity: [0.6, 1, 0.6] }}
+                transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+                style={{
+                  display:      'inline-block',
+                  width:        10,
+                  height:       10,
+                  borderRadius: '50%',
+                  background:   '#5A8A80',
+                  marginLeft:   4,
+                  marginBottom: 3,
+                  verticalAlign: 'baseline',
+                  flexShrink:   0,
+                }}
+              />
+            </motion.div>
 
             <motion.p
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0, transition: { duration: 0.6, delay: 0.55, ease: [0.4, 0, 0.2, 1] } }}
               style={{
-                fontSize: '0.92rem',
-                color: 'var(--text-muted)',
-                letterSpacing: '0.06em',
-                lineHeight: 1.6,
-                margin: 0,
-                fontWeight: 300,
+                fontSize:      '0.95rem',
+                color:         'var(--text-secondary)',
+                letterSpacing: '0.08em',
+                lineHeight:    1.6,
+                margin:        0,
+                fontWeight:    400,
               }}
             >
               a calm place to start
@@ -587,21 +598,21 @@ export default function Onboarding() {
               whileHover={{ opacity: 0.85 }}
               whileTap={{ scale: 0.97 }}
               style={{
-                marginTop:    '1rem',
-                background:   'var(--color-active)',
-                color:        '#fff',
-                border:       'none',
-                borderRadius: 24,
-                padding:      '0.75rem 2.2rem',
-                fontSize:     '0.92rem',
-                fontWeight:   500,
-                cursor:       'pointer',
-                minHeight:    44,
-                letterSpacing: '0.03em',
-                transition:   'opacity 0.2s ease',
+                marginTop:     '0.5rem',
+                background:    'var(--color-active)',
+                color:         '#fff',
+                border:        'none',
+                borderRadius:  24,
+                padding:       '0.78rem 2.4rem',
+                fontSize:      '0.95rem',
+                fontWeight:    500,
+                cursor:        'pointer',
+                minHeight:     44,
+                letterSpacing: '0.02em',
+                transition:    'opacity 0.2s ease',
               }}
             >
-              let's begin
+              Let's begin
             </motion.button>
           </motion.div>
         )}
