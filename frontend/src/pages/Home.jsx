@@ -587,7 +587,7 @@ export default function Home() {
     const firstName = (prefs.name && prefs.name !== 'there')
       ? prefs.name.split(' ')[0].toLowerCase()
       : null
-    const text = firstName ? `${phrase}, ${firstName}.` : `${phrase}.`
+    const text = firstName ? `${phrase}, ${firstName}` : phrase
 
     try { sessionStorage.setItem(HERO_GREETING_SESSION_KEY, JSON.stringify({ text, hour })) } catch {}
     return text
@@ -647,6 +647,21 @@ export default function Home() {
               }}
             >
               {heroGreeting}
+              <motion.span
+                aria-hidden="true"
+                animate={{ scale: [0.85, 1.18, 0.85], opacity: [0.6, 1, 0.6] }}
+                transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+                style={{
+                  display:      'inline-block',
+                  width:        10,
+                  height:       10,
+                  borderRadius: '50%',
+                  background:   '#5A8A80',
+                  marginLeft:   6,
+                  marginBottom: 4,
+                  verticalAlign: 'baseline',
+                }}
+              />
             </motion.h1>
 
             {/* Pebble's live greeting — streams from API into heroText, never into messages */}
