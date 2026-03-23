@@ -56,6 +56,10 @@
   --color-paused: #9A88B4;      /* lilac — paused, reflective */
   --color-ai: #E0A060;          /* soft orange — AI companion voice */
   --color-inactive: #B4AA9A;    /* warm gray — inactive, unfilled */
+
+  /* User-chosen Pebble identity color — set via JS in App.jsx */
+  --color-pebble: #5A8A80;
+  --color-pebble-soft: rgba(90,138,128,0.12);
 }
 
 /* ── Morning (6am–12pm): peach sunrise ─────────────────────────────────── */
@@ -389,7 +393,7 @@ input:focus, textarea:focus {
   transition: background var(--transition), color var(--transition);
 }
 .top-nav__item:hover { background: var(--accent-soft); color: var(--accent); text-decoration: none; }
-.top-nav__item.active { background: rgba(42,122,144,0.1); color: var(--accent); }
+.top-nav__item.active { background: var(--color-pebble-soft); color: var(--color-pebble); }
 
 .top-nav__right {
   display: flex;
@@ -478,10 +482,10 @@ input:focus, textarea:focus {
 }
 .btn:active { transform: scale(0.97); }
 .btn-primary {
-  background: var(--accent);
+  background: var(--color-pebble);
   color: #fff;
 }
-.btn-primary:hover { background: color-mix(in srgb, var(--accent) 85%, black); }
+.btn-primary:hover { background: color-mix(in srgb, var(--color-pebble) 85%, black); }
 .btn-ghost {
   background: transparent;
   color: var(--text-secondary);

@@ -13,6 +13,13 @@ import Settings from './pages/Settings'
 import Onboarding from './pages/Onboarding'
 import './styles/global.css'
 
+const PEBBLE_COLORS = {
+  sage:  { hex: '#5A8A80', soft: 'rgba(90,138,128,0.12)' },
+  amber: { hex: '#C89450', soft: 'rgba(200,148,80,0.12)' },
+  lilac: { hex: '#9A88B4', soft: 'rgba(154,136,180,0.12)' },
+  sky:   { hex: '#6A96B8', soft: 'rgba(106,150,184,0.12)' },
+}
+
 export default function App() {
   const dispatch = useDispatch()
   const prefs = useSelector(s => s.prefs)
@@ -49,6 +56,7 @@ export default function App() {
           focusMode:    p.focus_mode,
           granularity:  p.granularity,
           colorTheme:   p.color_theme,
+          pebbleColor:  p.pebble_color || 'sage',
         }))
         // Always land on home after a fresh load (unless in focus mode)
         if (location.pathname !== '/focus') {
@@ -88,7 +96,11 @@ export default function App() {
     root.setAttribute('data-font', prefs.fontChoice || 'default')
     root.style.setProperty('--line-height', prefs.lineHeight ?? 1.6)
     root.style.setProperty('--letter-spacing', `${prefs.letterSpacing ?? 0}px`)
-  }, [prefs.colorTheme, prefs.fontChoice, prefs.lineHeight, prefs.letterSpacing])
+    // Pebble identity color
+    const pc = PEBBLE_COLORS[prefs.pebbleColor] || PEBBLE_COLORS.sage
+    root.style.setProperty('--color-pebble', pc.hex)
+    root.style.setProperty('--color-pebble-soft', pc.soft)
+  }, [prefs.colorTheme, prefs.fontChoice, prefs.lineHeight, prefs.letterSpacing, prefs.pebbleColor])
 
   // Prefs not yet loaded — show a minimal centered dot so there's no flash
   if (!prefs.loaded) {

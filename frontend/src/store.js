@@ -35,6 +35,7 @@ const prefsSlice = createSlice({
     focusMode:    false,
     granularity:  'normal',
     colorTheme:   'calm',
+    pebbleColor:  'sage',
     loaded:       false,
   },
   reducers: {
