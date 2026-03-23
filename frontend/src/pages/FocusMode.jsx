@@ -267,7 +267,7 @@ function StandaloneFocus({ startBreak = false }) {
                 background: 'var(--bg-card)', border: '1.5px solid var(--border)',
                 borderRadius: 10, padding: '0.65rem 1.2rem',
                 fontSize: '1.05rem', color: 'var(--text-primary)',
-                outline: 'none', textAlign: 'left',
+                outline: 'none', textAlign: 'center',
                 width: '100%', boxSizing: 'border-box',
                 transition: 'border-color 0.2s ease',
               }}
@@ -283,13 +283,13 @@ function StandaloneFocus({ startBreak = false }) {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0, transition: { duration: 0.12 } }}
                   style={{
-                    position: 'absolute', top: 0, bottom: 0, left: '1.2rem',
-                    display: 'flex', alignItems: 'center', gap: 5,
+                    position: 'absolute', top: 0, bottom: 0, left: 0, right: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                     pointerEvents: 'none',
                   }}
                 >
                   <span style={{ fontSize: '1.05rem', color: 'var(--text-muted)' }}>
-                    name this session
+                    Name this session
                   </span>
                   {[
                     { color: '#5A8A80', delay: 0 },
