@@ -303,7 +303,7 @@ function StandaloneFocus({ startBreak = false }) {
                       style={{
                         display: 'inline-block', width: 6, height: 6,
                         borderRadius: '50%', background: dot.color,
-                        flexShrink: 0, alignSelf: 'flex-end', marginBottom: 3,
+                        flexShrink: 0, alignSelf: 'flex-end', marginBottom: 7,
                       }}
                     />
                   ))}
