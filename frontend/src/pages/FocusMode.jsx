@@ -299,7 +299,7 @@ function StandaloneFocus({ startBreak = false }) {
                     <motion.span
                       key={i}
                       animate={{ y: [0, -6, 0] }}
-                      transition={{ duration: 0.65, repeat: Infinity, ease: 'easeInOut', delay: dot.delay, repeatDelay: 0.3 }}
+                      transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut', delay: dot.delay, repeatDelay: 0.5 }}
                       style={{
                         display: 'inline-block', width: 6, height: 6,
                         borderRadius: '50%', background: dot.color,
