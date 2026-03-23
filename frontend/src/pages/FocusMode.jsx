@@ -255,24 +255,52 @@ function StandaloneFocus({ startBreak = false }) {
           style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18, padding: '2rem', paddingBottom: '20vh' }}
         >
           <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, letterSpacing: '0.02em' }}>What are you focusing on?</p>
-          <input
-            autoFocus
-            type="text"
-            placeholder="name this session..."
-            value={topicInput}
-            onChange={e => setTopicInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && (topicInput.trim() ? (setFocusTopic(topicInput.trim()), setTopicSet(true)) : setTopicSet(true))}
-            style={{
-              background: 'var(--bg-card)', border: '1.5px solid var(--border)',
-              borderRadius: 10, padding: '0.65rem 1.2rem',
-              fontSize: '1.05rem', color: 'var(--text-primary)',
-              outline: 'none', textAlign: 'center',
-              width: '100%', maxWidth: 300,
-              transition: 'border-color 0.2s ease',
-            }}
-            onFocus={e => { e.target.style.borderColor = 'var(--color-active)' }}
-            onBlur={e => { e.target.style.borderColor = 'var(--border)' }}
-          />
+          <div style={{ position: 'relative', width: '100%', maxWidth: 300 }}>
+            <input
+              autoFocus
+              type="text"
+              placeholder=""
+              value={topicInput}
+              onChange={e => setTopicInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && (topicInput.trim() ? (setFocusTopic(topicInput.trim()), setTopicSet(true)) : setTopicSet(true))}
+              style={{
+                background: 'var(--bg-card)', border: '1.5px solid var(--border)',
+                borderRadius: 10, padding: '0.65rem 1.2rem',
+                fontSize: '1.05rem', color: 'var(--text-primary)',
+                outline: 'none', textAlign: 'center',
+                width: '100%', boxSizing: 'border-box',
+                transition: 'border-color 0.2s ease',
+                caretColor: 'transparent',
+              }}
+              onFocus={e => { e.target.style.borderColor = 'var(--color-active)' }}
+              onBlur={e => { e.target.style.borderColor = 'var(--border)' }}
+            />
+            {/* Bouncing Pebble dot — shows when input is empty, hides once typing starts */}
+            <AnimatePresence>
+              {topicInput === '' && (
+                <motion.div
+                  key="waiting-dot"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                  style={{
+                    position: 'absolute', inset: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <motion.span
+                    animate={{ y: [0, -5, 0] }}
+                    transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+                    style={{
+                      display: 'inline-block', width: 8, height: 8,
+                      borderRadius: '50%', background: '#5A8A80',
+                    }}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <Btn color="active" onClick={() => { setFocusTopic(topicInput.trim()); setTopicSet(true) }}>
               Start

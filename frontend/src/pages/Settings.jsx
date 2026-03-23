@@ -300,6 +300,7 @@ export default function Settings() {
               setState: setClearChatState,
               onConfirm: async () => {
                 await clearChatHistory()
+                try { localStorage.removeItem('pebble_chat_sessions') } catch {}
                 setClearChatState('done')
                 setTimeout(() => setClearChatState(null), 2000)
               },
