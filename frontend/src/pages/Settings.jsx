@@ -136,7 +136,7 @@ export default function Settings() {
             Settings.
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem' }}>
-            Adjust how Pebble looks and feels — changes apply instantly.
+            adjust how pebble looks and feels — changes apply instantly.
           </p>
         </motion.div>
 
@@ -322,9 +322,15 @@ export default function Settings() {
               state: clearTasksState,
               setState: setClearTasksState,
               onConfirm: async () => {
-                await saveTasks([])
-                dispatch(tasksActions.clearAll())
-                setClearTasksState('done')
+                try {
+                  await saveTasks([])
+                  dispatch(tasksActions.clearAll())
+                  setClearTasksState('done')
+                } catch {
+                  // Backend call failed — don't wipe local state, let user try again
+                  setClearTasksState(null)
+                  return
+                }
                 setTimeout(() => setClearTasksState(null), 2000)
               },
             },

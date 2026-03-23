@@ -205,12 +205,7 @@ export default function Onboarding() {
     if (stage === 'name') setTimeout(() => nameRef.current?.focus(), 320)
   }, [stage])
 
-  // Welcome → name (hold ~3.5s after lines animate in)
-  useEffect(() => {
-    if (stage !== 'welcome') return
-    const t = setTimeout(() => setStage('name'), 3600)
-    return () => clearTimeout(t)
-  }, [stage])
+  // Welcome stage advances only on explicit button click — no auto-advance
 
   // Meet → q2 (hold 1.5s)
   useEffect(() => {
@@ -543,30 +538,71 @@ export default function Onboarding() {
     }}>
       <AnimatePresence mode="wait">
 
-        {/* Welcome — special internal stagger, never shares a key with the other wrapper */}
+        {/* Welcome — breathes in, waits for the user to begin */}
         {stage === 'welcome' && (
-          <motion.div key="welcome" initial={{ opacity: 1 }} exit={EXIT}
-            style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
+          <motion.div key="welcome" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.5 } }} exit={EXIT}
+            style={{ textAlign: 'center', padding: '2.5rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+
+            {/* Breathing Pebble dot */}
+            <motion.div
+              animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+              style={{ width: 10, height: 10, borderRadius: '50%', background: '#5A8A80', marginBottom: '0.5rem' }}
+            />
+
             <motion.h1
               initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.4, 0, 0.2, 1] } }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.65, delay: 0.2, ease: [0.4, 0, 0.2, 1] } }}
               style={{
                 fontFamily:   '"DM Serif Display", Georgia, serif',
-                fontSize:     'clamp(22px, 5vw, 28px)',
+                fontSize:     'clamp(24px, 5vw, 32px)',
+                fontWeight:   400,
                 color:        'var(--text-primary)',
                 margin:       0,
-                marginBottom: '0.65rem',
+                lineHeight:   1.2,
               }}
             >
-              Welcome to Pebble.
+              Pebble.
             </motion.h1>
+
             <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0, transition: { duration: 0.6, delay: 0.45, ease: [0.4, 0, 0.2, 1] } }}
-              style={{ fontSize: 14, color: 'var(--text-secondary)', letterSpacing: '0.2px', lineHeight: 1.7, margin: 0 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.6, delay: 0.55, ease: [0.4, 0, 0.2, 1] } }}
+              style={{
+                fontSize: '0.92rem',
+                color: 'var(--text-muted)',
+                letterSpacing: '0.06em',
+                lineHeight: 1.6,
+                margin: 0,
+                fontWeight: 300,
+              }}
             >
-              I'm here to make the overwhelming feel smaller.
+              a calm place to start
             </motion.p>
+
+            <motion.button
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: 1.0, ease: [0.4, 0, 0.2, 1] } }}
+              onClick={() => setStage('name')}
+              whileHover={{ opacity: 0.85 }}
+              whileTap={{ scale: 0.97 }}
+              style={{
+                marginTop:    '1rem',
+                background:   'var(--color-active)',
+                color:        '#fff',
+                border:       'none',
+                borderRadius: 24,
+                padding:      '0.75rem 2.2rem',
+                fontSize:     '0.92rem',
+                fontWeight:   500,
+                cursor:       'pointer',
+                minHeight:    44,
+                letterSpacing: '0.03em',
+                transition:   'opacity 0.2s ease',
+              }}
+            >
+              let's begin
+            </motion.button>
           </motion.div>
         )}
 

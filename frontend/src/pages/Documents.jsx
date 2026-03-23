@@ -335,7 +335,7 @@ export default function Documents() {
       }
       setPhase('question')
     } catch {
-      setFileError("Something went quiet. Try again or paste the text directly.")
+      setFileError("something went quiet. try again or paste the text directly.")
     }
     setIsLoading(false)
   }
@@ -417,11 +417,9 @@ export default function Documents() {
     // Build conversation history for Pebble
     const history = qaMessages.map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.text }))
     const docContext = docText.slice(0, 1500)
-    // Prepend doc context on first user question (history may have an initial AI message already)
-    const hasUserTurn = history.some(m => m.role === 'user')
-    const messageWithContext = !hasUserTurn
-      ? `[document context: "${docContext}"]\n\n${q}`
-      : q
+    // Always include doc context so Pebble knows what document is being discussed,
+    // regardless of how many Q&A turns have already happened.
+    const messageWithContext = `[document context: "${docContext}"]\n\n${q}`
 
     setQaMessages(prev => [...prev, { role: 'user', text: q }])
     setQaInput('')
@@ -452,7 +450,7 @@ export default function Documents() {
         }),
         onDone: () => setQaStreaming(false),
         onError: () => {
-          setQaMessages(prev => [...prev, { role: 'ai', text: "Something went quiet. Try asking again?" }])
+          setQaMessages(prev => [...prev, { role: 'ai', text: "something went quiet. try asking again?" }])
           setQaStreaming(false)
         },
       },

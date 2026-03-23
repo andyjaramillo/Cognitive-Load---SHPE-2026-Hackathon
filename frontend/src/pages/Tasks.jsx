@@ -680,7 +680,7 @@ function BreakdownChatPanel({ task, groupId, onClose, onReplaceTask }) {
   useEffect(() => {
     if (initialSent.current) return
     initialSent.current = true
-    const seed = `I want to break down this task: "${task.task_name}"${task.duration_minutes > 0 ? ` (about ${task.duration_minutes} minutes)` : ''}. Walk me through the smaller steps to get this done.`
+    const seed = `I want to break down this task: "${task.task_name}"${task.duration_minutes > 0 ? ` (about ${task.duration_minutes} min)` : ''}. walk me through the smaller steps to get this done.`
     sendChat(seed, [])
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1425,6 +1425,7 @@ export default function Tasks() {
           }}
         >
           <BreakdownChatPanel
+            key={breakdownTask?.task?.id}
             task={breakdownTask.task}
             groupId={breakdownTask.groupId}
             onClose={() => setBreakdownTask(null)}

@@ -311,6 +311,7 @@ export default function Home() {
   const messagesEndRef = useRef(null)
   const inputRef       = useRef(null)
   const historyRef     = useRef(null)
+  const streamIdRef    = useRef(0)
 
   // Close session history dropdown on outside click
   useEffect(() => {
@@ -339,6 +340,11 @@ export default function Home() {
   // ── Core streaming function ──────────────────────────────────────────── //
 
   const sendMessage = useCallback(async (userText, isGreeting = false, currentMsgs) => {
+    // Assign a unique ID to this stream invocation. Any callback that fires after
+    // a newer stream has started will see a mismatched ID and bail out, preventing
+    // duplicate messages from two concurrent streams.
+    const myId = ++streamIdRef.current
+
     setIsStreaming(true)
     setStreamingContent('')
     setPendingButtons([])
@@ -364,19 +370,23 @@ export default function Home() {
       },
       {
         onToken: token => {
+          if (streamIdRef.current !== myId) return
           accumulated += token
           setStreamingContent(accumulated)
         },
         onActions: buttons => {
+          if (streamIdRef.current !== myId) return
           accButtons = buttons
           setPendingButtons(buttons)
         },
         onReplace: content => {
+          if (streamIdRef.current !== myId) return
           replaced = true
           setStreamingContent('')
           setMessages(prev => [...prev, { id: genId(), role: 'assistant', content: stripMarkdown(stripActions(content)), buttons: [] }])
         },
         onDone: () => {
+          if (streamIdRef.current !== myId) return
           if (!replaced && accumulated) {
             setMessages(prev => [...prev, {
               id:      genId(),
@@ -390,6 +400,7 @@ export default function Home() {
           setIsStreaming(false)
         },
         onError: msg => {
+          if (streamIdRef.current !== myId) return
           setMessages(prev => [...prev, {
             id:      genId(),
             role:    'assistant',
