@@ -132,11 +132,12 @@ export default function Settings() {
         style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '560px', width: '100%' }}
       >
         <motion.div variants={staggerItem}>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 400, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
-            Settings.
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 400, color: 'var(--text-primary)', marginBottom: '0.35rem', display: 'flex', alignItems: 'baseline', gap: 0 }}>
+            Settings
+            <span aria-hidden="true" style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: '#5A8A80', marginLeft: 5, marginBottom: 2, verticalAlign: 'baseline', flexShrink: 0 }} />
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem' }}>
-            adjust how pebble looks and feels — changes apply instantly.
+            Adjust how Pebble looks and feels — changes apply instantly.
           </p>
         </motion.div>
 

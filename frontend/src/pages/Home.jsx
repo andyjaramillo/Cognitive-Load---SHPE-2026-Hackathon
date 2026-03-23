@@ -585,7 +585,7 @@ export default function Home() {
     const pool   = HERO_GREETING_POOLS[tod]
     const phrase = pool[Math.floor(Math.random() * pool.length)]
     const firstName = (prefs.name && prefs.name !== 'there')
-      ? prefs.name.split(' ')[0].toLowerCase()
+      ? prefs.name.split(' ')[0]
       : null
     const text = firstName ? `${phrase}, ${firstName}` : phrase
 

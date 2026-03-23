@@ -480,11 +480,12 @@ export default function Documents() {
             >
               {/* Heading */}
               <motion.div variants={staggerItem} style={{ textAlign: 'center' }}>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
-                  share what's overwhelming you.
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', color: 'var(--text-primary)', marginBottom: '0.4rem', display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0 }}>
+                  Share what's overwhelming you
+                  <span aria-hidden="true" style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: '#5A8A80', marginLeft: 5, marginBottom: 2, verticalAlign: 'baseline', flexShrink: 0 }} />
                 </h2>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>
-                  we'll make it make sense.
+                  We'll make it make sense.
                 </p>
               </motion.div>
 
