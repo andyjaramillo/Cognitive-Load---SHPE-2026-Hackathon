@@ -176,7 +176,11 @@ class AIService:
                 {"role": "user", "content": user_msg},
             ],
         )
-        return resp.choices[0].message.content.strip()
+        msg = resp.choices[0].message.content.strip()
+        # GPT sometimes wraps the response in quotes (imitating example format) — strip them
+        if len(msg) >= 2 and msg[0] == '"' and msg[-1] == '"':
+            msg = msg[1:-1]
+        return msg
 
     # ------------------------------------------------------------------ #
     #  Companion Chat (streaming)                                          #
