@@ -591,7 +591,7 @@ def _fmt_block_5(now: datetime, sessions: list[dict]) -> str:
                 last_visit = "recently"
 
     block = f"""Current time context:
-- Time: {time_str} ({time_label})
+- Time of day: {time_label}
 - Day: {day_name}
 - Last visit: {last_visit}"""
 
