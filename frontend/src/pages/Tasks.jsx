@@ -374,7 +374,7 @@ function UpcomingTaskRow({ task, dimmed, onComplete, onMakeActive }) {
 
 // ── TaskGroupCard ─────────────────────────────────────────────────────────── //
 
-function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive, onStartNewGroup }) {
+function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive, onStartNewGroup, onChatRequest }) {
   const dispatch = useDispatch()
   const navigate = useNavigate()
 
@@ -539,7 +539,7 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive, 
                           onComplete={() => handleComplete(activeTask.id)}
                           onPause={() => dispatch(tasksActions.pauseTask({ groupId: group.id, taskId: activeTask.id }))}
                           onDelete={() => dispatch(tasksActions.deleteTask({ groupId: group.id, taskId: activeTask.id }))}
-                          onChatRequest={handleChatRequest}
+                          onChatRequest={onChatRequest}
                         />
                       </div>
                     )}
@@ -905,6 +905,7 @@ export default function Tasks() {
                 onToggle={() => toggleGroup(g.id)}
                 timeFilter={timeFilter}
                 timeFilterActive={timeFilterActive}
+                onChatRequest={handleChatRequest}
                 onStartNewGroup={() => {
                   setTimeout(() => {
                     addInputRef.current?.focus()

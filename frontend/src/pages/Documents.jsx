@@ -312,7 +312,7 @@ export default function Documents() {
           setIsLoading(false)
           return
         }
-        const text = res.text || ''
+        const text = res.extracted_text || ''
         const pages = res.page_count || 1
         const ext = file.name.split('.').pop().toUpperCase()
         const detectedType = detectDocType(text, file.name)
