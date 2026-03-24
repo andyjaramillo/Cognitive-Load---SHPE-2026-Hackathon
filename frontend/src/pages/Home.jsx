@@ -3,7 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { tasksActions } from '../store'
-import { chatStream, suggestTask, saveTasks, loadConversation, loadDocuments } from '../utils/api'
+import { chatStream, suggestTask, saveTasks, loadConversation, loadDocuments, generateSessionTitle } from '../utils/api'
+import { splitIntoBubbles, renderMarkdown } from '../utils/bubbles'
+import { PriorityPicker } from '../components/PriorityChip'
+
+// Map GPT-4o's human-readable priority string → integer (used when parsing suggest_task actions)
+const PRIORITY_STR_TO_INT = { high: 1, normal: 2, low: 3 }
 
 // ── Constants ─────────────────────────────────────────────────────────── //
 
@@ -25,22 +30,47 @@ function loadSessions() {
 
 const SKIP_TITLE_TEXTS = ['What was I working on?', 'what was i working on?']
 
-function archiveSession(messages) {
-  // Find the first real user message (skip the "What was I working on?" button text)
-  const firstMeaningful = messages.find(
-    m => m.role === 'user' && !SKIP_TITLE_TEXTS.includes(m.content.trim())
+// Archive a session with a placeholder title, then async-update it with an AI title.
+// Returns the session id so callers can react to state changes.
+function archiveSession(messages, onTitleUpdate) {
+  const meaningful = messages.filter(
+    m => (m.role === 'user' || m.role === 'assistant') &&
+         !SKIP_TITLE_TEXTS.includes(m.content?.trim()) &&
+         m.content?.trim()
   )
-  if (!firstMeaningful) return   // nothing worth archiving
-  const sessions = loadSessions()
-  const title = firstMeaningful.content.slice(0, 58)
+  if (!meaningful.some(m => m.role === 'user')) return null  // nothing worth archiving
+
+  const firstUser = meaningful.find(m => m.role === 'user')
+  const placeholderTitle = firstUser ? firstUser.content.slice(0, 58) : 'conversation'
+
+  const sessionId = Math.random().toString(36).slice(2, 10)
   const session = {
-    id: Math.random().toString(36).slice(2, 10),
+    id: sessionId,
     createdAt: new Date().toISOString(),
-    title,
+    title: placeholderTitle,
     msgCount: messages.filter(m => m.role === 'user').length,
     messages: messages.slice(-50),
   }
-  localStorage.setItem(SESSIONS_KEY, JSON.stringify([session, ...sessions].slice(0, 8)))
+
+  const existing = loadSessions()
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify([session, ...existing].slice(0, 12)))
+
+  // Async: generate a real AI title and patch it in localStorage + notify caller
+  const apiMessages = meaningful.slice(0, 12).map(m => ({ role: m.role, content: m.content }))
+  generateSessionTitle(apiMessages).then(aiTitle => {
+    if (!aiTitle) return
+    try {
+      const sessions = loadSessions()
+      const idx = sessions.findIndex(s => s.id === sessionId)
+      if (idx !== -1) {
+        sessions[idx].title = aiTitle
+        localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions))
+        onTitleUpdate?.(loadSessions())
+      }
+    } catch {}
+  })
+
+  return sessionId
 }
 
 const LOADING_PHRASES = [
@@ -106,12 +136,15 @@ const genId = () => Math.random().toString(36).slice(2, 10)
 const GREETING_DEDUPE_KEY = 'pebble_home_greeting_ts'
 const GREETING_DEDUPE_WINDOW_MS = 2500
 
-// Strip ###ACTIONS[...]### markers that leaked through from the token stream
+// Strip ###ACTIONS[...]### markers that leaked through from the token stream.
+// Also strips em dashes — GPT-4o sometimes ignores the voice rule even when told not to.
 // Also handles incomplete markers (stream cut off before closing ###)
 function stripActions(text) {
   if (!text) return ''
   return text
     .replace(/###ACTIONS\[[\s\S]*?\]###/g, '')   // complete marker
+    .replace(/\u2014|\u2013/g, ' ')               // em dash (—) and en dash (–) → space
+    .replace(/ {2,}/g, ' ')                        // collapse double spaces from the replacement
     .replace(/###ACTIONS\[[\s\S]*/g, '')           // incomplete marker (no closing ###)
     .trim()
 }
@@ -143,12 +176,11 @@ const AI_BUBBLE_STYLE = {
 
 function PulseDot({ phrase }) {
   const text = phrase ?? getLoadingPhrase()
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   return (
     <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'flex-start', maxWidth: '85%' }}>
-      {/* Pebble dot avatar */}
-      <motion.div
-        animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
-        transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+      {/* Pebble dot avatar — static brand identity dot, not an animation */}
+      <div
         style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '1.05rem' }}
       />
       <div style={{
@@ -158,13 +190,17 @@ function PulseDot({ phrase }) {
         gap: '0.6rem',
         padding: '0.8rem 1.1rem',
       }}>
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          {[0, 1, 2].map(i => (
+        <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 16 }}>
+          {[
+            { color: '#50946A', delay: 0 },
+            { color: '#E0A060', delay: 0.18 },
+            { color: '#9A88B4', delay: 0.36 },
+          ].map((dot, i) => (
             <motion.span
               key={i}
-              animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.35, 0.9, 0.35] }}
-              transition={{ duration: 2.2, delay: i * 0.35, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: 'var(--color-pebble)' }}
+              animate={reducedMotion ? {} : { y: [0, -6, 0] }}
+              transition={{ duration: 1.1, delay: dot.delay, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.5 }}
+              style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: dot.color, flexShrink: 0 }}
             />
           ))}
         </div>
@@ -176,22 +212,32 @@ function PulseDot({ phrase }) {
   )
 }
 
-function AiBubble({ content, buttons, navigate, onTaskNavigate }) {
-  const clean = stripMarkdown(stripActions(content))
-  // Split on [SPLIT] to render as multiple chat bubbles
-  const parts = clean.split(/\[SPLIT\]/i).map(p => p.trim()).filter(Boolean)
+function AiBubble({ content, buttons, navigate, onTaskNavigate, isStreaming = false }) {
+  const clean   = stripActions(content)
+  // During streaming: single bubble (text is still arriving — don't split mid-stream).
+  // After done: split on natural paragraph breaks that GPT-4o put in the response.
+  const bubbles = isStreaming ? [clean] : splitIntoBubbles(clean)
+  if (!bubbles.length && !buttons?.length) return null
 
   return (
     <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'flex-start', maxWidth: '85%' }}>
-      {/* Pebble dot avatar — aligned to first bubble */}
+      {/* Pebble dot — shows once, aligned to the first bubble */}
       <motion.div
         animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
         transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
         style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '1.05rem' }}
       />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-        {parts.map((part, i) => (
-          <div key={i} style={AI_BUBBLE_STYLE}>{part}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+        {bubbles.map((chunk, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94], delay: isStreaming ? 0 : i * 0.28 }}
+            style={AI_BUBBLE_STYLE}
+          >
+            {renderMarkdown(chunk)}
+          </motion.div>
         ))}
         {buttons && buttons.length > 0 && (
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -229,8 +275,8 @@ function UserBubble({ content, userName }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.65rem', alignItems: 'flex-start' }}>
       <div style={{
-        background: 'rgba(42,122,144,0.1)',
-        border: '1px solid rgba(42,122,144,0.18)',
+        background: 'var(--color-pebble-soft)',
+        border: '1px solid color-mix(in srgb, var(--color-pebble) 22%, transparent)',
         borderRadius: '20px 20px 6px 20px',
         padding: '1rem 1.2rem',
         color: 'var(--text-primary)',
@@ -239,7 +285,7 @@ function UserBubble({ content, userName }) {
         maxWidth: '80%',
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
-        boxShadow: '0 2px 14px rgba(42,122,144,0.05)',
+        boxShadow: '0 2px 14px color-mix(in srgb, var(--color-pebble) 6%, transparent)',
       }}>
         {content}
       </div>
@@ -248,14 +294,14 @@ function UserBubble({ content, userName }) {
         width: 28,
         height: 28,
         borderRadius: '50%',
-        background: 'rgba(42,122,144,0.12)',
-        border: '1px solid rgba(42,122,144,0.2)',
+        background: 'var(--color-pebble-soft)',
+        border: '1px solid color-mix(in srgb, var(--color-pebble) 25%, transparent)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: '0.72rem',
         fontWeight: 600,
-        color: 'var(--color-active)',
+        color: 'var(--color-pebble)',
         flexShrink: 0,
         marginTop: '0.3rem',
         letterSpacing: '0.02em',
@@ -273,6 +319,13 @@ function TaskPreviewCard({ task, onConfirm, onRevise }) {
   const [title,           setTitle]           = useState(task.title || '')
   const [description,     setDescription]     = useState(task.description || '')
   const [durationMinutes, setDurationMinutes] = useState(task.duration_minutes || 20)
+  // Normalize priority — backend suggest_task returns string ("high"/"normal"/"low"),
+  // task-choice card stores integer after PRIORITY_STR_TO_INT conversion. Handle both.
+  const [priority, setPriority] = useState(() => {
+    const p = task.priority
+    if (typeof p === 'number') return p
+    return PRIORITY_STR_TO_INT[p] ?? 2
+  })
   const [saving,          setSaving]          = useState(false)
 
   const DURATIONS = [5, 10, 15, 20, 30, 45, 60, 90, 120]
@@ -280,7 +333,7 @@ function TaskPreviewCard({ task, onConfirm, onRevise }) {
   const handleConfirm = async () => {
     if (!title.trim() || saving) return
     setSaving(true)
-    await onConfirm({ title: title.trim(), description, duration_minutes: durationMinutes, due_date: task.due_date, due_label: task.due_label })
+    await onConfirm({ title: title.trim(), description, duration_minutes: durationMinutes, priority, due_date: task.due_date, due_label: task.due_label })
   }
 
   return (
@@ -379,6 +432,12 @@ function TaskPreviewCard({ task, onConfirm, onRevise }) {
           )}
         </div>
 
+        {/* Priority picker — user can override GPT's suggestion before saving */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.55rem' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>priority</span>
+          <PriorityPicker priority={priority} onChange={setPriority} />
+        </div>
+
         {/* Action buttons */}
         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.9rem' }}>
           <button
@@ -415,6 +474,200 @@ function TaskPreviewCard({ task, onConfirm, onRevise }) {
   )
 }
 
+// ── TaskChoiceCard ────────────────────────────────────────────────────── //
+// Shown before TaskPreviewCard — Pebble asks: add to tasks, or focus now?
+
+function TaskChoiceCard({ task, onAddToTasks, onFocusNow, onDismiss }) {
+  return (
+    <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'flex-start', maxWidth: '85%' }}>
+      <motion.div
+        animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
+        transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+        style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '1.2rem' }}
+      />
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -4 }}
+        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderLeft: '3px solid var(--color-pebble)',
+          borderRadius: '4px 14px 14px 4px',
+          padding: '1rem 1.2rem 0.95rem',
+          width: '100%',
+        }}
+      >
+        <div style={{
+          fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em',
+          color: 'var(--color-pebble)', textTransform: 'uppercase',
+          marginBottom: '0.55rem', opacity: 0.9,
+        }}>
+          captured
+        </div>
+
+        <div style={{
+          fontFamily: '"DM Serif Display", Georgia, serif',
+          fontSize: '1.05rem', fontWeight: 400,
+          color: 'var(--text-primary)',
+          marginBottom: '0.3rem',
+          lineHeight: 1.35,
+        }}>
+          {task.title}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.95rem' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>~{task.duration_minutes} min</span>
+          {task.due_label && (
+            <span style={{ fontSize: '0.78rem', color: 'var(--color-queued)', fontWeight: 500 }}>
+              due {task.due_label}
+            </span>
+          )}
+        </div>
+
+        <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: 1.5 }}>
+          want to add this to your list, or jump straight in with a timer?
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={onAddToTasks}
+            style={{
+              background: 'var(--color-pebble)', color: '#fff',
+              border: 'none', borderRadius: 8,
+              padding: '0.42rem 1rem', fontSize: '0.85rem', fontWeight: 500,
+              cursor: 'pointer', transition: 'all 0.2s ease', minHeight: 36,
+            }}
+          >
+            add to my tasks
+          </button>
+          <button
+            onClick={onFocusNow}
+            style={{
+              background: 'var(--accent-soft)', color: 'var(--color-active)',
+              border: '1.5px solid rgba(42,122,144,0.22)', borderRadius: 8,
+              padding: '0.42rem 1rem', fontSize: '0.85rem',
+              cursor: 'pointer', transition: 'all 0.2s ease', minHeight: 36,
+            }}
+          >
+            focus on it now
+          </button>
+          <button
+            onClick={onDismiss}
+            style={{
+              background: 'none', color: 'var(--text-muted)',
+              border: '1px solid var(--border)', borderRadius: 8,
+              padding: '0.42rem 0.9rem', fontSize: '0.85rem',
+              cursor: 'pointer', transition: 'all 0.2s ease', minHeight: 36,
+            }}
+          >
+            not quite
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+// ── MergePreviewCard ───────────────────────────────────────────────────── //
+// Shown inline in chat when Pebble detects a merge_tasks action.
+// User can edit the merged task name / priority before confirming.
+
+function MergePreviewCard({ mergeData, onConfirm, onDismiss }) {
+  const [taskName, setTaskName] = useState(mergeData.merged_name || '')
+  const [duration, setDuration] = useState(mergeData.duration_minutes || 30)
+  const [priority, setPriority] = useState(mergeData.priority ?? 2)
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
+        borderLeft: '3px solid var(--color-active)',
+        borderRadius: 12,
+        padding: '14px 16px',
+        margin: '8px 0',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+      }}
+    >
+      <div style={{ fontSize: 11, color: 'var(--color-ai)', fontWeight: 500, letterSpacing: '0.03em' }}>
+        merged task
+      </div>
+      <input
+        value={taskName}
+        onChange={e => setTaskName(e.target.value)}
+        style={{
+          background: 'transparent',
+          border: 'none',
+          borderBottom: '1px solid var(--border)',
+          color: 'var(--text-primary)',
+          fontSize: 14,
+          fontWeight: 500,
+          padding: '4px 0',
+          outline: 'none',
+          width: '100%',
+        }}
+        placeholder="task name"
+      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>priority</span>
+        <PriorityPicker priority={priority} onChange={setPriority} />
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>
+          ~{duration} min total
+        </span>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+        combines: {(mergeData.source_task_names || []).join(' + ')}
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          onClick={() => onConfirm({ task_name: taskName, duration_minutes: duration, priority, motivation_nudge: mergeData.merged_description || '' })}
+          style={{
+            background: 'var(--color-active)',
+            color: 'white',
+            border: 'none',
+            borderRadius: 8,
+            padding: '8px 18px',
+            minHeight: 40,
+            fontSize: 13,
+            cursor: 'pointer',
+            fontWeight: 500,
+            transition: 'opacity 0.2s ease',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.opacity = '0.85' }}
+          onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+        >
+          merge
+        </button>
+        <button
+          onClick={onDismiss}
+          style={{
+            background: 'transparent',
+            color: 'var(--text-muted)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            padding: '8px 16px',
+            minHeight: 40,
+            fontSize: 13,
+            cursor: 'pointer',
+            transition: 'background 0.2s ease',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+        >
+          keep separate
+        </button>
+      </div>
+    </motion.div>
+  )
+}
+
 // ── Home page ─────────────────────────────────────────────────────────── //
 
 export default function Home() {
@@ -448,6 +701,9 @@ export default function Home() {
   const [heroLoading,     setHeroLoading]     = useState(false)
   // Stable loading phrase per session so it doesn't flicker on re-renders
   const heroLoadingPhrase = useRef(getLoadingPhrase())
+
+  // Merge preview — set when Pebble emits a merge_tasks action
+  const [mergePending, setMergePending] = useState(null) // { merged_name, merged_description, source_task_names, priority, duration_minutes }
 
   // Chat session history + cross-page recents
   const [showHistory, setShowHistory] = useState(false)
@@ -537,17 +793,51 @@ export default function Home() {
           if (streamIdRef.current !== myId) return
           replaced = true
           setStreamingContent('')
-          setMessages(prev => [...prev, { id: genId(), role: 'assistant', content: stripMarkdown(stripActions(content)), buttons: [] }])
+          setMessages(prev => [...prev, { id: genId(), role: 'assistant', content: stripActions(content), buttons: [] }])
         },
         onDone: () => {
           if (streamIdRef.current !== myId) return
           if (!replaced && accumulated) {
-            setMessages(prev => [...prev, {
+            // Separate special action types from regular navigation buttons
+            const taskSuggestion = accButtons.find(b => b.type === 'suggest_task')
+            const mergeAction    = accButtons.find(b => b.type === 'merge_tasks')
+            const regularButtons = accButtons.filter(b => b.type !== 'suggest_task' && b.type !== 'merge_tasks')
+
+            const aiMsg = {
               id:      genId(),
               role:    'assistant',
-              content: stripMarkdown(stripActions(accumulated)),
-              buttons: accButtons,
-            }])
+              content: stripActions(accumulated),
+              buttons: regularButtons,
+            }
+
+            if (taskSuggestion) {
+              // Show choice card first — user picks "add to tasks" or "focus now"
+              const choiceId = genId()
+              setMessages(prev => [...prev, aiMsg, {
+                id:   choiceId,
+                role: 'task-choice',
+                task: {
+                  title:            taskSuggestion.title || '',
+                  description:      taskSuggestion.description || '',
+                  duration_minutes: taskSuggestion.duration_minutes || 25,
+                  priority:         PRIORITY_STR_TO_INT[taskSuggestion.priority] ?? 2,  // convert "high"/"normal"/"low" → 1/2/3
+                  due_date:         taskSuggestion.due_date  || null,
+                  due_label:        taskSuggestion.due_label || null,
+                },
+              }])
+            } else if (mergeAction) {
+              // Show merge preview card — user confirms or dismisses
+              setMessages(prev => [...prev, aiMsg])
+              setMergePending({
+                merged_name:       mergeAction.merged_name || '',
+                merged_description: mergeAction.merged_description || '',
+                source_task_names: mergeAction.source_task_names || [],
+                priority:          mergeAction.priority ?? 2,
+                duration_minutes:  mergeAction.duration_minutes || 30,
+              })
+            } else {
+              setMessages(prev => [...prev, aiMsg])
+            }
           }
           setStreamingContent('')
           setPendingButtons([])
@@ -668,7 +958,7 @@ export default function Home() {
     // Hero screen = new session entry point. Archive whatever was in progress.
     let baseMessages = messages
     if (heroMode && messages.length > 0) {
-      archiveSession(messages)
+      archiveSession(messages, setSessions)
       setSessions(loadSessions())
       try { localStorage.removeItem('pebble_chat_messages') } catch {}
       baseMessages = []
@@ -690,7 +980,7 @@ export default function Home() {
   }
 
   const handleNewChat = useCallback(() => {
-    archiveSession(messages)
+    archiveSession(messages, setSessions)
     setSessions(loadSessions())
     setMessages([])
     setHeroMode(true)
@@ -699,6 +989,13 @@ export default function Home() {
     heroLoadingPhrase.current = getLoadingPhrase()
     fetchGreeting([])
   }, [messages, fetchGreeting])
+
+  const handleDeleteSession = useCallback((e, sessionId) => {
+    e.stopPropagation()
+    const updated = loadSessions().filter(s => s.id !== sessionId)
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(updated))
+    setSessions(updated)
+  }, [])
 
   const handlePreviousWork = () => {
     if (isStreaming) return
@@ -763,6 +1060,7 @@ export default function Home() {
       id:               newTaskId,
       task_name:        editedTask.title,
       duration_minutes: editedTask.duration_minutes || 20,
+      priority:         editedTask.priority ?? 2,   // user's choice from PriorityPicker (may differ from GPT suggestion)
       motivation_nudge: editedTask.description || '',
       due_date:         editedTask.due_date || null,
       due_label:        editedTask.due_label || null,
@@ -789,11 +1087,76 @@ export default function Home() {
     navigate('/tasks', { state: { highlightGroupId: newGroupId } })
   }, [dispatch, taskGroups, navigate])
 
-  // Called when user clicks "not quite" — dismiss preview, focus input to let them redirect Pebble
+  // Called when user clicks "not quite" — dismiss preview, Pebble asks what to change
   const handleReviseTask = useCallback((previewMsgId) => {
-    setMessages(prev => prev.filter(m => m.id !== previewMsgId))
+    setMessages(prev => [
+      ...prev.filter(m => m.id !== previewMsgId),
+      { id: genId(), role: 'assistant', content: "no worries. what didn't feel right?", buttons: [] },
+    ])
     setTimeout(() => inputRef.current?.focus(), 80)
   }, [])
+
+  // "add to my tasks" on the choice card — swap it out for the editable preview card
+  const handleChooseAddTask = useCallback((choiceMsgId, task) => {
+    const previewId = genId()
+    setMessages(prev => [
+      ...prev.filter(m => m.id !== choiceMsgId),
+      { id: previewId, role: 'task-preview', task },
+    ])
+  }, [])
+
+  // "focus on it now" — create the task in Redux, set focus, navigate to /focus
+  const handleChooseFocus = useCallback(async (choiceMsgId, task) => {
+    const newGroupId = genId()
+    const newTaskId  = genId()
+
+    const newTask = {
+      id:               newTaskId,
+      task_name:        task.title,
+      duration_minutes: task.duration_minutes || 25,
+      priority:         task.priority ?? 2,
+      motivation_nudge: task.description || '',
+      due_date:         task.due_date  || null,
+      due_label:        task.due_label || null,
+      done: false, paused: false, timerStarted: null, nudgeText: null,
+    }
+
+    setMessages(prev => prev.filter(m => m.id !== choiceMsgId))
+    dispatch(tasksActions.addGroup({ id: newGroupId, name: task.title, source: 'ai', tasks: [newTask] }))
+    dispatch(tasksActions.setFocusGroup(newGroupId))
+    dispatch(tasksActions.setFocusTask(newTaskId))
+
+    try {
+      const withNew = [
+        ...taskGroups,
+        { id: newGroupId, name: task.title, source: 'ai', created_at: new Date().toISOString(), tasks: [newTask] },
+      ]
+      saveTasks(withNew).catch(() => {})
+    } catch {}
+
+    navigate('/focus')
+  }, [dispatch, taskGroups, navigate])
+
+  // "not quite" on the choice card — same dismiss flow as revise
+  const handleDismissChoice = useCallback((choiceMsgId) => {
+    setMessages(prev => [
+      ...prev.filter(m => m.id !== choiceMsgId),
+      { id: genId(), role: 'assistant', content: "no worries. what didn't feel right?", buttons: [] },
+    ])
+    setTimeout(() => inputRef.current?.focus(), 80)
+  }, [])
+
+  // Merge preview confirm — dispatches mergeTasks reducer then navigates to /tasks
+  const handleConfirmMerge = useCallback((mergedTask) => {
+    if (!mergePending) return
+    dispatch(tasksActions.mergeTasks({
+      sourceTaskNames: mergePending.source_task_names,
+      mergedTask,
+    }))
+    setMergePending(null)
+    // Brief delay so Redux state settles before navigating
+    setTimeout(() => navigate('/tasks'), 400)
+  }, [mergePending, dispatch, navigate])
 
   // Stable poetic greeting — cached in sessionStorage, invalidates when hour or name changes
   const heroGreeting = useMemo(() => {
@@ -904,14 +1267,20 @@ export default function Home() {
               {heroLoading && !heroText
                 ? (
                   <div style={{ display: 'flex', gap: '0.55rem', alignItems: 'center', justifyContent: 'center' }}>
-                    {[0, 1, 2].map(i => (
-                      <motion.span
-                        key={i}
-                        animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.4, 1, 0.4] }}
-                        transition={{ duration: 2.2, delay: i * 0.35, repeat: Infinity, ease: 'easeInOut' }}
-                        style={{ display: 'block', width: 7, height: 7, borderRadius: '50%', background: 'var(--color-pebble)' }}
-                      />
-                    ))}
+                    <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 16 }}>
+                      {[
+                        { color: '#50946A', delay: 0 },
+                        { color: '#E0A060', delay: 0.18 },
+                        { color: '#9A88B4', delay: 0.36 },
+                      ].map((dot, i) => (
+                        <motion.span
+                          key={i}
+                          animate={{ y: [0, -6, 0] }}
+                          transition={{ duration: 1.1, delay: dot.delay, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.5 }}
+                          style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: dot.color, flexShrink: 0 }}
+                        />
+                      ))}
+                    </div>
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem', fontStyle: 'italic' }}>
                       {heroLoadingPhrase.current}
                     </span>
@@ -1040,8 +1409,9 @@ export default function Home() {
                       borderRadius: 16,
                       boxShadow: '0 16px 48px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
                       width: 'min(400px, 90vw)',
-                      maxHeight: '72vh',
+                      maxHeight: '340px',
                       overflowY: 'auto',
+                      overscrollBehavior: 'contain',
                       zIndex: 30,
                     }}
                   >
@@ -1057,34 +1427,59 @@ export default function Home() {
                           <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-active)', opacity: 0.8 }} />
                           chats
                         </div>
-                        {sessions.slice(0, 4).map((s, i) => (
-                          <button key={s.id}
-                            onClick={() => {
-                              setMessages(s.messages)
-                              setHeroMode(false)
-                              setShowHistory(false)
-                              try { localStorage.setItem('pebble_chat_messages', JSON.stringify(s.messages)) } catch {}
-                            }}
+                        {sessions.map((s, i) => (
+                          <div
+                            key={s.id}
                             style={{
-                              width: '100%', display: 'flex', alignItems: 'flex-start', gap: '0.65rem',
-                              padding: '0.65rem 1rem', background: 'none', border: 'none',
+                              display: 'flex', alignItems: 'stretch',
                               borderTop: i === 0 ? 'none' : '1px solid var(--border)',
-                              cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s ease',
+                              position: 'relative',
                             }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft)' }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
                           >
-                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-active)', flexShrink: 0, marginTop: '0.38rem', opacity: 0.6 }} />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: '0.84rem', fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {s.title.length > 48 ? s.title.slice(0, 46) + '…' : s.title}
+                            <button
+                              onClick={() => {
+                                setMessages(s.messages)
+                                setHeroMode(false)
+                                setShowHistory(false)
+                                try { localStorage.setItem('pebble_chat_messages', JSON.stringify(s.messages)) } catch {}
+                              }}
+                              style={{
+                                flex: 1, display: 'flex', alignItems: 'flex-start', gap: '0.65rem',
+                                padding: '0.65rem 0.6rem 0.65rem 1rem', background: 'none', border: 'none',
+                                cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s ease', minWidth: 0,
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft)' }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
+                            >
+                              <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-active)', flexShrink: 0, marginTop: '0.38rem', opacity: 0.6 }} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '0.84rem', fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {s.title.length > 44 ? s.title.slice(0, 42) + '…' : s.title}
+                                </div>
+                                <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                                  {new Date(s.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                  {' · '}{s.msgCount} message{s.msgCount !== 1 ? 's' : ''}
+                                </div>
                               </div>
-                              <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
-                                {new Date(s.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                {' · '}{s.msgCount} message{s.msgCount !== 1 ? 's' : ''}
-                              </div>
-                            </div>
-                          </button>
+                            </button>
+                            {/* Delete X button */}
+                            <button
+                              onClick={e => handleDeleteSession(e, s.id)}
+                              title="delete this chat"
+                              style={{
+                                flexShrink: 0, width: 32, background: 'none', border: 'none',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: 'var(--text-muted)', opacity: 0.45, transition: 'opacity 0.15s ease',
+                                paddingRight: '0.5rem',
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = 'var(--color-ai)' }}
+                              onMouseLeave={e => { e.currentTarget.style.opacity = '0.45'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                            >
+                              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                                <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                              </svg>
+                            </button>
+                          </div>
                         ))}
                       </>
                     )}
@@ -1235,20 +1630,20 @@ export default function Home() {
                   onClick={handleNewChat}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '0.35rem',
-                    background: 'var(--accent-soft)',
-                    border: '1px solid rgba(42,122,144,0.25)',
+                    background: 'var(--color-pebble-soft)',
+                    border: '1px solid color-mix(in srgb, var(--color-pebble) 28%, transparent)',
                     borderRadius: 99, cursor: 'pointer',
-                    color: 'var(--color-active)', fontSize: '0.82rem', fontWeight: 500,
+                    color: 'var(--color-pebble)', fontSize: '0.82rem', fontWeight: 500,
                     padding: '0.45rem 1.1rem', minHeight: 36,
                     transition: 'all 0.2s ease',
                   }}
                   onMouseEnter={e => {
-                    e.currentTarget.style.background = 'color-mix(in srgb, var(--color-active) 14%, transparent)'
-                    e.currentTarget.style.borderColor = 'rgba(42,122,144,0.45)'
+                    e.currentTarget.style.background = 'color-mix(in srgb, var(--color-pebble) 18%, transparent)'
+                    e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--color-pebble) 50%, transparent)'
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.background = 'var(--accent-soft)'
-                    e.currentTarget.style.borderColor = 'rgba(42,122,144,0.25)'
+                    e.currentTarget.style.background = 'var(--color-pebble-soft)'
+                    e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--color-pebble) 28%, transparent)'
                   }}
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -1266,6 +1661,13 @@ export default function Home() {
                 >
                   {msg.role === 'task-preview-loading' ? (
                     <PulseDot phrase="thinking of the right task..." />
+                  ) : msg.role === 'task-choice' ? (
+                    <TaskChoiceCard
+                      task={msg.task}
+                      onAddToTasks={() => handleChooseAddTask(msg.id, msg.task)}
+                      onFocusNow={() => handleChooseFocus(msg.id, msg.task)}
+                      onDismiss={() => handleDismissChoice(msg.id)}
+                    />
                   ) : msg.role === 'task-preview' ? (
                     <TaskPreviewCard
                       task={msg.task}
@@ -1289,10 +1691,21 @@ export default function Home() {
                     exit={{ opacity: 0, transition: { duration: 0.2 } }}
                   >
                     {streamingContent
-                      ? <AiBubble content={streamingContent} buttons={pendingButtons} navigate={navigate} onTaskNavigate={handleTaskNavigate} />
+                      ? <AiBubble content={streamingContent} buttons={pendingButtons} navigate={navigate} onTaskNavigate={handleTaskNavigate} isStreaming />
                       : <PulseDot />
                     }
                   </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Merge preview card — shown when Pebble detects a merge_tasks action */}
+              <AnimatePresence>
+                {mergePending && (
+                  <MergePreviewCard
+                    mergeData={mergePending}
+                    onConfirm={handleConfirmMerge}
+                    onDismiss={() => setMergePending(null)}
+                  />
                 )}
               </AnimatePresence>
 

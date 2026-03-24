@@ -38,6 +38,7 @@ from models import (
     TaskStep,
     TaskSuggestion,
     TaskSuggestionRequest,
+    TitleRequest,
     UploadResponse,
     UserPreferences,
 )
@@ -279,6 +280,17 @@ def make_app(settings: Settings | None = None) -> FastAPI:
 
     # ── Contextual nudge ─────────────────────────────────────────────────── #
 
+    @app.post("/api/title", tags=["ai"])
+    async def generate_title(
+        req: TitleRequest,
+        user_id: str = Depends(get_user_id),
+    ):
+        try:
+            title = await ai.generate_title(req.messages)
+        except Exception:
+            title = "untitled conversation"
+        return {"title": title}
+
     @app.post("/api/nudge", response_model=NudgeResponse, tags=["ai"])
     async def nudge(
         req: NudgeRequest,
@@ -383,12 +395,12 @@ def make_app(settings: Settings | None = None) -> FastAPI:
             "user_id": user_id,
         })
 
-        # Save document metadata + first 500 chars as summary to Cosmos
+        # Save document metadata + first 2000 chars as content excerpt to Cosmos
         doc_id: str | None = None
         try:
             import uuid as _uuid
             doc_id = str(_uuid.uuid4())
-            summary_preview = extracted_text[:500].strip() if extracted_text else ""
+            summary_preview = extracted_text[:2000].strip() if extracted_text else ""
             await repo.upsert_document(user_id, {
                 "id": doc_id,
                 "filename": file.filename or "document",

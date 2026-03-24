@@ -4,6 +4,15 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { tasksActions } from '../store'
 import { decompose, fetchNudge, summariseStream, loadTasks, saveTasks, chatStream } from '../utils/api'
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext, verticalListSortingStrategy, useSortable, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { splitIntoBubbles, renderMarkdown } from '../utils/bubbles'
+import { PriorityChip } from '../components/PriorityChip'
 
 // ── Helpers ───────────────────────────────────────────────────────────────── //
 
@@ -34,6 +43,58 @@ const stagger = {
 const item = {
   initial: { opacity: 0, y: 10 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] } },
+}
+
+// ── DragHandle ────────────────────────────────────────────────────────────── //
+
+function DragHandle({ listeners, attributes }) {
+  return (
+    <span
+      {...listeners}
+      {...attributes}
+      className="drag-handle"
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 2.5,
+        padding: '4px 6px', cursor: 'grab',
+        color: 'var(--text-muted)', opacity: 0,
+        transition: 'opacity 0.2s ease', flexShrink: 0,
+        userSelect: 'none', touchAction: 'none',
+        alignSelf: 'center',
+      }}
+      aria-label="Drag to reorder"
+    >
+      {[0, 1, 2].map(i => (
+        <span key={i} style={{ display: 'flex', gap: 3 }}>
+          <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'currentColor' }} />
+          <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'currentColor' }} />
+        </span>
+      ))}
+    </span>
+  )
+}
+
+// ── SortableTaskItem ──────────────────────────────────────────────────────── //
+
+function SortableTaskItem({ id, children }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  return (
+    <div
+      ref={setNodeRef}
+      className="task-row-wrapper"
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition: transition || 'transform 200ms cubic-bezier(0.25, 1, 0.5, 1)',
+        zIndex: isDragging ? 50 : undefined,
+        position: 'relative',
+        boxShadow: isDragging ? '0 4px 16px rgba(0,0,0,0.08)' : undefined,
+        borderRadius: isDragging ? 10 : undefined,
+        background: isDragging ? 'var(--bg-card)' : undefined,
+        opacity: isDragging ? 0.92 : 1,
+      }}
+    >
+      {children({ isDragging, dragHandleProps: { listeners, attributes } })}
+    </div>
+  )
 }
 
 // ── TaskCircle ────────────────────────────────────────────────────────────── //
@@ -144,161 +205,6 @@ function MoreMenu({ onClose, onEdit, onPause, onDelete, onChatRequest, taskName,
   )
 }
 
-// ── ActiveTaskCard ────────────────────────────────────────────────────────── //
-
-function ActiveTaskCard({ task, groupId, groupName, onComplete, onPause, onDelete, onChatRequest, onOpenBreakdown }) {
-  const dispatch = useDispatch()
-  const navigate = useNavigate()
-  const [moreOpen, setMoreOpen]   = useState(false)
-  const moreBtnRef = useRef(null)
-  const [editing, setEditing]     = useState(false)
-  const [editName, setEditName]   = useState(task.task_name)
-  const [editMins, setEditMins]   = useState(String(task.duration_minutes || ''))
-
-  function saveEdit() {
-    const name = editName.trim()
-    const mins = parseInt(editMins, 10)
-    const nameChanged = name && name !== task.task_name
-    dispatch(tasksActions.updateTask({
-      groupId, taskId: task.id,
-      task_name: name || task.task_name,
-      duration_minutes: isNaN(mins) ? task.duration_minutes : mins,
-      // Clear AI-generated nudge if task name changed — it's now stale
-      ...(nameChanged ? { motivation_nudge: '' } : {}),
-    }))
-    setEditing(false)
-  }
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4 }}
-      transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-      style={{
-        background: 'rgba(42,122,144,0.04)',
-        border: '1.5px solid var(--color-active)',
-        borderLeft: '3px solid var(--color-active)',
-        borderRadius: 14,
-        padding: '0.95rem 1rem',
-        boxShadow: '0 4px 20px rgba(42,122,144,0.12)',
-      }}
-    >
-      {/* Header row */}
-      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-        <TaskCircle done={false} active onClick={onComplete} size={20} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {editing ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <input
-                autoFocus
-                value={editName}
-                onChange={e => setEditName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && saveEdit()}
-                style={{ fontSize: '0.88rem', padding: '0.3rem 0.5rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', width: '100%' }}
-              />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <input
-                  type="number"
-                  value={editMins}
-                  onChange={e => setEditMins(e.target.value)}
-                  style={{ width: 56, fontSize: '0.82rem', padding: '0.25rem 0.4rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
-                  min={1}
-                />
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>min</span>
-                <button className="btn btn-primary" style={{ fontSize: '0.78rem', padding: '0.25rem 0.7rem', marginLeft: 'auto' }} onClick={saveEdit}>Save</button>
-                <button className="btn btn-ghost"   style={{ fontSize: '0.78rem', padding: '0.25rem 0.7rem' }} onClick={() => setEditing(false)}>Cancel</button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4 }}>
-                {task.task_name}
-              </div>
-              {task.motivation_nudge && (
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem', lineHeight: 1.5 }}>
-                  {task.motivation_nudge}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Action row */}
-      {!editing && (
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.7rem', marginLeft: '1.85rem', flexWrap: 'wrap' }}>
-          {task.duration_minutes > 0 && (
-            <span style={{
-              fontSize: '0.75rem', fontWeight: 500, color: 'var(--color-upcoming)',
-              background: 'rgba(106,150,184,0.12)', padding: '0.18rem 0.6rem',
-              borderRadius: 99, border: '1px solid rgba(106,150,184,0.2)',
-            }}>
-              {formatMinutes(task.duration_minutes)}
-            </span>
-          )}
-          <button
-            className="btn btn-primary"
-            style={{ fontSize: '0.8rem', padding: '0.3rem 0.85rem' }}
-            onClick={() => onOpenBreakdown?.({ task, groupId })}
-          >
-            Break down
-          </button>
-          <button
-            className="btn btn-ghost"
-            style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem' }}
-            onClick={() => {
-              dispatch(tasksActions.setFocusGroup(groupId))
-              dispatch(tasksActions.setFocusTask(task.id))
-              navigate('/focus')
-            }}
-          >
-            Focus on this
-          </button>
-          <button
-            ref={moreBtnRef}
-            className="btn btn-ghost"
-            style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem' }}
-            onClick={() => setMoreOpen(o => !o)}
-            aria-expanded={moreOpen}
-          >
-            More ···
-          </button>
-        </div>
-      )}
-
-      {/* AI nudge */}
-      {task.nudgeText && !editing && (
-        <div style={{
-          marginTop: '0.75rem', marginLeft: '1.85rem',
-          background: 'rgba(200,148,80,0.09)', border: '1px solid rgba(200,148,80,0.18)',
-          borderRadius: 8, padding: '0.5rem 0.75rem',
-          fontSize: '0.8rem', color: 'var(--color-ai)', lineHeight: 1.5,
-        }}>
-          {task.nudgeText}
-        </div>
-      )}
-
-      {/* More menu */}
-      <AnimatePresence>
-        {moreOpen && (
-          <MoreMenu
-            onClose={() => setMoreOpen(false)}
-            onEdit={() => { setEditing(true); setEditName(task.task_name); setEditMins(String(task.duration_minutes || '')) }}
-            onPause={onPause}
-            onDelete={onDelete}
-            onChatRequest={onChatRequest}
-            taskName={task.task_name}
-            groupName={groupName}
-            triggerRef={moreBtnRef}
-          />
-        )}
-      </AnimatePresence>
-    </motion.div>
-  )
-}
-
 // ── CompletedTaskRow ──────────────────────────────────────────────────────── //
 
 function CompletedTaskRow({ task }) {
@@ -307,6 +213,8 @@ function CompletedTaskRow({ task }) {
       layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.25 }}
       style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', padding: '0.5rem 0' }}
     >
       <TaskCircle done active={false} onClick={() => {}} size={18} />
@@ -318,63 +226,286 @@ function CompletedTaskRow({ task }) {
   )
 }
 
-// ── UpcomingTaskRow ───────────────────────────────────────────────────────── //
+// ── TaskRow — unified expand-in-place task component ─────────────────────── //
+// Replaces the old ActiveTaskCard + UpcomingTaskRow split.
+// All non-completed tasks render in their list position.
+// Clicking expands to reveal details + action buttons; clicking again collapses.
 
-function UpcomingTaskRow({ task, dimmed, onComplete, onMakeActive }) {
+function TaskRow({ task, groupId, groupName, isExpanded, onToggleExpand, onComplete, onDelete, onChatRequest, onOpenBreakdown, dimmed, dragHandleProps }) {
+  const dispatch = useDispatch()
+  const navigate = useNavigate()
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreBtnRef = useRef(null)
+  const [editing, setEditing]   = useState(false)
+  const [editName, setEditName] = useState(task.task_name)
+  const [editMins, setEditMins] = useState(String(task.duration_minutes || ''))
+
+  // Keep edit fields in sync if task is updated externally
+  useEffect(() => {
+    if (!editing) {
+      setEditName(task.task_name)
+      setEditMins(String(task.duration_minutes || ''))
+    }
+  }, [task.task_name, task.duration_minutes, editing])
+
+  function saveEdit() {
+    const name = editName.trim()
+    const mins = parseInt(editMins, 10)
+    const nameChanged = name && name !== task.task_name
+    dispatch(tasksActions.updateTask({
+      groupId, taskId: task.id,
+      task_name: name || task.task_name,
+      duration_minutes: isNaN(mins) ? task.duration_minutes : mins,
+      ...(nameChanged ? { motivation_nudge: '' } : {}),
+    }))
+    setEditing(false)
+  }
+
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: dimmed ? 0.3 : 1, y: 0 }}
+      exit={{ opacity: 0 }}
       transition={{ duration: 0.25 }}
-      style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', padding: '0.5rem 0', cursor: 'pointer' }}
-      onClick={onMakeActive}
+      style={{
+        borderRadius: 14,
+        background: isExpanded ? 'rgba(42,122,144,0.05)' : 'transparent',
+        border: isExpanded ? '1px solid rgba(42,122,144,0.18)' : '1px solid transparent',
+        transition: 'background 0.25s ease, border-color 0.25s ease',
+        overflow: 'hidden',
+      }}
     >
-      <TaskCircle done={false} active={false} onClick={onComplete} size={18} />
-      <span style={{ flex: 1, fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 400, lineHeight: 1.4 }}>
-        {task.task_name}
-      </span>
-      {task.duration_minutes > 0 && (
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', flexShrink: 0 }}>
-          {formatMinutes(task.duration_minutes)}
-        </span>
-      )}
+      {/* Collapsed row — always visible, click to expand/collapse */}
+      <div
+        role="button"
+        tabIndex={editing ? -1 : 0}
+        aria-expanded={isExpanded}
+        onKeyDown={e => { if (!editing && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onToggleExpand() } }}
+        style={{
+          display: 'flex', gap: '0.55rem', alignItems: 'center',
+          padding: isExpanded ? '0.65rem 0.75rem 0.45rem' : '0.5rem 0.5rem 0.5rem 0',
+          minHeight: 44,
+          cursor: editing ? 'default' : 'pointer',
+          transition: 'padding 0.25s ease',
+          outline: 'none',
+        }}
+        onFocus={e => { if (!editing) e.currentTarget.style.boxShadow = '0 0 0 2px var(--color-active)' }}
+        onBlur={e => { e.currentTarget.style.boxShadow = 'none' }}
+        onClick={e => {
+          if (editing) return
+          // Only block clicks originating from interactive elements (button, input)
+          if (e.target.closest('button') || e.target.tagName === 'INPUT') return
+          onToggleExpand()
+        }}
+      >
+        {/* Drag handle — only appears on non-expanded rows via CSS */}
+        {dragHandleProps && <DragHandle {...dragHandleProps} />}
+
+        <TaskCircle done={false} active={isExpanded} onClick={e => { onComplete(); }} size={isExpanded ? 20 : 18} />
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {editing ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <input
+                autoFocus
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveEdit()}
+                onClick={e => e.stopPropagation()}
+                style={{ fontSize: '0.88rem', padding: '0.3rem 0.5rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', width: '100%' }}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <input
+                  type="number"
+                  value={editMins}
+                  onChange={e => setEditMins(e.target.value)}
+                  onClick={e => e.stopPropagation()}
+                  style={{ width: 56, fontSize: '0.82rem', padding: '0.25rem 0.4rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                  min={1}
+                />
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>min</span>
+                <button className="btn btn-primary" style={{ fontSize: '0.78rem', padding: '0.25rem 0.7rem', marginLeft: 'auto' }} onClick={e => { e.stopPropagation(); saveEdit() }}>save</button>
+                <button className="btn btn-ghost"   style={{ fontSize: '0.78rem', padding: '0.25rem 0.7rem' }} onClick={e => { e.stopPropagation(); setEditing(false) }}>cancel</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+              <span style={{
+                fontSize: isExpanded ? '0.9rem' : '0.85rem',
+                fontWeight: isExpanded ? 600 : 400,
+                color: isExpanded ? 'var(--text-primary)' : 'var(--text-secondary)',
+                lineHeight: 1.4,
+                transition: 'font-size 0.2s ease, font-weight 0.2s ease',
+              }}>
+                {task.task_name}
+              </span>
+              <PriorityChip
+                priority={task.priority ?? 2}
+                onChange={newP => {
+                  dispatch(tasksActions.updateTask({ groupId, taskId: task.id, priority: newP }))
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Duration — always visible when not editing */}
+        {!editing && task.duration_minutes > 0 && (
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', flexShrink: 0 }}>
+            {formatMinutes(task.duration_minutes)}
+          </span>
+        )}
+
+        {/* Expand chevron */}
+        {!editing && (
+          <motion.span
+            animate={{ rotate: isExpanded ? 90 : 0 }}
+            transition={{ duration: 0.2 }}
+            style={{ color: 'var(--text-muted)', fontSize: '0.82rem', flexShrink: 0, lineHeight: 1, paddingRight: 2 }}
+          >
+            ›
+          </motion.span>
+        )}
+      </div>
+
+      {/* Expandable details */}
+      <AnimatePresence initial={false}>
+        {isExpanded && !editing && (
+          <motion.div
+            key="expanded"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1, transition: { height: { duration: 0.3, ease: [0.4,0,0.2,1] }, opacity: { duration: 0.2, delay: 0.1 } } }}
+            exit={{ height: 0, opacity: 0, transition: { height: { duration: 0.25, ease: [0.4,0,0.2,1] }, opacity: { duration: 0.15 } } }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div style={{ padding: '0 0.75rem 0.75rem', paddingLeft: dragHandleProps ? '1.6rem' : '2.6rem' }}>
+
+              {/* Description / motivation nudge */}
+              {task.motivation_nudge && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.6rem', lineHeight: 1.55 }}>
+                  {task.motivation_nudge}
+                </div>
+              )}
+
+              {/* AI nudge */}
+              {task.nudgeText && (
+                <div style={{
+                  marginBottom: '0.65rem',
+                  background: 'rgba(200,148,80,0.09)', border: '1px solid rgba(200,148,80,0.18)',
+                  borderRadius: 8, padding: '0.5rem 0.75rem',
+                  fontSize: '0.8rem', color: 'var(--color-ai)', lineHeight: 1.5,
+                }}>
+                  {task.nudgeText}
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <button
+                  className="btn btn-primary"
+                  style={{ fontSize: '0.78rem', padding: '0.35rem 0.9rem', minHeight: 36 }}
+                  onClick={e => { e.stopPropagation(); onOpenBreakdown?.({ task, groupId }) }}
+                >
+                  break down
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: '0.78rem', padding: '0.35rem 0.8rem', minHeight: 36 }}
+                  onClick={e => {
+                    e.stopPropagation()
+                    dispatch(tasksActions.setFocusGroup(groupId))
+                    dispatch(tasksActions.setFocusTask(task.id))
+                    navigate('/focus')
+                  }}
+                >
+                  focus on this
+                </button>
+                <button
+                  ref={moreBtnRef}
+                  className="btn btn-ghost"
+                  style={{ fontSize: '0.78rem', padding: '0.35rem 0.8rem', minHeight: 36 }}
+                  onClick={e => { e.stopPropagation(); setMoreOpen(o => !o) }}
+                  aria-expanded={moreOpen}
+                >
+                  more ···
+                </button>
+              </div>
+
+              {/* More menu */}
+              <AnimatePresence>
+                {moreOpen && (
+                  <MoreMenu
+                    onClose={() => setMoreOpen(false)}
+                    onEdit={() => { setEditing(true) }}
+                    onPause={() => dispatch(tasksActions.pauseTask({ groupId, taskId: task.id }))}
+                    onDelete={onDelete}
+                    onChatRequest={onChatRequest}
+                    taskName={task.task_name}
+                    groupName={groupName}
+                    triggerRef={moreBtnRef}
+                  />
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
 
 // ── TaskGroupCard ─────────────────────────────────────────────────────────── //
 
-function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive, onStartNewGroup, onChatRequest, onOpenBreakdown }) {
+function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive, onStartNewGroup, onChatRequest, onOpenBreakdown, showCompleted }) {
   const dispatch = useDispatch()
   const navigate = useNavigate()
 
-  // Local active task override — user can tap any upcoming to make it active
-  const [activeOverrideId, setActiveOverrideId] = useState(null)
-  const [confirmDelete,    setConfirmDelete]    = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  // Which task is currently expanded (shows details + action buttons)
+  const [expandedTaskId, setExpandedTaskId] = useState(null)
 
-  const activeTasks    = group.tasks.filter(t => !t.done && !t.paused)
+  // DnD sensors — 8px activation distance so taps don't accidentally start a drag
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
+  const pendingTasks   = group.tasks.filter(t => !t.done && !t.paused)
   const completedTasks = group.tasks.filter(t => t.done)
   const totalUnpaused  = group.tasks.filter(t => !t.paused).length
   const doneCount      = completedTasks.length
   const timeLeft       = sumMinutes(group.tasks)
   const allDone        = totalUnpaused > 0 && doneCount >= totalUnpaused
 
-  // Compute which task is "active" right now
-  const effectiveActiveId = (activeOverrideId && activeTasks.some(t => t.id === activeOverrideId))
-    ? activeOverrideId
-    : activeTasks[0]?.id ?? null
-  const activeTask     = activeTasks.find(t => t.id === effectiveActiveId) ?? null
-  const upcomingTasks  = activeTasks.filter(t => t.id !== effectiveActiveId)
+  // Auto-expand first pending task when the group opens
+  useEffect(() => {
+    if (isOpen && !expandedTaskId && pendingTasks.length > 0) {
+      setExpandedTaskId(pendingTasks[0].id)
+    }
+    if (!isOpen) setExpandedTaskId(null)
+  }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Nudge text is fetched in FocusMode when the user actively starts a task.
-  // We intentionally do NOT auto-fetch here — showing a nudge before the user
-  // has started the task is premature and adds noise.
+  function handleToggleExpand(taskId) {
+    setExpandedTaskId(cur => cur === taskId ? null : taskId)
+  }
 
   function handleComplete(taskId) {
     dispatch(tasksActions.completeTask({ groupId: group.id, taskId }))
-    // If the active override was the completed task, clear it → auto-advance
-    if (activeOverrideId === taskId) setActiveOverrideId(null)
+    if (expandedTaskId === taskId) {
+      // Auto-advance to next pending task
+      const nextTask = pendingTasks.find(t => t.id !== taskId)
+      setExpandedTaskId(nextTask?.id ?? null)
+    }
+  }
+
+  function handleDragEnd(event) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = pendingTasks.findIndex(t => t.id === active.id)
+    const newIndex = pendingTasks.findIndex(t => t.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+    // Map pending indices back to full group task indices
+    const fullOldIndex = group.tasks.findIndex(t => t.id === active.id)
+    const fullNewIndex = group.tasks.findIndex(t => t.id === over.id)
+    dispatch(tasksActions.reorderTasks({ groupId: group.id, oldIndex: fullOldIndex, newIndex: fullNewIndex }))
   }
 
   const leftBorderColor = group.source === 'document' ? 'var(--color-active)'
@@ -467,18 +598,14 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive, 
           >
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '0.65rem 1.1rem',
-              background: 'rgba(200,148,80,0.06)',
-              gap: '0.75rem',
+              padding: '0.65rem 1.1rem', background: 'rgba(200,148,80,0.06)', gap: '0.75rem',
             }}>
               <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
                 delete <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>"{group.name}"</strong> and all its tasks?
               </span>
               <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
                 <button
-                  onClick={() => {
-                    dispatch(tasksActions.deleteGroup(group.id))
-                  }}
+                  onClick={() => dispatch(tasksActions.deleteGroup(group.id))}
                   style={{
                     fontSize: '0.78rem', padding: '4px 14px', borderRadius: 7,
                     border: '1px solid var(--color-ai)', background: 'transparent',
@@ -532,88 +659,76 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive, 
                   }}
                 >
                   <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--color-done)', marginBottom: '0.3rem' }}>
-                    You finished everything here. That's real progress.
+                    you finished everything here. that's real progress.
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    Total time: {formatMinutes(group.tasks.reduce((s, t) => s + (t.duration_minutes || 0), 0))}
+                    total time: {formatMinutes(group.tasks.reduce((s, t) => s + (t.duration_minutes || 0), 0))}
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.75rem' }}>
                     <button className="btn btn-ghost" style={{ fontSize: '0.8rem', padding: '0.3rem 0.85rem' }} onClick={() => { onToggle(); onStartNewGroup?.() }}>
-                      Start another group
+                      start another group
                     </button>
                     <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.3rem 0.85rem' }} onClick={() => navigate('/focus', { state: { startBreak: true } })}>
-                      Take a break
+                      take a break
                     </button>
                   </div>
                 </motion.div>
               ) : (
                 <>
-                  {/* "Start focus mode" */}
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.65rem' }}>
-                    <button
-                      className="btn btn-primary"
-                      style={{ fontSize: '0.78rem', padding: '0.28rem 0.85rem' }}
-                      onClick={() => {
-                        dispatch(tasksActions.setFocusGroup(group.id))
-                        dispatch(tasksActions.setFocusTask(null))
-                        navigate('/focus')
-                      }}
-                    >
-                      Start focus mode
-                    </button>
-                  </div>
-
-                  {/* Completed tasks */}
-                  <AnimatePresence>
-                    {completedTasks.map(t => <CompletedTaskRow key={t.id} task={t} />)}
-                  </AnimatePresence>
-
-                  {/* Divider between completed and active */}
-                  {completedTasks.length > 0 && activeTask && (
-                    <div style={{ height: 1, background: 'var(--border)', margin: '0.35rem 0' }} />
+                  {/* Pending tasks — draggable + expand-in-place */}
+                  {pendingTasks.length > 0 && (
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                      <SortableContext items={pendingTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          {pendingTasks.map(t => {
+                            const dimmed = timeFilterActive && Number(timeFilter) > 0 && (t.duration_minutes || 0) > Number(timeFilter)
+                            return (
+                              <SortableTaskItem key={t.id} id={t.id}>
+                                {({ isDragging, dragHandleProps }) => (
+                                  <TaskRow
+                                    task={t}
+                                    groupId={group.id}
+                                    groupName={group.name}
+                                    isExpanded={!isDragging && expandedTaskId === t.id}
+                                    onToggleExpand={() => handleToggleExpand(t.id)}
+                                    onComplete={() => handleComplete(t.id)}
+                                    onDelete={() => dispatch(tasksActions.deleteTask({ groupId: group.id, taskId: t.id }))}
+                                    onChatRequest={onChatRequest}
+                                    onOpenBreakdown={onOpenBreakdown}
+                                    dimmed={dimmed}
+                                    dragHandleProps={dragHandleProps}
+                                  />
+                                )}
+                              </SortableTaskItem>
+                            )
+                          })}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
                   )}
 
-                  {/* Active task */}
-                  <AnimatePresence mode="wait">
-                    {activeTask && (
-                      <div key={activeTask.id} style={{ marginBottom: upcomingTasks.length > 0 ? '0.35rem' : 0 }}>
-                        <ActiveTaskCard
-                          task={activeTask}
-                          groupId={group.id}
-                          groupName={group.name}
-                          onComplete={() => handleComplete(activeTask.id)}
-                          onPause={() => dispatch(tasksActions.pauseTask({ groupId: group.id, taskId: activeTask.id }))}
-                          onDelete={() => dispatch(tasksActions.deleteTask({ groupId: group.id, taskId: activeTask.id }))}
-                          onChatRequest={onChatRequest}
-                          onOpenBreakdown={onOpenBreakdown}
-                        />
-                      </div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Upcoming tasks */}
-                  {upcomingTasks.length > 0 && (
-                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.35rem' }}>
-                      {upcomingTasks.map(t => {
-                        const dimmed = timeFilterActive && Number(timeFilter) > 0 && (t.duration_minutes || 0) > Number(timeFilter)
-                        return (
-                          <UpcomingTaskRow
-                            key={t.id}
-                            task={t}
-                            dimmed={dimmed}
-                            onComplete={() => handleComplete(t.id)}
-                            onMakeActive={() => setActiveOverrideId(t.id)}
-                          />
-                        )
-                      })}
-                    </div>
-                  )}
-
-                  {activeTasks.length === 0 && completedTasks.length === 0 && (
+                  {pendingTasks.length === 0 && completedTasks.length === 0 && (
                     <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '0.75rem 0' }}>
                       no tasks yet.
                     </p>
                   )}
+
+                  {/* Completed tasks — shown/hidden by toggle */}
+                  <AnimatePresence>
+                    {showCompleted && completedTasks.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {pendingTasks.length > 0 && (
+                          <div style={{ height: 1, background: 'var(--border)', margin: '0.5rem 0 0.25rem' }} />
+                        )}
+                        {completedTasks.map(t => <CompletedTaskRow key={t.id} task={t} />)}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </>
               )}
             </div>
@@ -773,39 +888,64 @@ function BreakdownChatPanel({ task, groupId, onClose, onReplaceTask }) {
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.28 }}
-            style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row' }}
           >
             {msg.role === 'assistant' ? (
-              <motion.div
-                animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
-                transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-                style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '0.85rem' }}
-              />
+              // Multi-bubble: dot on left, bubbles stacked to its right
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                <motion.div
+                  animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+                  style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '0.85rem' }}
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxWidth: '84%' }}>
+                  {splitIntoBubbles(msg.content).map((chunk, ci) => (
+                    <motion.div
+                      key={ci}
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94], delay: ci * 0.28 }}
+                      style={{
+                        background: 'rgba(200,148,80,0.07)',
+                        border: '1px solid rgba(200,148,80,0.16)',
+                        borderRadius: '16px 16px 16px 4px',
+                        padding: '0.65rem 0.9rem',
+                        fontSize: '0.85rem', color: 'var(--text-primary)',
+                        lineHeight: 1.65, wordBreak: 'break-word',
+                      }}
+                    >
+                      {renderMarkdown(chunk)}
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
             ) : (
-              <div style={{
-                width: 22, height: 22, borderRadius: '50%', flexShrink: 0, marginTop: '0.2rem',
-                background: 'rgba(42,122,144,0.12)', border: '1px solid rgba(42,122,144,0.2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '0.62rem', fontWeight: 600, color: 'var(--color-active)',
-              }}>
-                {userInitial}
+              // User message — unchanged
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', flexDirection: 'row-reverse' }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: '50%', flexShrink: 0, marginTop: '0.2rem',
+                  background: 'rgba(42,122,144,0.12)', border: '1px solid rgba(42,122,144,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '0.62rem', fontWeight: 600, color: 'var(--color-active)',
+                }}>
+                  {userInitial}
+                </div>
+                <div style={{
+                  maxWidth: '84%',
+                  background: 'rgba(42,122,144,0.08)',
+                  border: '1px solid rgba(42,122,144,0.16)',
+                  borderRadius: '16px 16px 4px 16px',
+                  padding: '0.65rem 0.9rem',
+                  fontSize: '0.85rem', color: 'var(--text-primary)',
+                  lineHeight: 1.65, wordBreak: 'break-word',
+                }}>
+                  {msg.content}
+                </div>
               </div>
             )}
-            <div style={{
-              maxWidth: '84%',
-              background: msg.role === 'assistant' ? 'rgba(200,148,80,0.07)' : 'rgba(42,122,144,0.08)',
-              border: `1px solid ${msg.role === 'assistant' ? 'rgba(200,148,80,0.16)' : 'rgba(42,122,144,0.16)'}`,
-              borderRadius: msg.role === 'assistant' ? '16px 16px 16px 4px' : '16px 16px 4px 16px',
-              padding: '0.65rem 0.9rem',
-              fontSize: '0.85rem', color: 'var(--text-primary)',
-              lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-            }}>
-              {msg.role === 'assistant' ? stripMd(msg.content) : msg.content}
-            </div>
           </motion.div>
         ))}
 
-        {/* In-flight streaming bubble */}
+        {/* In-flight streaming bubble — single bubble until done */}
         {streaming && (
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
             <motion.div
@@ -818,7 +958,7 @@ function BreakdownChatPanel({ task, groupId, onClose, onReplaceTask }) {
               border: '1px solid rgba(200,148,80,0.16)', borderRadius: '16px 16px 16px 4px',
               padding: '0.65rem 0.9rem', fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.65,
             }}>
-              {streamText ? stripMd(streamText) : (
+              {streamText ? renderMarkdown(streamText) : (
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                   {[0,1,2].map(i => (
                     <motion.span key={i}
@@ -925,11 +1065,23 @@ export default function Tasks() {
   const [timeFilter, setTimeFilter]             = useState('20')
   const [timeFilterActive, setTimeFilterActive] = useState(false)
 
+  // Completed tasks visibility toggle — hidden by default
+  const [showCompleted, setShowCompleted] = useState(false)
+
   // Paused section
   const [pausedOpen, setPausedOpen] = useState(false)
 
   // Breakdown chat panel — set to { task, groupId } to open, null to close
   const [breakdownTask, setBreakdownTask] = useState(null)
+
+  // Close breakdown panel if the task or its group was deleted
+  useEffect(() => {
+    if (!breakdownTask) return
+    const grp = groups.find(g => g.id === breakdownTask.groupId)
+    if (!grp || !grp.tasks.some(t => t.id === breakdownTask.task?.id)) {
+      setBreakdownTask(null)
+    }
+  }, [groups, breakdownTask])
 
   // Pebble chat thread (persistent during session)
   const [qaMessages,  setQaMessages]  = useState([])   // [{id,role,content}]
@@ -1089,24 +1241,43 @@ export default function Tasks() {
       style={{ maxWidth: 640, margin: '0 auto', width: '100%', padding: '2rem 1.5rem 6rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}
     >
       {/* ── Page heading ──────────────────────────────────────────────── */}
-      <motion.div variants={item} style={{ paddingBottom: '0.25rem' }}>
-        <h2 style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
-          fontWeight: 400,
-          color: 'var(--text-primary)',
-          marginBottom: '0.2rem',
-          display: 'flex',
-          alignItems: 'baseline',
-          gap: 0,
-        }}>
-          Your tasks
-          <span aria-hidden="true" style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: 'var(--color-pebble)', marginLeft: 5, marginBottom: 2, verticalAlign: 'baseline', flexShrink: 0 }} />
-        </h2>
-        {allTasks.length > 0 && (
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            {timeLeft > 0 ? `${formatMinutes(timeLeft)} of work left` : 'all done for now'}
-          </p>
+      <motion.div variants={item} style={{ paddingBottom: '0.25rem', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+        <div>
+          <h2 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
+            fontWeight: 400,
+            color: 'var(--text-primary)',
+            marginBottom: '0.2rem',
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 3,
+          }}>
+            your tasks
+            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', display: 'inline-block', flexShrink: 0, marginBottom: 10 }} />
+          </h2>
+          {allTasks.length > 0 && (
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              {timeLeft > 0 ? `${formatMinutes(timeLeft)} of work left` : 'all done for now'}
+            </p>
+          )}
+        </div>
+        {/* Completed tasks toggle — only shown when there are completed tasks */}
+        {allTasks.some(t => t.done) && (
+          <button
+            onClick={() => setShowCompleted(s => !s)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: '0.75rem', color: 'var(--text-muted)',
+              padding: '0.25rem 0', marginTop: '0.15rem',
+              transition: 'color 0.2s ease', flexShrink: 0,
+              fontFamily: 'inherit',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-secondary)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
+          >
+            {showCompleted ? 'hide completed' : 'show completed'}
+          </button>
         )}
       </motion.div>
 
@@ -1227,6 +1398,7 @@ export default function Tasks() {
                 timeFilterActive={timeFilterActive}
                 onChatRequest={handleChatRequest}
                 onOpenBreakdown={({ task, groupId }) => setBreakdownTask({ task, groupId })}
+                showCompleted={showCompleted}
                 onStartNewGroup={() => {
                   setTimeout(() => {
                     addInputRef.current?.focus()
@@ -1323,52 +1495,59 @@ export default function Tasks() {
                 key={msg.id}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] } }}
-                style={{
-                  display: 'flex',
-                  gap: '0.6rem',
-                  alignItems: 'flex-start',
-                  flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
-                }}
               >
-                {/* Avatar */}
                 {msg.role === 'assistant' ? (
-                  <motion.div
-                    animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
-                    transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-                    style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '0.9rem' }}
-                  />
+                  // Multi-bubble for assistant
+                  <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
+                    <motion.div
+                      animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
+                      transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+                      style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '0.9rem' }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxWidth: '80%' }}>
+                      {splitIntoBubbles(msg.content).map((chunk, ci) => (
+                        <motion.div
+                          key={ci}
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94], delay: ci * 0.28 }}
+                          style={{
+                            background: 'rgba(200,148,80,0.07)', border: '1px solid rgba(200,148,80,0.16)',
+                            borderRadius: '18px 18px 18px 4px', padding: '0.75rem 1rem',
+                            fontSize: '0.88rem', color: 'var(--text-primary)', lineHeight: 1.65,
+                            wordBreak: 'break-word', boxShadow: '0 3px 14px rgba(200,148,80,0.07)',
+                          }}
+                        >
+                          {renderMarkdown(chunk)}
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
                 ) : (
-                  <div style={{
-                    width: 24, height: 24, borderRadius: '50%', flexShrink: 0, marginTop: '0.2rem',
-                    background: 'rgba(42,122,144,0.12)', border: '1px solid rgba(42,122,144,0.2)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '0.65rem', fontWeight: 600, color: 'var(--color-active)',
-                  }}>
-                    {(prefs.name && prefs.name !== 'there') ? prefs.name.charAt(0).toUpperCase() : 'Y'}
+                  // User message
+                  <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', flexDirection: 'row-reverse' }}>
+                    <div style={{
+                      width: 24, height: 24, borderRadius: '50%', flexShrink: 0, marginTop: '0.2rem',
+                      background: 'rgba(42,122,144,0.12)', border: '1px solid rgba(42,122,144,0.2)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.65rem', fontWeight: 600, color: 'var(--color-active)',
+                    }}>
+                      {(prefs.name && prefs.name !== 'there') ? prefs.name.charAt(0).toUpperCase() : 'Y'}
+                    </div>
+                    <div style={{
+                      maxWidth: '80%', background: 'rgba(42,122,144,0.08)',
+                      border: '1px solid rgba(42,122,144,0.16)', borderRadius: '18px 18px 4px 18px',
+                      padding: '0.75rem 1rem', fontSize: '0.88rem', color: 'var(--text-primary)',
+                      lineHeight: 1.65, wordBreak: 'break-word', boxShadow: '0 2px 10px rgba(42,122,144,0.05)',
+                    }}>
+                      {msg.content}
+                    </div>
                   </div>
                 )}
-                {/* Bubble */}
-                <div style={{
-                  maxWidth: '80%',
-                  background: msg.role === 'assistant' ? 'rgba(200,148,80,0.07)' : 'rgba(42,122,144,0.08)',
-                  border: `1px solid ${msg.role === 'assistant' ? 'rgba(200,148,80,0.16)' : 'rgba(42,122,144,0.16)'}`,
-                  borderRadius: msg.role === 'assistant' ? '18px 18px 18px 4px' : '18px 18px 4px 18px',
-                  padding: '0.75rem 1rem',
-                  fontSize: '0.88rem',
-                  color: 'var(--text-primary)',
-                  lineHeight: 1.65,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  boxShadow: msg.role === 'assistant' ? '0 3px 14px rgba(200,148,80,0.07)' : '0 2px 10px rgba(42,122,144,0.05)',
-                }}>
-                  {msg.role === 'assistant'
-                    ? msg.content.replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/^#+\s+/gm,'').replace(/^[-*]\s+/gm,'')
-                    : msg.content}
-                </div>
               </motion.div>
             ))}
 
-            {/* In-flight streaming bubble */}
+            {/* In-flight streaming bubble — single bubble until done */}
             {qaStreaming && (
               <motion.div
                 key="streaming"
@@ -1388,7 +1567,7 @@ export default function Tasks() {
                   maxWidth: '80%', boxShadow: '0 3px 14px rgba(200,148,80,0.07)',
                 }}>
                   {qaStream
-                    ? qaStream
+                    ? renderMarkdown(qaStream)
                     : (
                       <div style={{ display: 'flex', gap: 5, alignItems: 'center', padding: '2px 0' }}>
                         {[0, 1, 2].map(i => (

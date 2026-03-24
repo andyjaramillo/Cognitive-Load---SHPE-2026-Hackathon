@@ -197,6 +197,35 @@ class AIService:
     #  Contextual nudge                                                    #
     # ------------------------------------------------------------------ #
 
+    async def generate_title(self, messages: list[dict]) -> str:
+        """Generate a short 3-6 word lowercase title summarising a conversation."""
+        convo = "\n".join(
+            f"{m.get('role','')}: {str(m.get('content',''))[:200]}"
+            for m in messages[:8]
+            if m.get("role") in ("user", "assistant") and m.get("content")
+        )
+        if not convo.strip():
+            return "untitled conversation"
+        resp = await self._client.chat.completions.create(
+            model=self._model,
+            temperature=0.4,
+            max_tokens=20,
+            timeout=10,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Write a 2–4 word lowercase title for this conversation. Ultra short. Specific. "
+                        "Capture the actual topic — not the emotion. Return only the title, no quotes, no punctuation. "
+                        "Examples: 'chem exam', 'apartment move', 'work deadline', 'dentist appointment', 'math hw help', 'job interview prep', 'grocery run'."
+                    ),
+                },
+                {"role": "user", "content": f"Conversation:\n{convo}\n\nTitle:"},
+            ],
+        )
+        title = resp.choices[0].message.content.strip().strip('"\'').strip(".")
+        return title[:60] if title else "untitled conversation"
+
     async def contextual_nudge(self, task_name: str, elapsed_minutes: int) -> str:
         user_msg = (
             f"Task: \"{task_name}\"\n"

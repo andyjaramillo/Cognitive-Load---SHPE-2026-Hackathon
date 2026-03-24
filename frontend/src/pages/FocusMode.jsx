@@ -292,9 +292,9 @@ function StandaloneFocus({ startBreak = false }) {
                     Name this session
                   </span>
                   {[
-                    { color: 'var(--color-pebble)', delay: 0 },
-                    { color: '#C89450', delay: 0.18 },
-                    { color: '#9B8AB8', delay: 0.36 },
+                    { color: '#50946A', delay: 0 },
+                    { color: '#E0A060', delay: 0.18 },
+                    { color: '#9A88B4', delay: 0.36 },
                   ].map((dot, i) => (
                     <motion.span
                       key={i}

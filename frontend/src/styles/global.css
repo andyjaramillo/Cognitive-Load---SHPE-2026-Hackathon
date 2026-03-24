@@ -431,7 +431,7 @@ input:focus, textarea:focus {
   color: var(--text-secondary);
   transition: background var(--transition), color var(--transition);
 }
-.top-nav__item:hover { background: var(--accent-soft); color: var(--accent); text-decoration: none; }
+.top-nav__item:hover { background: var(--color-pebble-soft); color: var(--color-pebble); text-decoration: none; }
 .top-nav__item.active { background: var(--color-pebble-soft); color: var(--color-pebble); }
 
 .top-nav__right {
@@ -484,7 +484,7 @@ input:focus, textarea:focus {
   background: var(--bg-card);
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  animation: breathe 4s ease-in-out infinite;
+  animation: breathe 6s ease-in-out infinite;
   transition: border-color var(--transition), background var(--transition);
 }
 .upload-zone.dragging {
@@ -495,8 +495,12 @@ input:focus, textarea:focus {
 }
 
 @keyframes breathe {
-  0%, 100% { box-shadow: 0 0 0 0px rgba(42,122,144,0.06), 0 2px 16px rgba(42,122,144,0.04); }
-  50%       { box-shadow: 0 0 0 14px rgba(42,122,144,0.04), 0 4px 28px rgba(42,122,144,0.08); }
+  0%, 100% { box-shadow: 0 0 0 0px color-mix(in srgb, var(--color-pebble) 4%, transparent), 0 2px 12px color-mix(in srgb, var(--color-pebble) 3%, transparent); }
+  50%       { box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-pebble) 3%, transparent), 0 4px 20px color-mix(in srgb, var(--color-pebble) 5%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upload-zone { animation: none; }
 }
 
 /* ── Card ────────────────────────────────────────────────────────────────── */
@@ -705,3 +709,18 @@ input[type="number"] {
 }
 .nav-item:hover { background: var(--accent-soft); color: var(--accent); }
 .nav-item.active { background: var(--accent-soft); color: var(--accent); }
+/* ── Drag-to-reorder (Tasks page) ───────────────────────────────────────── */
+.task-row-wrapper:hover .drag-handle,
+.task-row-wrapper:focus-within .drag-handle {
+  opacity: 1 !important;
+}
+.drag-handle:active { cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) {
+  .task-row-wrapper { transition: none !important; }
+}
+
+/* ── Break room button focus ring ────────────────────────────────────────── */
+.break-room-btn:focus-visible {
+  outline: 2px solid var(--color-active);
+  outline-offset: 3px;
+}

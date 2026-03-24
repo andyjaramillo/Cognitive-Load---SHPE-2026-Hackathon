@@ -44,7 +44,7 @@ All code should be calibrated for solo-builder reality. Efficiency matters, neve
 
 ---
 
-## Build Status — Current State (as of Session 12, March 23 2026)
+## Build Status — Current State (as of Session 13, March 24 2026)
 
 ### What's FULLY BUILT AND WORKING
 
@@ -71,6 +71,9 @@ All code should be calibrated for solo-builder reality. Efficiency matters, neve
 | FocusMode page | ✅ Working | Full screen, enhanced BreathingCircle, accessible button sizes |
 | Settings page | ✅ Working | Font, theme, timer, comm style, reading level, granularity all wired |
 | WalkthroughOverlay | ✅ Complete | 5-step teal glow spotlight tour, skip-able, portal-based |
+| BreakRoomButton | ✅ Complete | Fixed bottom-left, breathing pulse, opens overlay from any page except /focus |
+| BreakRoomOverlay | ✅ Complete | Portal-based, dark backdrop, breathing circle, break tips, uses --color-pebble |
+| Pebble color picker | ✅ Complete | TopNav avatar click opens sage/sky/lilac/amber swatch popover, saves to Cosmos |
 | `global.css` themes | ✅ Complete | 4 time-of-day themes + manual override selectors, all design tokens |
 
 ### What's MISSING / NOT YET BUILT
@@ -177,6 +180,20 @@ All code should be calibrated for solo-builder reality. Efficiency matters, neve
 71. ✅ **Previous session click loads chat** — Session click handler in the "What was I working on?" dropdown now calls `setHeroMode(false)` so the chat view renders after loading messages.
 72. ✅ **Hero typing = new session** — `handleSend` now checks: if `heroMode === true` and messages exist, archive the previous session first and start fresh. The hero screen is the canonical "new session" entry point. Previous sessions appear in the dropdown.
 73. ✅ **Session titles fixed** — `archiveSession` now skips "What was I working on?" when picking the title (uses the first real user-typed message). Sessions with only that button click are not archived at all, eliminating the flood of identically-titled entries.
+
+### Fixed in Session 13 (March 24 2026)
+74. ✅ **Drag-to-reorder tasks** — `@dnd-kit/core` + `@dnd-kit/sortable` installed. `PointerSensor` with `activationConstraint: { distance: 8 }` separates tap-to-expand from drag. `DragHandle` (6-dot 2×3 grid) appears on `.task-row-wrapper:hover`. `reorderTasks` reducer in `tasksSlice`. `SortableTaskItem` wrapper with render props passes `isDragging` + `dragHandleProps`.
+75. ✅ **Task merge from chat** — `TASK MERGING RULE` added to `_BLOCK_12_BASE`. `merge_tasks` `###ACTIONS` type. `mergeTasks` Redux reducer. `MergePreviewCard` in Home.jsx with `PriorityPicker` + duration display. Confirmed via chat: "merge those two" → card appears → user confirms → tasks consolidated.
+76. ✅ **Tasks expand in place** — Replaced `activeTask`-at-top pattern with unified `TaskRow` component. All tasks render in Redux order; `expandedTaskId` state controls inline expansion with smooth height animation. First task auto-expands when group opens.
+77. ✅ **Hide completed tasks** — "show completed" / "hide completed" text toggle in Tasks heading. Hidden by default; only shown when completed tasks exist.
+78. ✅ **Break room** — `BreakRoomButton.jsx` (fixed bottom-left, breathing pulse, `zIndex: 9998`) + `BreakRoomOverlay.jsx` (portal-based, `rgba(0,0,0,0.72)` backdrop, `BreathingCircle` 160px, random break tip, Escape/outside-click closes). Accessible from all pages except `/focus`. Both components use `var(--color-pebble)` for identity color.
+79. ✅ **Pebble identity color picker in TopNav** — Clicking user avatar (top-right) opens a popover with 4 color swatches (sage/sky/lilac/amber). Selecting a swatch dispatches `prefsActions.setPrefs({ pebbleColor })` and calls `savePreferences({ pebble_color })`. Popover closes on outside-click or Escape. Shows active color name below swatches.
+80. ✅ **System color consistency pass** — All hardcoded `rgba(42,122,144,...)` replaced with `var(--color-pebble)` / `var(--color-pebble-soft)` throughout: TopNav hover, user chat bubble, user avatar, "new chat" button, BreakRoomButton, BreakRoomOverlay breathing circle, Settings heading dot, Settings Communication & AI selected states, Tasks heading dot, Documents upload zone glow.
+81. ✅ **Loading dots unified** — All 3-dot bounce loading animations (chat `PulseDot`, hero loading, FocusMode topic input) now use hardcoded `#50946A` (green) → `#E0A060` (orange) → `#9A88B4` (lilac). Same everywhere, never changes with pebble color.
+82. ✅ **RESOURCE SUGGESTION RULE added to system prompt** — `_BLOCK_12_BASE` in `chat_service.py` now instructs Pebble to naturally weave in relevant resources (general knowledge tools + user's uploaded documents from Block 8) when helping with tasks, studying, or complex topics. One resource at a time, never forced, never invented URLs.
+83. ✅ **Block 8 document content improved** — `_fmt_block_8` now passes up to 800 chars of document content per document (labeled "Content excerpt"), with clear instruction to reference by filename. Upload handler stores 2000 chars instead of 500. Both Documents page Q&A and Tasks BreakdownChatPanel confirmed to use full 12-block `/api/chat` pipeline.
+84. ✅ **Page heading dot pattern standardized** — All DM Serif Display page headings now use "text + pebble dot" pattern (dot is the period): "your tasks●", "settings●", "taking a little break●". Dots use `var(--color-pebble)`.
+85. ✅ **Nav hover color fixed** — `.top-nav__item:hover` now uses `var(--color-pebble-soft)` / `var(--color-pebble)` matching the active state. Previously showed `var(--accent)` (always teal regardless of chosen color).
 
 ### Still Open
 1. **P0-5: Chapter 5 seed data** — Needs running backend: `curl -X POST http://localhost:8000/api/tasks -H "Content-Type: application/json" -H "X-User-Id: diego" -d '{"groups":[]}'`

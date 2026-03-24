@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { tasksActions } from '../store'
 import { uploadDocument, summariseStream, explainSentence, decompose, loadDocuments, chatStream, deleteDocument } from '../utils/api'
 import { bionicify } from '../utils/bionic'
+import { splitIntoBubbles, renderMarkdown } from '../utils/bubbles'
 
 // ── Constants ─────────────────────────────────────────────────────────────── //
 
@@ -69,23 +70,50 @@ function UserAvatar({ name }) {
   )
 }
 
-function AIBubble({ children, orange = false }) {
+function AIBubble({ children, text, isStreaming = false, orange = false }) {
+  const bubbleStyle = {
+    background: orange ? 'rgba(200,148,80,0.07)' : 'rgba(200,148,80,0.05)',
+    border: `1px solid ${orange ? 'rgba(200,148,80,0.2)' : 'rgba(200,148,80,0.12)'}`,
+    borderRadius: '18px 18px 18px 5px',
+    padding: '0.9rem 1.1rem',
+    fontSize: '0.9rem',
+    color: 'var(--text-primary)',
+    lineHeight: 1.65,
+    boxShadow: '0 3px 14px rgba(200,148,80,0.07)',
+  }
+
+  // text prop: split on paragraph breaks (single bubble while streaming)
+  if (text !== undefined) {
+    const bubbles = isStreaming ? [text] : splitIntoBubbles(text)
+    return (
+      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+        <PebbleDot />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          {bubbles.map((chunk, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94], delay: isStreaming ? 0 : i * 0.28 }}
+              style={bubbleStyle}
+            >
+              {renderMarkdown(chunk)}
+              {/* Streaming cursor only on last bubble of the last message */}
+              {isStreaming && i === bubbles.length - 1 && (
+                <span className="streaming-cursor" aria-hidden="true" />
+              )}
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // children: structured JSX (main results block) — single bubble, no split
   return (
     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
       <PebbleDot />
-      <div style={{
-        flex: 1,
-        background: orange ? 'rgba(200,148,80,0.07)' : 'rgba(200,148,80,0.05)',
-        border: `1px solid ${orange ? 'rgba(200,148,80,0.2)' : 'rgba(200,148,80,0.12)'}`,
-        borderRadius: '18px 18px 18px 5px',
-        padding: '0.9rem 1.1rem',
-        fontSize: '0.9rem',
-        color: 'var(--text-primary)',
-        lineHeight: 1.65,
-        boxShadow: '0 3px 14px rgba(200,148,80,0.07)',
-      }}>
-        {children}
-      </div>
+      <div style={{ ...bubbleStyle, flex: 1 }}>{children}</div>
     </div>
   )
 }
@@ -659,7 +687,7 @@ export default function Documents() {
 
               {/* AI response — smart doc type message (P3-3) */}
               <motion.div variants={staggerItem}>
-                <AIBubble>{aiDesc}</AIBubble>
+                <AIBubble text={aiDesc} />
               </motion.div>
 
               {/* Choice cards */}
@@ -861,12 +889,10 @@ export default function Documents() {
                       ? <UserBubble key={i} text={msg.text} userName={prefs.name} />
                       : (
                         <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-                          <AIBubble>
-                            {stripMarkdown(msg.text)}
-                            {qaStreaming && i === qaMessages.length - 1 && (
-                              <span className="streaming-cursor" aria-hidden="true" />
-                            )}
-                          </AIBubble>
+                          <AIBubble
+                            text={msg.text}
+                            isStreaming={qaStreaming && i === qaMessages.length - 1}
+                          />
                         </motion.div>
                       )
                   )}

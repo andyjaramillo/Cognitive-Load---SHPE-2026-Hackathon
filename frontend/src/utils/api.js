@@ -209,6 +209,7 @@ function _toBackendGroup(g) {
       task_name:        t.task_name,
       description:      t.motivation_nudge || '',
       duration_minutes: t.duration_minutes || 15,
+      priority:         t.priority ?? 2,   // 1=high, 2=normal, 3=low. ?? 2 is safe for old tasks
       status:           t.done ? 'done' : (t.paused ? 'in_progress' : 'pending'),
       due_date:         t.due_date || null,
       due_label:        t.due_label || null,
@@ -226,6 +227,7 @@ function _toFrontendGroup(g) {
       id:               t.id,
       task_name:        t.task_name,
       duration_minutes: t.duration_minutes || 15,
+      priority:         t.priority ?? 2,   // graceful: old tasks without field default to medium
       motivation_nudge: t.description || '',
       due_date:         t.due_date || null,
       due_label:        t.due_label || null,
@@ -267,6 +269,20 @@ export async function clearAllDocuments() {
 export async function clearChatHistory() {
   const res = await apiFetch('/api/conversations', { method: 'DELETE' })
   return res.json()
+}
+
+// ── Generate AI title for a session ────────────────────────────────────── //
+export async function generateSessionTitle(messages) {
+  try {
+    const res = await apiFetch('/api/title', {
+      method: 'POST',
+      body: JSON.stringify({ messages }),
+    })
+    const data = await res.json()
+    return data.title || 'untitled conversation'
+  } catch {
+    return null  // caller falls back to first-message heuristic
+  }
 }
 
 // ── Upload document (multipart) ────────────────────────────────────────── //

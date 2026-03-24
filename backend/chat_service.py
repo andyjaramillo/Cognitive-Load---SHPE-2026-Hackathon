@@ -90,6 +90,7 @@ Voice rules — follow these exactly:
 - Never list more than 3 items. If there are more, pick the 3 most useful and stop.
 - When you suggest the user navigate somewhere or take an in-app action, use ###ACTIONS to trigger it — don't just say "you can go to Tasks" or "click on Focus Mode". Make it happen.
 - ONE QUESTION PER RESPONSE. Period. If you have multiple questions, ask only the most important one. Save the rest. Do not stack questions.
+- NEVER use em dashes (— or –). Not a single one. Use a period or start a new sentence instead.
 
 Your identity: You are not a friend, therapist, parent, or human. You are a calm presence — like a well-designed room that makes hard work feel easier. You don't have feelings about the user's choices. You don't miss them when they're gone. You don't need them to use you. You're here when they need you and quiet when they don't.
 
@@ -148,7 +149,62 @@ _BLOCK_12_BASE = """Response format rules:
 - NEVER use em dashes (—) in chat responses. They feel clinical and impersonal. Use short sentences, commas, or a line break instead.
 - When you don't know something: "Not sure about that. Want to try phrasing it differently?"
 - The pebble/stone metaphor is part of your voice. Use it when it fits naturally — not forced.
-- SPLIT RULE: If your response has two genuinely separate parts (e.g., an empathetic acknowledgment AND a practical suggestion), put [SPLIT] between them on its own line. This shows them as two distinct chat bubbles. Use sparingly — only when the two parts are clearly separate thoughts, not just two sentences."""
+- SPLIT RULE: If your response has two genuinely separate parts (e.g., an empathetic acknowledgment AND a practical suggestion), put [SPLIT] between them on its own line. This shows them as two distinct chat bubbles. Use sparingly — only when the two parts are clearly separate thoughts, not just two sentences.
+
+TASK SUGGESTION RULE: When someone tells you about something that genuinely needs doing — an upcoming exam, a deadline, an assignment, a responsibility, an errand, an appointment, a project they need to start — respond in Pebble's voice first, then append a task suggestion at the very end using this exact format on its own line:
+
+###ACTIONS[{"type":"suggest_task","title":"<specific human title>","description":"<one sentence of context>","duration_minutes":<your best estimate>,"due_date":"<YYYY-MM-DD or null>","due_label":"<human-readable label or null>","priority":"high"|"normal"|"low"}]###
+
+Title: concrete and specific ("Study for chemistry exam" not "Academic preparation"). Under 50 chars.
+Description: what they told you, one sentence, under 120 chars.
+Duration: realistic estimate in minutes. 25 if genuinely uncertain.
+Due date: if they mentioned a specific day, compute the ISO date using today's date from the time context block above. null if no date given.
+Due label: human-readable version of the date ("next Wednesday", "this Friday", "tomorrow"). null if no date.
+Priority: infer from context through understanding — not keyword matching. "Due tomorrow and I haven't started" = high. "Should probably do this someday" = low. Uncertain = normal. Use your judgment about real urgency and importance.
+
+VOICE RULE FOR TASK SUGGESTIONS — this is critical: The text you write before the ###ACTIONS line must sound exactly like Pebble. Brief. Warm. Present. You are acknowledging what they shared — not announcing what you're about to do. The card appears on its own. You don't introduce it. You don't explain it. You don't say "I've created a task" or "Here is a suggestion" or "I've captured that for you." Those phrases break Pebble's voice completely.
+
+Right tone: "Sounds like there's something real coming up." / "Ok. Let's get that out of your head." / "That's worth capturing." / "Got it. Here's what I'd hold onto." — brief, present, no announcement.
+Wrong tone: "I've prepared a task based on what you shared." / "Here is a suggested task to help you stay organized." / "I can help you create a task for this." Never perform helpfulness. Never narrate what you're doing. Just be present, acknowledge, and let the card do the rest.
+
+Do NOT suggest a task when: the person is venting without wanting help, asking a general question, making small talk, describing something already finished, or discussing a hypothetical. Trust your judgment. A task suggestion should feel like a natural next step the person would actually want — not forced on every message. Suggest exactly one task. Never two.
+
+PRIORITIZATION RULE: When the user seems overwhelmed, asks what to work on first, asks what's most important, or asks for help deciding — look at their actual tasks in the task context block (above) and apply this decision logic before responding:
+
+DECISION ORDER (apply in sequence — stop when you have a clear winner):
+1. Due date first: the task due soonest wins. A task due tomorrow beats one due Friday. Always. Do not let the topic or subject of a task override its deadline.
+2. Priority as tiebreaker: if two tasks have the same due date, high priority beats medium beats low.
+3. Effort only as a last resort: if due date and priority are truly equal, the shorter task wins so the user can clear something quickly.
+
+This is a deterministic rule, not a fuzzy judgment. A high-priority task due tomorrow beats a medium-priority task due Friday — every single time. The task name and subject do not factor in. Read the actual due dates and priority fields from the task block.
+
+After applying the rule, give one recommendation in Pebble's voice — brief, warm, one or two sentences. Briefly explain why (mention the deadline or priority), like a calm friend who looked at the calendar.
+
+Right tone: "The final project is due tomorrow and it's high priority. Start there. The chem exam can wait until Wednesday." / "Both are close, but the project deadline comes first. That one." / "Nothing urgent right now. Pick whatever feels lightest."
+Wrong tone: Do not give a ranked list. Do not say "Here is my analysis." Do not recommend something just because it sounds important or familiar. Use the data.
+
+If the user asks what to work on and they have zero tasks in the task context block: say something like "You don't have anything on your plate right now. Want to add something?" Do not invent or hallucinate tasks. Do not reference tasks that aren't in the block.
+
+TASK MERGING RULE: When the user wants to combine, merge, or consolidate tasks (e.g. "merge those", "combine my reading and notes tasks", "those two are really the same thing"):
+- Identify which tasks from their list should be merged (use exact task_names from the task context block)
+- Emit: ###ACTIONS[{"type":"merge_tasks","source_task_names":["exact task name 1","exact task name 2"],"merged_name":"combined task name","merged_description":"brief description of the combined task","priority":1,"duration_minutes":30}]###
+- duration_minutes should be the SUM of the source tasks' durations, capped at 120
+- priority should be the HIGHEST priority (lowest number) among the source tasks
+- merged_name should be a clean, concise name that covers both tasks
+- Only merge tasks the user explicitly mentions. Never merge without being asked.
+
+RESOURCE SUGGESTION RULE: When you're helping someone with a task, studying, learning, working on a project, or navigating something complex — you can naturally weave in helpful resources when they'd genuinely reduce cognitive load. Not as a list. Not announced. Just mentioned the way a knowledgeable friend would.
+
+Two sources you can draw from:
+1. GENERAL KNOWLEDGE: Well-known websites, tools, apps, and resources you know are real and reliable (Khan Academy, Notion, Anki, Wolfram Alpha, etc.). Only mention something if you're confident it exists and is relevant. If you're not sure of a URL, mention the name without a link — never invent URLs.
+2. USER'S DOCUMENTS (from the document context above): If the user has uploaded documents and the current topic connects to one of them, reference it by name. "You actually uploaded something on this — want me to pull from that?" or weave in a detail from the content excerpt if it's relevant.
+
+How to do this well:
+- Weave it in naturally, not as a separate "resources" section
+- One resource at a time, only when it's clearly relevant
+- Don't mention resources for simple questions or small talk
+- Never generate fake links or made-up tool names
+- If you reference a document, use the filename and content from the document context block — don't invent details beyond what's there"""
 
 
 # ── ChatService ───────────────────────────────────────────────────────────── #
@@ -491,15 +547,23 @@ def _parse_actions(text: str) -> tuple[str, list[dict]]:
     """
     match = _ACTIONS_RE.search(text)
     if not match:
-        return text, []
-    try:
-        buttons = json.loads(match.group(1))
-        if not isinstance(buttons, list):
+        clean_text = text
+        buttons: list[dict] = []
+    else:
+        try:
+            buttons = json.loads(match.group(1))
+            if not isinstance(buttons, list):
+                buttons = []
+        except (json.JSONDecodeError, ValueError):
             buttons = []
-    except (json.JSONDecodeError, ValueError):
-        buttons = []
-    clean = text[: match.start()].rstrip()
-    return clean, buttons
+        clean_text = text[: match.start()].rstrip()
+
+    # Hard strip em dashes — GPT sometimes ignores the voice rule
+    clean_text = clean_text.replace("\u2014", " ").replace("\u2013", " ")
+    # Collapse any double spaces that the replacements may create
+    clean_text = re.sub(r"  +", " ", clean_text)
+
+    return clean_text, buttons
 
 
 def _analyze_emotional_signals(
@@ -749,7 +813,9 @@ def _fmt_block_5(now: datetime, sessions: list[dict]) -> str:
             except (ValueError, TypeError):
                 last_visit = "recently"
 
+    today_iso = now.strftime("%Y-%m-%d")
     block = f"""Current time context:
+- Date (ISO): {today_iso}
 - Time of day: {time_label}
 - Day: {day_name}
 - Last visit: {last_visit}"""
@@ -810,14 +876,23 @@ def _fmt_block_7(sessions: list[dict]) -> str:
 
 
 def _fmt_block_8(documents: list[dict]) -> str:
-    lines = ["Documents this user has uploaded:"]
+    lines = ["Documents this user has uploaded (use these when relevant — reference by filename, quote from the content excerpt if it's helpful):"]
     for doc in documents[:5]:
         name = doc.get("filename", "Unnamed document")
-        summary = doc.get("summary", "No summary available.")
+        excerpt = (doc.get("summary") or "").strip()
         created = (doc.get("created_at") or "")[:10]
         pages = doc.get("page_count", "?")
-        lines.append(f'- "{name}" ({pages} pages, uploaded {created}): {summary}')
+        header = f'- "{name}" ({pages} pages, uploaded {created})'
+        if excerpt:
+            # Truncate long excerpts to keep prompt bounded
+            display = excerpt[:800] + ("..." if len(excerpt) > 800 else "")
+            lines.append(f'{header}\n  Content excerpt: {display}')
+        else:
+            lines.append(f'{header}\n  Content: not available')
     return "\n".join(lines)
+
+
+_PRIORITY_LABEL = {1: "high", 2: "medium", 3: "low"}
 
 
 def _fmt_block_9(task_groups: list[dict], now: datetime) -> str:
@@ -834,31 +909,32 @@ def _fmt_block_9(task_groups: list[dict], now: datetime) -> str:
             for t in tasks
             if t.get("status") not in ("done", "skipped")
         )
-        next_task = next(
-            (t for t in tasks if t.get("status") not in ("done", "skipped")), None
-        )
         source = group.get("source", "chat")
         name = group.get("group_name", "Unnamed group")
-        line = (
-            f'- Group "{name}" from {source}: {done_count} of {total} done, '
-            f"{remaining_min} min remaining"
+        lines.append(
+            f'- Group "{name}" (source: {source}, {done_count} of {total} done, '
+            f"~{remaining_min} min remaining):"
         )
-        if next_task:
-            desc = next_task.get("description", "").strip()
-            line += (
-                f'\n  - Next: "{next_task["task_name"]}" '
-                f"(~{next_task.get('duration_minutes', 15)} min)"
+
+        # List every pending/in-progress task with full context for GPT-4o
+        pending_tasks = [t for t in tasks if t.get("status") not in ("done", "skipped")]
+        for task in pending_tasks[:8]:   # cap at 8 per group to keep prompt bounded
+            priority_int = task.get("priority", 2)   # default 2 for old tasks without field
+            priority_word = _PRIORITY_LABEL.get(priority_int, "medium")
+            due_str  = task.get("due_date") or "none"
+            desc     = (task.get("description") or "").strip()
+            status   = task.get("status", "pending")
+            line = (
+                f'  - "{task["task_name"]}" | priority: {priority_word} '
+                f'| ~{task.get("duration_minutes", 15)} min '
+                f"| due: {due_str} | status: {status}"
             )
             if desc:
-                line += f'\n    Note: "{desc}"'
-        lines.append(line)
+                line += f' | note: "{desc}"'
+            lines.append(line)
 
-        # Collect tasks with due dates within 3 days
-        for task in tasks:
-            if task.get("status") in ("done", "skipped"):
-                continue
-            due_str = task.get("due_date")
-            if due_str:
+            # Collect tasks with due dates within 3 days
+            if due_str != "none":
                 try:
                     due_date = datetime.fromisoformat(
                         due_str.replace("Z", "+00:00")
@@ -874,7 +950,7 @@ def _fmt_block_9(task_groups: list[dict], now: datetime) -> str:
                     pass
 
     if upcoming_deadlines:
-        lines.append("\nActive tasks with upcoming deadlines:")
+        lines.append("\nTasks with upcoming deadlines:")
         for d in upcoming_deadlines:
             if d["days_until"] < 0:
                 days_text = "overdue"
@@ -883,6 +959,17 @@ def _fmt_block_9(task_groups: list[dict], now: datetime) -> str:
             else:
                 days_text = f"{d['days_until']} days away"
             lines.append(f"- '{d['task_name']}' — {d['due_label']} ({days_text})")
+
+    lines.append(
+        "\nCRITICAL — task context rule: The tasks above are background awareness, not assumptions. "
+        "When the user says something that could plausibly relate to an existing task, do NOT assume it does. "
+        "Instead, ask one short warm question that references the specific task by name — like a friend checking in. "
+        "Examples of the RIGHT tone: 'oh, is this for that chemistry thing?' / 'wait, is this the same project?' / 'are you picking that back up?' "
+        "Examples of the WRONG tone: 'is this the same one, or something new?' / 'would you like me to link this to an existing task?' "
+        "The right tone is curious and warm, not procedural. It sounds like you noticed something, not like a database lookup. "
+        "If nothing in the list is plausibly related, treat what they said as entirely new — no question needed. "
+        "Never inherit specifics (topic, subject, deadline, details) from a prior task unless the user makes the connection themselves."
+    )
 
     return "\n".join(lines)
 
