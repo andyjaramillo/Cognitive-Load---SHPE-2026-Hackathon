@@ -58,8 +58,8 @@
   --color-inactive: #B4AA9A;    /* warm gray — inactive, unfilled */
 
   /* User-chosen Pebble identity color — set via JS in App.jsx */
-  --color-pebble: #5A8A80;
-  --color-pebble-soft: rgba(90,138,128,0.12);
+  --color-pebble: #6FA99E;
+  --color-pebble-soft: rgba(111,169,158,0.12);
 }
 
 /* ── Morning (6am–12pm): peach sunrise ─────────────────────────────────── */
@@ -127,6 +127,8 @@
   --focus-ring-shadow: drop-shadow(0 0 8px rgba(68,160,174,0.3));
   --bg: radial-gradient(ellipse at 50% 46%, #2C2434 0%, #241E2C 25%, #201A26 45%, #1C1822 65%, #1E1A22 85%, #201C24 100%);
   --bg-primary: #201A26;
+  --color-pebble: #4E8A82;
+  --color-pebble-soft: rgba(78,138,130,0.14);
   --bg-card: rgba(40,34,48,0.7);
   --bg-sidebar: rgba(32,26,40,0.85);
   --surface: rgba(44,36,56,0.92);
@@ -216,6 +218,8 @@
   --bg-primary: #201A26;
   --bg-card: rgba(40,34,48,0.7);
   --bg-sidebar: rgba(32,26,40,0.85);
+  --color-pebble: #4E8A82;
+  --color-pebble-soft: rgba(78,138,130,0.14);
   --surface: rgba(44,36,56,0.92);
   --text-primary: #EDE8EC;
   --text-secondary: #C0B8C4;
@@ -303,6 +307,41 @@ body {
   letter-spacing: var(--letter-spacing);
   transition: background var(--transition-bg), color var(--transition);
   min-height: 100vh;
+}
+
+/* ── Living background — soft warm orbs that breathe ───────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 68% 52% at 8%  12%, rgba(255, 208, 148, 0.26) 0%, transparent 58%),
+    radial-gradient(ellipse 55% 60% at 92% 88%, rgba(148, 208, 192, 0.20) 0%, transparent 56%),
+    radial-gradient(ellipse 48% 44% at 72%  4%, rgba(255, 230, 185, 0.16) 0%, transparent 52%);
+  animation: bg-breathe 22s ease-in-out infinite alternate;
+}
+
+@keyframes bg-breathe {
+  0%   { opacity: 0.70; transform: scale(1.000) translate( 0.0%,  0.0%); }
+  20%  { opacity: 1.00; transform: scale(1.015) translate( 0.7%,  0.4%); }
+  40%  { opacity: 0.82; transform: scale(1.008) translate(-0.4%,  0.7%); }
+  60%  { opacity: 0.95; transform: scale(1.018) translate( 0.5%, -0.3%); }
+  80%  { opacity: 0.78; transform: scale(1.010) translate(-0.5%,  0.4%); }
+  100% { opacity: 0.88; transform: scale(1.012) translate( 0.3%,  0.6%); }
+}
+
+/* Night theme — cool ocean orbs instead of warm sunrise */
+[data-time-theme="night"] body::before,
+[data-theme="night"] body::before {
+  background:
+    radial-gradient(ellipse 68% 52% at 8%  12%, rgba(80,  130, 180, 0.18) 0%, transparent 58%),
+    radial-gradient(ellipse 55% 60% at 92% 88%, rgba(90,  100, 160, 0.14) 0%, transparent 56%),
+    radial-gradient(ellipse 48% 44% at 72%  4%, rgba(100, 150, 190, 0.10) 0%, transparent 52%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before { animation: none; opacity: 0.85; }
 }
 
 a { color: var(--accent); text-decoration: none; }
@@ -482,10 +521,37 @@ input:focus, textarea:focus {
 }
 .btn:active { transform: scale(0.97); }
 .btn-primary {
-  background: var(--color-pebble);
+  background: linear-gradient(135deg, var(--color-pebble) 0%, color-mix(in srgb, var(--color-pebble) 72%, white) 50%, var(--color-pebble) 100%);
+  background-size: 200% 200%;
+  animation: btn-shimmer 10s ease-in-out infinite;
   color: #fff;
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--color-pebble) 36%, transparent);
+  transition: filter var(--transition), box-shadow var(--transition);
 }
-.btn-primary:hover { background: color-mix(in srgb, var(--color-pebble) 85%, black); }
+[data-time-theme="night"] .btn-primary,
+[data-theme="night"] .btn-primary {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--color-pebble) 80%, black) 0%,
+    var(--color-pebble) 50%,
+    color-mix(in srgb, var(--color-pebble) 80%, black) 100%
+  );
+  filter: none;
+  box-shadow: 0 3px 16px color-mix(in srgb, var(--color-pebble) 40%, transparent);
+}
+[data-time-theme="night"] .btn-primary:hover,
+[data-theme="night"] .btn-primary:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 5px 22px color-mix(in srgb, var(--color-pebble) 50%, transparent);
+}
+.btn-primary:hover {
+  filter: brightness(0.91);
+  box-shadow: 0 6px 26px color-mix(in srgb, var(--color-pebble) 52%, transparent);
+}
+@keyframes btn-shimmer {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
 .btn-ghost {
   background: transparent;
   color: var(--text-secondary);

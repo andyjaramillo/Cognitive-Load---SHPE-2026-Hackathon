@@ -113,7 +113,7 @@ function StandaloneFocus({ startBreak = false }) {
   // Break-only mode: user came here via "Take a break" from Tasks
   if (startBreak) {
     return (
-      <div style={{ height: '100vh', width: '100vw', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ height: '100vh', width: '100vw', background: 'transparent', display: 'flex', flexDirection: 'column' }}>
         <TopNav />
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -247,7 +247,7 @@ function StandaloneFocus({ startBreak = false }) {
   // Topic prompt — show before timer if user hasn't named their focus yet
   if (!topicSet) {
     return (
-      <div style={{ height: '100vh', width: '100vw', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ height: '100vh', width: '100vw', background: 'transparent', display: 'flex', flexDirection: 'column' }}>
         <TopNav />
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -325,7 +325,7 @@ function StandaloneFocus({ startBreak = false }) {
   }
 
   return (
-    <div style={{ height: '100vh', width: '100vw', background: 'var(--bg)', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+    <div style={{ height: '100vh', width: '100vw', background: 'transparent', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       {/* Ambient glow */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
@@ -1033,7 +1033,7 @@ export default function FocusMode() {
   return (
     <div style={{
       height: '100vh', width: '100vw',
-      background: 'var(--bg)',
+      background: 'transparent',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       overflow: 'hidden',
@@ -1233,7 +1233,7 @@ export default function FocusMode() {
                     position: 'fixed', inset: 0,
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center',
-                    background: 'var(--bg)',
+                    background: 'transparent',
                     zIndex: 50,
                   }}
                 >

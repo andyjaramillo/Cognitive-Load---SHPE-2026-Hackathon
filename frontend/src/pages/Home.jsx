@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { tasksActions } from '../store'
-import { chatStream, decompose, loadConversation } from '../utils/api'
-import WalkthroughOverlay from '../components/WalkthroughOverlay'
+import { chatStream, decompose, loadConversation, loadDocuments } from '../utils/api'
 
 // ── Constants ─────────────────────────────────────────────────────────── //
 
@@ -274,6 +273,7 @@ export default function Home() {
   const location    = useLocation()
   const dispatch    = useDispatch()
   const prefs       = useSelector(s => s.prefs)
+  const taskGroups  = useSelector(s => s.tasks.groups)
 
   // heroMode — true whenever the user navigates to Home, false once they send a message
   // location.key changes on every navigation, so this resets correctly each visit
@@ -300,13 +300,10 @@ export default function Home() {
   // Stable loading phrase per session so it doesn't flicker on re-renders
   const heroLoadingPhrase = useRef(getLoadingPhrase())
 
-  // Chat session history
+  // Chat session history + cross-page recents
   const [showHistory, setShowHistory] = useState(false)
   const [sessions,    setSessions]    = useState(() => loadSessions())
-
-  // Walkthrough — shown once after onboarding, gated by walkthroughComplete pref
-  const [walkthroughDone, setWalkthroughDone] = useState(false)
-  const showWalkthrough = prefs.loaded && prefs.onboardingComplete && !prefs.walkthroughComplete && !walkthroughDone
+  const [recentDocs,  setRecentDocs]  = useState([])
 
   const messagesEndRef = useRef(null)
   const inputRef       = useRef(null)
@@ -321,6 +318,14 @@ export default function Home() {
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+  }, [showHistory])
+
+  // Fetch recent documents whenever dropdown opens
+  useEffect(() => {
+    if (!showHistory) return
+    loadDocuments()
+      .then(data => setRecentDocs((data.documents || []).slice(0, 4)))
+      .catch(() => setRecentDocs([]))
   }, [showHistory])
 
   // Rotate placeholder text every 15 seconds (slow enough to not be distracting)
@@ -769,7 +774,7 @@ export default function Home() {
               ))}
             </motion.div>
 
-            {/* "What was I working on?" — dropdown if sessions exist, otherwise asks Pebble */}
+            {/* "pick up where you left off" — categorised dropdown */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1, transition: { duration: 0.4, delay: 0.42 } }}
@@ -777,85 +782,194 @@ export default function Home() {
               ref={historyRef}
             >
               <button
-                onClick={() => {
-                  if (isStreaming) return
-                  if (sessions.length > 0) {
-                    setShowHistory(h => !h)
-                  } else {
-                    handlePreviousWork()
-                  }
-                }}
+                onClick={() => { if (!isStreaming) setShowHistory(h => !h) }}
                 disabled={isStreaming}
                 style={{
-                  background: 'none', border: 'none',
-                  cursor:     isStreaming ? 'default' : 'pointer',
-                  color:      'var(--color-paused, #9B8FC4)',
-                  fontSize:   '0.85rem',
-                  padding:    '0.25rem 0.5rem',
-                  opacity:    isStreaming ? 0.45 : 0.75,
-                  transition: 'opacity 0.25s ease',
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                  background: showHistory ? 'var(--accent-soft)' : 'none',
+                  border: '1px solid',
+                  borderColor: showHistory ? 'rgba(154,136,180,0.4)' : 'rgba(154,136,180,0.25)',
+                  borderRadius: 99,
+                  cursor: isStreaming ? 'default' : 'pointer',
+                  color: 'var(--color-paused)',
+                  fontSize: '0.82rem',
+                  fontWeight: 500,
+                  padding: '0.45rem 1rem',
+                  opacity: isStreaming ? 0.45 : 1,
+                  transition: 'all 0.22s ease',
                 }}
-                onMouseEnter={e => { if (!isStreaming) e.currentTarget.style.opacity = '1' }}
-                onMouseLeave={e => { e.currentTarget.style.opacity = isStreaming ? '0.45' : '0.75' }}
+                onMouseEnter={e => { if (!isStreaming) { e.currentTarget.style.background = 'var(--accent-soft)'; e.currentTarget.style.borderColor = 'rgba(154,136,180,0.4)' } }}
+                onMouseLeave={e => { if (!showHistory) { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = 'rgba(154,136,180,0.25)' } }}
               >
-                {sessions.length > 0 ? 'what was I working on? ↓' : 'what was I working on? →'}
+                pick up where you left off
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.7, transform: showHistory ? 'rotate(180deg)' : 'none', transition: 'transform 0.22s ease' }}>
+                  <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
 
-              {/* Session history dropdown */}
+              {/* ── Categorised recents dropdown ─────────────────────── */}
               <AnimatePresence>
-                {showHistory && sessions.length > 0 && (
+                {showHistory && (
                   <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0, transition: { duration: 0.2 } }}
-                    exit={{ opacity: 0, y: 6, transition: { duration: 0.15 } }}
+                    initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1, transition: { duration: 0.22, ease: [0.25, 0, 0.2, 1] } }}
+                    exit={{ opacity: 0, y: 6, scale: 0.97, transition: { duration: 0.15 } }}
                     style={{
-                      position:  'absolute',
-                      top:       'calc(100% + 8px)',
-                      left:      '50%',
-                      transform: 'translateX(-50%)',
+                      position: 'absolute', top: 'calc(100% + 10px)',
+                      left: '50%', transform: 'translateX(-50%)',
                       background: 'var(--bg-card)',
-                      border:    '1px solid var(--border)',
-                      borderRadius: 14,
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-                      minWidth:  300,
-                      maxWidth:  360,
-                      overflow:  'hidden',
-                      zIndex:    30,
+                      border: '1px solid var(--border)',
+                      borderRadius: 16,
+                      boxShadow: '0 16px 48px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+                      width: 'min(400px, 90vw)',
+                      maxHeight: '72vh',
+                      overflowY: 'auto',
+                      zIndex: 30,
                     }}
                   >
-                    {sessions.map((s, i) => (
-                      <button
-                        key={s.id}
-                        onClick={() => {
-                          setMessages(s.messages)
-                          setHeroMode(false)
-                          setShowHistory(false)
-                          try { localStorage.setItem('pebble_chat_messages', JSON.stringify(s.messages)) } catch {}
-                        }}
-                        style={{
-                          width: '100%', display: 'flex', flexDirection: 'column', gap: '0.12rem',
-                          padding: '0.75rem 1rem', background: 'none', border: 'none',
-                          borderBottom: i < sessions.length - 1 ? '1px solid var(--border)' : 'none',
-                          cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s ease',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft)' }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
-                      >
-                        <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.35 }}>
-                          {s.title.length > 52 ? s.title.slice(0, 50) + '…' : s.title}
-                        </span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                          {new Date(s.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          {' · '}{s.msgCount} message{s.msgCount !== 1 ? 's' : ''}
-                        </span>
-                      </button>
-                    ))}
-                    {/* Fallback: ask Pebble directly */}
+                    {/* ── Chats section ─────────────────────────────── */}
+                    {sessions.length > 0 && (
+                      <>
+                        <div style={{
+                          padding: '0.7rem 1rem 0.35rem',
+                          fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em',
+                          color: 'var(--text-muted)', textTransform: 'uppercase',
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                        }}>
+                          <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-active)', opacity: 0.8 }} />
+                          chats
+                        </div>
+                        {sessions.slice(0, 4).map((s, i) => (
+                          <button key={s.id}
+                            onClick={() => {
+                              setMessages(s.messages)
+                              setHeroMode(false)
+                              setShowHistory(false)
+                              try { localStorage.setItem('pebble_chat_messages', JSON.stringify(s.messages)) } catch {}
+                            }}
+                            style={{
+                              width: '100%', display: 'flex', alignItems: 'flex-start', gap: '0.65rem',
+                              padding: '0.65rem 1rem', background: 'none', border: 'none',
+                              borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                              cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s ease',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft)' }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
+                          >
+                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-active)', flexShrink: 0, marginTop: '0.38rem', opacity: 0.6 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '0.84rem', fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {s.title.length > 48 ? s.title.slice(0, 46) + '…' : s.title}
+                              </div>
+                              <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                                {new Date(s.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                {' · '}{s.msgCount} message{s.msgCount !== 1 ? 's' : ''}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+
+                    {/* ── Tasks section ─────────────────────────────── */}
+                    {taskGroups.length > 0 && (
+                      <>
+                        <div style={{
+                          padding: sessions.length > 0 ? '0.8rem 1rem 0.35rem' : '0.7rem 1rem 0.35rem',
+                          fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em',
+                          color: 'var(--text-muted)', textTransform: 'uppercase',
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          borderTop: sessions.length > 0 ? '1px solid var(--border)' : 'none',
+                        }}>
+                          <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-queued)', opacity: 0.8 }} />
+                          tasks
+                        </div>
+                        {[...taskGroups].slice(-4).reverse().map((g, i) => (
+                          <button key={g.id}
+                            onClick={() => { setShowHistory(false); navigate('/tasks') }}
+                            style={{
+                              width: '100%', display: 'flex', alignItems: 'flex-start', gap: '0.65rem',
+                              padding: '0.65rem 1rem', background: 'none', border: 'none',
+                              borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                              cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s ease',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft)' }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
+                          >
+                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-queued)', flexShrink: 0, marginTop: '0.38rem', opacity: 0.6 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '0.84rem', fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {g.name || 'untitled group'}
+                              </div>
+                              <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                                {g.tasks.length} task{g.tasks.length !== 1 ? 's' : ''}
+                                {g.tasks.filter(t => t.done).length > 0 && ` · ${g.tasks.filter(t => t.done).length} done`}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+
+                    {/* ── Documents section ─────────────────────────── */}
+                    {recentDocs.length > 0 && (
+                      <>
+                        <div style={{
+                          padding: (sessions.length > 0 || taskGroups.length > 0) ? '0.8rem 1rem 0.35rem' : '0.7rem 1rem 0.35rem',
+                          fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em',
+                          color: 'var(--text-muted)', textTransform: 'uppercase',
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          borderTop: (sessions.length > 0 || taskGroups.length > 0) ? '1px solid var(--border)' : 'none',
+                        }}>
+                          <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-ai)', opacity: 0.8 }} />
+                          documents
+                        </div>
+                        {recentDocs.map((d, i) => (
+                          <button key={d.id || i}
+                            onClick={() => { setShowHistory(false); navigate('/documents') }}
+                            style={{
+                              width: '100%', display: 'flex', alignItems: 'flex-start', gap: '0.65rem',
+                              padding: '0.65rem 1rem', background: 'none', border: 'none',
+                              borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                              cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s ease',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft)' }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
+                          >
+                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-ai)', flexShrink: 0, marginTop: '0.38rem', opacity: 0.6 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '0.84rem', fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {d.file_name || d.name || 'untitled document'}
+                              </div>
+                              {d.uploaded_at && (
+                                <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                                  {new Date(d.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+
+                    {/* ── Empty state ───────────────────────────────── */}
+                    {sessions.length === 0 && taskGroups.length === 0 && recentDocs.length === 0 && (
+                      <div style={{ padding: '1.2rem 1rem', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                          nothing yet.
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', opacity: 0.7, marginTop: '0.2rem' }}>
+                          start a chat, add tasks, or upload a doc.
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Ask Pebble footer ─────────────────────────── */}
                     <button
                       onClick={() => { setShowHistory(false); handlePreviousWork() }}
                       style={{
-                        width: '100%', padding: '0.6rem 1rem', background: 'none', border: 'none',
-                        cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-muted)',
+                        width: '100%', padding: '0.65rem 1rem', background: 'none', border: 'none',
+                        cursor: 'pointer', fontSize: '0.78rem', color: 'var(--text-muted)',
                         textAlign: 'center', transition: 'background 0.15s ease',
                         borderTop: '1px solid var(--border)',
                       }}
@@ -898,27 +1012,31 @@ export default function Home() {
               }}
             >
               {/* New chat button — sits at the top of the message list */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: '0.25rem' }}>
                 <button
                   onClick={handleNewChat}
                   style={{
-                    background: 'none', border: '1px solid var(--border)',
+                    display: 'flex', alignItems: 'center', gap: '0.35rem',
+                    background: 'var(--accent-soft)',
+                    border: '1px solid rgba(42,122,144,0.25)',
                     borderRadius: 99, cursor: 'pointer',
-                    color: 'var(--text-muted)', fontSize: '0.75rem',
-                    padding: '0.2rem 0.75rem', transition: 'all 0.2s ease',
+                    color: 'var(--color-active)', fontSize: '0.82rem', fontWeight: 500,
+                    padding: '0.45rem 1.1rem', minHeight: 36,
+                    transition: 'all 0.2s ease',
                   }}
                   onMouseEnter={e => {
-                    e.currentTarget.style.background = 'var(--accent-soft)'
-                    e.currentTarget.style.color = 'var(--color-active)'
-                    e.currentTarget.style.borderColor = 'rgba(42,122,144,0.3)'
+                    e.currentTarget.style.background = 'color-mix(in srgb, var(--color-active) 14%, transparent)'
+                    e.currentTarget.style.borderColor = 'rgba(42,122,144,0.45)'
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.background = 'none'
-                    e.currentTarget.style.color = 'var(--text-muted)'
-                    e.currentTarget.style.borderColor = 'var(--border)'
+                    e.currentTarget.style.background = 'var(--accent-soft)'
+                    e.currentTarget.style.borderColor = 'rgba(42,122,144,0.25)'
                   }}
                 >
-                  + new chat
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M6 2V10M2 6H10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                  </svg>
+                  new chat
                 </button>
               </div>
 
@@ -999,9 +1117,6 @@ export default function Home() {
         </div>
       </div>
 
-      {showWalkthrough && (
-        <WalkthroughOverlay onComplete={() => setWalkthroughDone(true)} />
-      )}
 
     </motion.div>
   )
