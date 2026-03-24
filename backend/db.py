@@ -220,6 +220,16 @@ class CosmosRepo:
         except exceptions.CosmosResourceNotFoundError:
             return None
 
+    async def get_document(self, user_id: str, doc_id: str) -> dict | None:
+        """Fetch full document record (metadata + extracted_text)."""
+        db = self._client.get_database_client(self._db_name)
+        container = db.get_container_client(self._docs_container_name)
+        try:
+            item = await container.read_item(item=doc_id, partition_key=user_id)
+            return item
+        except exceptions.CosmosResourceNotFoundError:
+            return None
+
     # ------------------------------------------------------------------ #
     #  User Memory (explicit memories the user asked Pebble to remember)  #
     # ------------------------------------------------------------------ #

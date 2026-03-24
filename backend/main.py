@@ -25,6 +25,7 @@ from models import (
     ChatRequest,
     DecomposeRequest,
     DecomposeResponse,
+    DocumentDetail,
     DocumentItem,
     ExplainRequest,
     ExplainResponse,
@@ -158,7 +159,12 @@ def make_app(settings: Settings | None = None) -> FastAPI:
         req: DecomposeRequest,
         user_id: str = Depends(get_user_id),
     ):
-        await safety.screen_user_intent(req.goal)
+        # Short goals = typed by user → screen as intent.
+        # Long goals = document text from Documents page → screen as document.
+        if len(req.goal) > 2000:
+            await safety.screen_document(req.goal[:10_000])
+        else:
+            await safety.screen_user_intent(req.goal)
         if req.context:
             await safety.screen_user_intent(req.context)
 
@@ -407,6 +413,7 @@ def make_app(settings: Settings | None = None) -> FastAPI:
                 "page_count": page_count,
                 "summary": summary_preview,
                 "blob_name": blob_name,
+                "extracted_text": extracted_text,
             })
         except Exception as exc:
             logger.warning("upload.cosmos_save_failed", extra={"error": str(exc)})
@@ -433,6 +440,20 @@ def make_app(settings: Settings | None = None) -> FastAPI:
             )
             for d in docs
         ]
+
+    @app.get("/api/documents/{doc_id}", response_model=DocumentDetail, tags=["documents"])
+    async def get_document(doc_id: str, user_id: str = Depends(get_user_id)):
+        """Fetch a single document with full extracted text for session reload."""
+        doc = await repo.get_document(user_id, doc_id)
+        if not doc:
+            raise HTTPException(status_code=404, detail="document not found")
+        return DocumentDetail(
+            id=doc["id"],
+            filename=doc.get("filename", "document"),
+            page_count=doc.get("page_count"),
+            extracted_text=doc.get("extracted_text", ""),
+            created_at=doc.get("created_at", ""),
+        )
 
     @app.delete("/api/documents/{doc_id}", tags=["documents"])
     async def delete_document(doc_id: str, user_id: str = Depends(get_user_id)):

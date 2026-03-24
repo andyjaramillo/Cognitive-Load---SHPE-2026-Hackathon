@@ -196,6 +196,11 @@ export async function loadDocuments() {
   return res.json()
 }
 
+export async function loadDocumentById(docId) {
+  const res = await apiFetch(`/api/documents/${encodeURIComponent(docId)}`)
+  return res.json()
+}
+
 // ── Tasks ──────────────────────────────────────────────────────────────── //
 
 function _toBackendGroup(g) {

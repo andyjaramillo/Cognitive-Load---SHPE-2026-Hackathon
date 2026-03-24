@@ -9,7 +9,8 @@ import WalkthroughOverlay from './components/WalkthroughOverlay'
 import BreakRoomButton from './components/BreakRoomButton'
 import BreakRoomOverlay from './components/BreakRoomOverlay'
 import Home from './pages/Home'
-import Documents from './pages/Documents'
+import DocumentsHub from './pages/DocumentsHub'
+import DocumentSession from './pages/DocumentSession'
 import Tasks from './pages/Tasks'
 import FocusMode from './pages/FocusMode'
 import Settings from './pages/Settings'
@@ -161,7 +162,8 @@ export default function App() {
                 <Routes location={location} key={location.pathname}>
                   <Route path="/" element={<Home />} />
                   <Route path="/home" element={<Home />} />
-                  <Route path="/documents" element={<Documents />} />
+                  <Route path="/documents" element={<DocumentsHub />} />
+                  <Route path="/documents/:id" element={<DocumentSession />} />
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="/settings" element={<Settings />} />
                 </Routes>
