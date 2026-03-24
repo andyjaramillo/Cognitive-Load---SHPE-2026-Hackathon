@@ -32,6 +32,24 @@ logger = logging.getLogger(__name__)
 
 _ACTIONS_RE = re.compile(r"###ACTIONS(\[.*?\])###", re.DOTALL)
 
+# ── Memory extraction triggers ────────────────────────────────────────────── #
+# Detects when the user explicitly asks Pebble to remember something.
+
+_MEMORY_TRIGGERS = re.compile(
+    r"\b(?:"
+    r"remember that\b|"
+    r"remember this\b|"
+    r"don'?t forget that\b|"
+    r"don'?t forget this\b|"
+    r"keep in mind that?\b|"
+    r"note that\b|"
+    r"just so you know\b|"
+    r"you should know that\b|"
+    r"fyi[,:]?\s"
+    r")",
+    re.IGNORECASE,
+)
+
 # ── Hard block pre-written responses ─────────────────────────────────────── #
 
 _HARD_BLOCK = {
@@ -280,7 +298,12 @@ class ChatService:
 
         # ── Step 9: Persist conversation to Cosmos DB ─────────────────── #
         final_text = replacement_text if needs_replacement else clean_text
-        await self._persist_conversation(user_id, request, message, final_text)
+        await self._persist_conversation(
+            user_id, request, message, final_text,
+            emotional_signals=emotional_signals,
+            task_groups=task_groups,
+            now=now,
+        )
 
         track_event("chat_response_generated", {
             "is_greeting": request.is_greeting,
@@ -379,24 +402,64 @@ class ChatService:
         request: ChatRequest,
         user_message: str,
         assistant_response: str,
+        emotional_signals: dict,
+        task_groups: list[dict],
+        now: datetime,
     ) -> None:
-        """Append the new exchange to the stored conversation history."""
+        """
+        Persist the conversation turn AND update adaptive learning state:
+          1. Conversation history (always)
+          2. User memory — if user said "remember that..." or similar
+          3. Learned patterns — updated every turn based on behavioral signals
+        All writes are fire-and-forget: errors are logged but never surface to the user.
+        """
+        # ── 1. Conversation history ────────────────────────────────────── #
         try:
             stored = await self._db.get_conversation(user_id)
-            # Merge stored history with any new messages from the request
-            # (request.conversation_history is the client-side state)
             messages = list(stored)
             if user_message:
                 messages.append({"role": "user", "content": user_message})
             if assistant_response:
                 messages.append({"role": "assistant", "content": assistant_response})
-            # Keep last 40 messages to stay within token budget
             messages = messages[-40:]
             await self._db.upsert_conversation(user_id, messages)
         except Exception as exc:
-            # Never fail the request due to persistence error
             logger.error(
-                "chat_service.persist_error",
+                "chat_service.persist_conversation_error",
+                extra={"error": str(exc), "user_id": user_id},
+            )
+
+        # ── 2. Memory extraction ───────────────────────────────────────── #
+        if user_message:
+            new_memory = _extract_memory_from_message(user_message)
+            if new_memory:
+                try:
+                    existing = await self._db.get_user_memories(user_id)
+                    # Deduplicate — skip if very similar memory already exists
+                    if not any(new_memory[:40] in m for m in existing):
+                        updated = (existing + [new_memory])[-20:]  # keep last 20
+                        await self._db.upsert_user_memories(user_id, updated)
+                        logger.info(
+                            "chat_service.memory_saved",
+                            extra={"user_id": user_id, "memory": new_memory[:60]},
+                        )
+                except Exception as exc:
+                    logger.error(
+                        "chat_service.memory_save_error",
+                        extra={"error": str(exc), "user_id": user_id},
+                    )
+
+        # ── 3. Learned patterns update ─────────────────────────────────── #
+        try:
+            existing_patterns = await self._db.get_learned_patterns(user_id)
+            updated_patterns = _detect_new_patterns(
+                existing_patterns, emotional_signals, task_groups, now
+            )
+            if updated_patterns is not None:
+                await self._db.upsert_learned_patterns(user_id, updated_patterns)
+        except Exception as exc:
+            logger.error(
+                "chat_service.pattern_save_error",
                 extra={"error": str(exc), "user_id": user_id},
             )
 
@@ -523,15 +586,108 @@ def _analyze_emotional_signals(
     return signals
 
 
+# ── Adaptive learning helpers ─────────────────────────────────────────────── #
+
+def _extract_memory_from_message(message: str) -> str | None:
+    """
+    If the user's message contains a memory-trigger phrase (e.g. "remember that I..."),
+    return a cleaned version of the message to store as a persistent memory.
+    Returns None if no trigger is found or the content is too short.
+    """
+    if not _MEMORY_TRIGGERS.search(message):
+        return None
+    cleaned = message.strip()
+    # Trim to a safe length, breaking on a word boundary
+    if len(cleaned) > 280:
+        cleaned = cleaned[:280].rsplit(" ", 1)[0].strip() + "..."
+    return cleaned if len(cleaned) >= 10 else None
+
+
+def _detect_new_patterns(
+    existing: list[str],
+    emotional_signals: dict,
+    task_groups: list[dict],
+    now: datetime,
+) -> list[str] | None:
+    """
+    Detect behavioral patterns from the current session and merge with existing.
+    Returns updated pattern list if anything changed, else None (no write needed).
+
+    Patterns written:
+      - Time-of-day: which part of the day this user is most active
+      - Cognitive load: whether the user regularly shows stress/overwhelm signals
+      - Task progress: whether the user has been completing tasks
+    """
+    patterns = list(existing)
+    changed = False
+
+    # ── Time-of-day working pattern ───────────────────────────────── #
+    hour = now.hour
+    if 6 <= hour < 12:
+        time_label = "morning"
+    elif 12 <= hour < 17:
+        time_label = "afternoon"
+    elif 17 <= hour < 21:
+        time_label = "evening"
+    else:
+        time_label = "night"
+
+    new_time = f"Often active during {time_label} hours"
+    old_time = next((p for p in patterns if p.startswith("Often active during")), None)
+    if old_time != new_time:
+        patterns = [p for p in patterns if not p.startswith("Often active during")]
+        patterns.append(new_time)
+        changed = True
+
+    # ── Cognitive load / stress pattern ──────────────────────────── #
+    if emotional_signals.get("stress_detected") or emotional_signals.get("fatigue_detected"):
+        stress_pat = "Sometimes shows signs of cognitive overload — keep responses brief, gentle, and one-step-at-a-time"
+        if stress_pat not in patterns:
+            patterns.append(stress_pat)
+            changed = True
+
+    # ── Task completion pattern ───────────────────────────────────── #
+    total_done = sum(
+        sum(1 for t in g.get("tasks", []) if t.get("status") == "done")
+        for g in task_groups
+    )
+    if total_done >= 3:
+        prog_pat = "Has completed multiple tasks — acknowledge progress when relevant, but don't over-celebrate"
+        if not any("completed multiple tasks" in p for p in patterns):
+            patterns.append(prog_pat)
+            changed = True
+
+    return patterns[:12] if changed else None
+
+
 # ── Block formatters ──────────────────────────────────────────────────────── #
 
 def _fmt_block_2(prefs: UserPreferences) -> str:
-    return f"""User profile:
+    # Build accessibility accommodations note
+    accommodations: list[str] = []
+    if prefs.bionic_reading:
+        accommodations.append(
+            "bionic reading is enabled — the user reads with visual emphasis on word-starts; "
+            "keep your sentences short and front-load key words"
+        )
+    if prefs.font_choice in ("opendyslexic", "atkinson"):
+        accommodations.append(
+            f"{prefs.font_choice} font is active — this user may have dyslexia or visual "
+            "processing differences; prioritize sentence clarity over elegance"
+        )
+
+    block = f"""User profile:
 - Name: {prefs.name}
 - Reading level: {prefs.reading_level}
 - Communication style: {prefs.communication_style}
 - Task granularity preference: {prefs.granularity}
 - Font: {prefs.font_choice}
+- Focus timer length: {prefs.timer_length_minutes} minutes (use this when suggesting focus sessions)"""
+
+    if accommodations:
+        block += "\n- Accessibility accommodations: " + "; ".join(accommodations)
+
+    block += """
 
 Reading level guide:
 - simple: sentences under 12 words, one idea per sentence, lead with the action
@@ -541,7 +697,10 @@ Reading level guide:
 Communication style guide:
 - warm: encouraging language, acknowledge feelings, more sentences, warmth words
 - direct: minimal emotional language, facts and actions first, shorter responses
-- balanced: default Pebble voice — warm when the moment calls for it, direct during flow"""
+- balanced: default Pebble voice — warm when the moment calls for it, direct during flow
+
+ACCESSIBILITY RULE: The user's reading level and communication style are not suggestions. They are stated cognitive accessibility needs. Match them in every single response."""
+    return block
 
 
 def _fmt_block_3(memories: list[str]) -> str:

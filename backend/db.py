@@ -261,6 +261,18 @@ class CosmosRepo:
         except exceptions.CosmosResourceNotFoundError:
             return []
 
+    async def upsert_learned_patterns(self, user_id: str, patterns: list[str]) -> None:
+        """Save or update the learned behavioral patterns for a user."""
+        db = self._client.get_database_client(self._db_name)
+        container = db.get_container_client(self._patterns_container_name)
+        doc = {
+            "id": f"{user_id}_patterns",
+            "user_id": user_id,
+            "patterns": patterns,
+            "updated_at": _utcnow(),
+        }
+        await container.upsert_item(doc)
+
     # ------------------------------------------------------------------ #
     #  Task Groups (persistent task state for Block 9 context)            #
     # ------------------------------------------------------------------ #
