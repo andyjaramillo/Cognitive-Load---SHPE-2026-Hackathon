@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { prefsActions } from './store'
 import { fetchPreferences } from './utils/api'
 import TopNav from './components/TopNav'
+import WalkthroughOverlay from './components/WalkthroughOverlay'
 import Home from './pages/Home'
 import Documents from './pages/Documents'
 import Tasks from './pages/Tasks'
@@ -14,7 +15,7 @@ import Onboarding from './pages/Onboarding'
 import './styles/global.css'
 
 const PEBBLE_COLORS = {
-  sage:  { hex: '#5A8A80', soft: 'rgba(90,138,128,0.12)' },
+  sage:  { hex: '#6FA99E', soft: 'rgba(111,169,158,0.12)' },
   amber: { hex: '#C89450', soft: 'rgba(200,148,80,0.12)' },
   lilac: { hex: '#9A88B4', soft: 'rgba(154,136,180,0.12)' },
   sky:   { hex: '#6A96B8', soft: 'rgba(106,150,184,0.12)' },
@@ -25,22 +26,22 @@ export default function App() {
   const prefs = useSelector(s => s.prefs)
   const location = useLocation()
   const navigate = useNavigate()
-  const isFocusMode = location.pathname === '/focus'
+  const isFocusMode    = location.pathname === '/focus'
+  const showWalkthrough = prefs.loaded && prefs.onboardingComplete && !prefs.walkthroughComplete
 
   // Load preferences from Cosmos on mount, then redirect to home
   useEffect(() => {
     fetchPreferences()
       .then(p => {
         // Persist completion flags to localStorage so offline/error refreshes don't reset them
-        if (p.onboarding_complete)  try { localStorage.setItem('pebble_onboarding_complete',  'true') } catch {}
-        if (p.walkthrough_complete) try { localStorage.setItem('pebble_walkthrough_complete', 'true') } catch {}
+        if (p.onboarding_complete) try { localStorage.setItem('pebble_onboarding_complete', 'true') } catch {}
+        // Keep localStorage in sync with Cosmos — if Cosmos says false, clear it so it can't override
+        try {
+          if (p.walkthrough_complete) localStorage.setItem('pebble_walkthrough_complete', 'true')
+          else                        localStorage.removeItem('pebble_walkthrough_complete')
+        } catch {}
 
-        // If Cosmos returns undefined for a completion flag, fall back to localStorage
-        // (handles edge case where Cosmos record is stale or partially written)
-        let walkthroughComplete = p.walkthrough_complete
-        if (!walkthroughComplete) {
-          try { walkthroughComplete = localStorage.getItem('pebble_walkthrough_complete') === 'true' } catch {}
-        }
+        const walkthroughComplete = !!p.walkthrough_complete
 
         dispatch(prefsActions.setPrefs({
           name:               p.name,
@@ -124,26 +125,30 @@ export default function App() {
     return <Onboarding />
   }
 
-  // Focus Mode: full screen, no nav, no chrome
-  if (isFocusMode) {
-    return <FocusMode />
-  }
-
+  // Single return — WalkthroughOverlay stays in the same React tree position
+  // across all route changes (including /focus), so it never remounts mid-tour.
   return (
-    <div className="app-shell">
-      <TopNav />
+    <>
+      {isFocusMode ? (
+        <FocusMode />
+      ) : (
+        <div className="app-shell">
+          <TopNav />
+          <main className="main-content" aria-label="Main content">
+            <AnimatePresence mode="wait">
+              <Routes location={location} key={location.pathname}>
+                <Route path="/" element={<Home />} />
+                <Route path="/home" element={<Home />} />
+                <Route path="/documents" element={<Documents />} />
+                <Route path="/tasks" element={<Tasks />} />
+                <Route path="/settings" element={<Settings />} />
+              </Routes>
+            </AnimatePresence>
+          </main>
+        </div>
+      )}
 
-      <main className="main-content" aria-label="Main content">
-        <AnimatePresence mode="wait">
-          <Routes location={location} key={location.pathname}>
-            <Route path="/" element={<Home />} />
-            <Route path="/home" element={<Home />} />
-            <Route path="/documents" element={<Documents />} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
-        </AnimatePresence>
-      </main>
-    </div>
+      {showWalkthrough && <WalkthroughOverlay />}
+    </>
   )
 }

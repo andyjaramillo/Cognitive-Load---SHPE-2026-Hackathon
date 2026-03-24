@@ -152,12 +152,26 @@ function DescribeInput({ onSubmit }) {
   )
 }
 
-function SettingsNote() {
+function SettingsNote({ onBack }) {
   return (
-    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.4, delay: 0.55 } }}
-      style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
-      You can change any of these anytime in settings.
-    </motion.p>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1, transition: { duration: 0.4, delay: 0.55 } }}
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '0.5rem' }}
+    >
+      <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+        You can change any of these anytime in settings.
+      </p>
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="btn btn-ghost"
+          style={{ fontSize: '0.78rem', padding: '0.3rem 0.9rem', borderRadius: 99, flexShrink: 0, minHeight: 32 }}
+        >
+          back
+        </button>
+      )}
+    </motion.div>
   )
 }
 
@@ -321,10 +335,10 @@ export default function Onboarding() {
             </motion.p>
             <motion.div initial={ENTER} animate={{ ...ENTER_T, transition: { ...ENTER_T.transition, delay: 0.15 } }}
               style={{ display: 'flex', gap: '0.75rem' }}>
-              <button className="btn btn-primary" style={{ borderRadius: 8 }} onClick={() => setStage('meet')}>
+              <button className="btn btn-primary" style={{ borderRadius: 99, padding: '0.6rem 1.6rem' }} onClick={() => setStage('meet')}>
                 That's me
               </button>
-              <button className="btn btn-ghost" style={{ borderRadius: 8 }} onClick={() => { setNameInput(name); setStage('name') }}>
+              <button className="btn btn-ghost" style={{ borderRadius: 99, padding: '0.6rem 1.4rem' }} onClick={() => { setNameInput(name); setStage('name') }}>
                 Let me fix that
               </button>
             </motion.div>
@@ -335,38 +349,28 @@ export default function Onboarding() {
         return (
           <>
             <motion.p initial={ENTER} animate={ENTER_T}
-              style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 'clamp(18px, 4vw, 22px)', color: 'var(--text-primary)', lineHeight: 1.6, margin: 0 }}>
+              style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 'clamp(22px, 4.5vw, 28px)', color: 'var(--text-primary)', lineHeight: 1.4, margin: 0, letterSpacing: '-0.01em' }}>
               nice to meet you, {name}.
             </motion.p>
             <motion.p
               initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: 0.5, ease: [0.4, 0, 0.2, 1] } }}
-              style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', fontWeight: 400, margin: 0, lineHeight: 1.6 }}>
-              A few quick questions so this feels right for you.
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: 0.45, ease: [0.4, 0, 0.2, 1] } }}
+              style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400, margin: 0, lineHeight: 1.7, maxWidth: 320 }}>
+              a few quick questions so this feels right for you.
             </motion.p>
-            <motion.button
+            <motion.div
               initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0, transition: { duration: 0.45, delay: 1.1, ease: [0.4, 0, 0.2, 1] } }}
-              onClick={() => setStage('q2')}
-              whileHover={{ opacity: 0.85 }}
-              whileTap={{ scale: 0.97 }}
-              style={{
-                marginTop:     '0.25rem',
-                background:    'var(--color-active)',
-                color:         '#fff',
-                border:        'none',
-                borderRadius:  24,
-                padding:       '0.72rem 2.2rem',
-                fontSize:      '0.92rem',
-                fontWeight:    500,
-                cursor:        'pointer',
-                minHeight:     44,
-                letterSpacing: '0.02em',
-                transition:    'opacity 0.2s ease',
-              }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.45, delay: 1.0, ease: [0.4, 0, 0.2, 1] } }}
+              style={{ marginTop: '0.25rem' }}
             >
-              Sounds good
-            </motion.button>
+              <button
+                className="btn btn-primary"
+                onClick={() => setStage('q2')}
+                style={{ borderRadius: 99, padding: '0.72rem 2.2rem', fontSize: '0.92rem', minHeight: 44 }}
+              >
+                Sounds good
+              </button>
+            </motion.div>
           </>
         )
 
@@ -401,7 +405,7 @@ export default function Onboarding() {
               {unsureMsg && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 style={{ fontSize: 13, color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0 }}>{unsureMsg}</motion.p>}
             </AnimatePresence>
-            <SettingsNote />
+            <SettingsNote onBack={() => setStage('meet')} />
           </>
         )
 
@@ -423,7 +427,7 @@ export default function Onboarding() {
                 </motion.div>
               ))}
             </div>
-            <SettingsNote />
+            <SettingsNote onBack={() => setStage('q2')} />
           </>
         )
 
@@ -447,12 +451,30 @@ export default function Onboarding() {
                       setThemeChoice(t.v)
                       document.documentElement.setAttribute('data-time-theme', resolveTheme(t.v))
                       setSelectedCard(t.v)
-                      setTimeout(() => setStage('q5'), 650)
                     }}
                   />
                 </motion.div>
               ))}
             </motion.div>
+
+            {/* Continue button — fades in after a theme is selected */}
+            <AnimatePresence>
+              {selectedCard && (
+                <motion.button
+                  key="theme-continue"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0, transition: { duration: 0.7, delay: 0.25, ease: [0.25, 0.46, 0.45, 0.94] } }}
+                  exit={{ opacity: 0, transition: { duration: 0.3 } }}
+                  className="btn btn-primary"
+                  onClick={() => setStage('q5')}
+                  style={{ borderRadius: 99, padding: '0.65rem 2rem', fontSize: '0.92rem', minHeight: 44, border: 'none', cursor: 'pointer' }}
+                >
+                  Continue
+                </motion.button>
+              )}
+            </AnimatePresence>
+
+            <SettingsNote onBack={() => setStage('q3')} />
           </>
         )
 
@@ -487,6 +509,7 @@ export default function Onboarding() {
               {unsureMsg && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 style={{ fontSize: 13, color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0 }}>{unsureMsg}</motion.p>}
             </AnimatePresence>
+            <SettingsNote onBack={() => setStage('q4')} />
           </>
         )
 
@@ -521,6 +544,7 @@ export default function Onboarding() {
               {unsureMsg && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 style={{ fontSize: 13, color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0 }}>{unsureMsg}</motion.p>}
             </AnimatePresence>
+            <SettingsNote onBack={() => setStage('q5')} />
           </>
         )
 
@@ -564,9 +588,9 @@ export default function Onboarding() {
         {/* Welcome — breathes in, waits for the user to begin */}
         {stage === 'welcome' && (
           <motion.div key="welcome" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.5 } }} exit={EXIT}
-            style={{ textAlign: 'center', padding: '2.5rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.2rem' }}>
+            style={{ textAlign: 'center', padding: '1.5rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.65rem' }}>
 
-            {/* Logo — "Pebble" + inline pulsing dot, matching TopNav brand mark */}
+            {/* Logo */}
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0, transition: { duration: 0.65, delay: 0.2, ease: [0.4, 0, 0.2, 1] } }}
@@ -590,7 +614,7 @@ export default function Onboarding() {
                   width:        10,
                   height:       10,
                   borderRadius: '50%',
-                  background:   '#5A8A80',
+                  background:   'var(--color-pebble)',
                   marginLeft:   4,
                   marginBottom: 3,
                   verticalAlign: 'baseline',
@@ -615,85 +639,19 @@ export default function Onboarding() {
               a calm place to start
             </motion.p>
 
-            {/* ── 5 button options — pick one, tell Diego, then collapse back to one ── */}
             <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: 1.0 } }}
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 1.1, delay: 1.9, ease: [0.25, 0.46, 0.45, 0.94] } }}
+              style={{ marginTop: '0.2rem' }}
             >
-              {/* ── Option A: Breathing outline pill ── */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', width: 16 }}>A</span>
-                <motion.button
-                  onClick={() => setStage('name')}
-                  animate={{ boxShadow: ['0 0 0 0px rgba(90,138,128,0.0)','0 0 0 7px rgba(90,138,128,0.18)','0 0 0 0px rgba(90,138,128,0.0)'] }}
-                  transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
-                  whileHover={{ background: 'rgba(90,138,128,0.08)' }}
-                  whileTap={{ scale: 0.97 }}
-                  style={{ background: 'transparent', border: '1.5px solid var(--color-pebble)', color: 'var(--color-pebble)', borderRadius: 99, padding: '0.72rem 2.2rem', fontSize: '0.92rem', fontWeight: 500, letterSpacing: '0.04em', cursor: 'pointer', minHeight: 44, transition: 'background 0.25s ease' }}
-                >Let's begin</motion.button>
-              </div>
-
-              {/* ── Option B: Warm gradient fill ── */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', width: 16 }}>B</span>
-                <motion.button
-                  onClick={() => setStage('name')}
-                  animate={{ backgroundPosition: ['0% 50%','100% 50%','0% 50%'] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                  whileHover={{ boxShadow: '0 6px 28px rgba(90,138,128,0.48)' }}
-                  whileTap={{ scale: 0.97 }}
-                  style={{ background: 'linear-gradient(135deg, #5A8A80 0%, #4EA898 45%, #5A8A80 100%)', backgroundSize: '200% 200%', color: '#fff', border: 'none', borderRadius: 99, padding: '0.72rem 2.2rem', fontSize: '0.92rem', fontWeight: 500, letterSpacing: '0.03em', cursor: 'pointer', minHeight: 44, boxShadow: '0 4px 20px rgba(90,138,128,0.32)' }}
-                >Let's begin</motion.button>
-              </div>
-
-              {/* ── Option C: Frosted glass ── */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', width: 16 }}>C</span>
-                <motion.button
-                  onClick={() => setStage('name')}
-                  whileHover={{ background: 'rgba(255,252,248,0.82)', boxShadow: '0 4px 24px rgba(90,138,128,0.22)' }}
-                  whileTap={{ scale: 0.97 }}
-                  style={{ background: 'rgba(255,252,248,0.5)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(90,138,128,0.28)', color: 'var(--color-pebble)', borderRadius: 99, padding: '0.72rem 2.2rem', fontSize: '0.92rem', fontWeight: 500, letterSpacing: '0.03em', cursor: 'pointer', minHeight: 44, boxShadow: '0 2px 16px rgba(90,138,128,0.10), inset 0 1px 0 rgba(255,255,255,0.6)', transition: 'background 0.25s ease, box-shadow 0.25s ease' }}
-                >Let's begin</motion.button>
-              </div>
-
-              {/* ── Option D: Tri-color shimmer border ── */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', width: 16 }}>D</span>
-                <motion.div
-                  animate={{ rotate: [0, 360] }}
-                  transition={{ duration: 5, repeat: Infinity, ease: 'linear' }}
-                  style={{ background: 'conic-gradient(from 0deg, #5A8A80, #C89450, #9A88B4, #5A8A80)', borderRadius: 99, padding: '1.5px', display: 'inline-block' }}
-                >
-                  <motion.button
-                    onClick={() => setStage('name')}
-                    whileHover={{ background: 'rgba(255,252,246,0.96)' }}
-                    whileTap={{ scale: 0.97 }}
-                    style={{ background: 'var(--bg, #FDF8F2)', borderRadius: 99, padding: '0.7rem 2.15rem', color: 'var(--color-pebble)', border: 'none', fontSize: '0.92rem', fontWeight: 500, letterSpacing: '0.03em', cursor: 'pointer', minHeight: 42, display: 'block', transition: 'background 0.25s ease' }}
-                  >Let's begin</motion.button>
-                </motion.div>
-              </div>
-
-              {/* ── Option E: Bare text + floating dot ── */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', width: 16 }}>E</span>
-                <motion.button
-                  onClick={() => setStage('name')}
-                  whileHover="hovered"
-                  whileTap={{ scale: 0.97 }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem 0', display: 'flex', alignItems: 'center', gap: 9, minHeight: 44 }}
-                >
-                  <motion.span
-                    animate={{ scale: [0.85, 1.2, 0.85], opacity: [0.5, 1, 0.5] }}
-                    transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-                    style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', display: 'inline-block', flexShrink: 0 }}
-                  />
-                  <span style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: '1.1rem', fontWeight: 400, color: 'var(--text-primary)', borderBottom: '1px solid rgba(90,138,128,0.4)', paddingBottom: 1 }}>
-                    Let's begin
-                  </span>
-                </motion.button>
-              </div>
+              <motion.button
+                onClick={() => setStage('name')}
+                className="btn btn-primary"
+                whileTap={{ scale: 0.97 }}
+                style={{ borderRadius: 99, padding: '0.72rem 2.4rem', fontSize: '0.95rem', fontWeight: 500, letterSpacing: '0.03em', cursor: 'pointer', minHeight: 44, border: 'none' }}
+              >
+                Let's begin
+              </motion.button>
             </motion.div>
           </motion.div>
         )}
@@ -703,27 +661,13 @@ export default function Onboarding() {
           <motion.div
             key={stage}
             initial={ENTER}
-            animate={ENTER_T}
+            animate={stage === 'name'
+              ? { ...ENTER_T, transition: { ...ENTER_T.transition, delay: 0.1 } }
+              : ENTER_T
+            }
             exit={EXIT}
             style={{ ...SHELL_STYLE, position: 'relative' }}
           >
-            {/* Pebble wordmark — subtle, top of every non-welcome stage */}
-            {!['complete', 'final'].includes(stage) && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1, transition: { duration: 0.5, delay: 0.1 } }}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: '0.25rem' }}
-              >
-                <span style={{
-                  fontFamily: '"DM Serif Display", Georgia, serif',
-                  fontSize: 20,
-                  color: 'var(--text-primary)',
-                  letterSpacing: '0.01em',
-                  fontWeight: 400,
-                }}>Pebble</span>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-pebble)', display: 'inline-block', marginBottom: 1 }} />
-              </motion.div>
-            )}
 
             {renderContent()}
 
