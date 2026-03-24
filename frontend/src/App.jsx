@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState, Component } from 'react'
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useDispatch, useSelector } from 'react-redux'
@@ -6,6 +6,8 @@ import { prefsActions } from './store'
 import { fetchPreferences } from './utils/api'
 import TopNav from './components/TopNav'
 import WalkthroughOverlay from './components/WalkthroughOverlay'
+import BreakRoomButton from './components/BreakRoomButton'
+import BreakRoomOverlay from './components/BreakRoomOverlay'
 import Home from './pages/Home'
 import Documents from './pages/Documents'
 import Tasks from './pages/Tasks'
@@ -13,6 +15,25 @@ import FocusMode from './pages/FocusMode'
 import Settings from './pages/Settings'
 import Onboarding from './pages/Onboarding'
 import './styles/global.css'
+
+// Catches render errors inside a page without unmounting the whole app
+class PageErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false } }
+  static getDerivedStateFromError() { return { hasError: true } }
+  componentDidCatch(err) { console.error('[Pebble] page render error:', err) }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, padding: '3rem 1rem' }}>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+            something went quiet. try navigating back or refreshing.
+          </p>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 const PEBBLE_COLORS = {
   sage:  { hex: '#6FA99E', soft: 'rgba(111,169,158,0.12)' },
@@ -28,6 +49,7 @@ export default function App() {
   const navigate = useNavigate()
   const isFocusMode    = location.pathname === '/focus'
   const showWalkthrough = prefs.loaded && prefs.onboardingComplete && !prefs.walkthroughComplete
+  const [breakRoomOpen, setBreakRoomOpen] = useState(false)
 
   // Load preferences from Cosmos on mount, then redirect to home
   useEffect(() => {
@@ -35,13 +57,12 @@ export default function App() {
       .then(p => {
         // Persist completion flags to localStorage so offline/error refreshes don't reset them
         if (p.onboarding_complete) try { localStorage.setItem('pebble_onboarding_complete', 'true') } catch {}
-        // Keep localStorage in sync with Cosmos — if Cosmos says false, clear it so it can't override
-        try {
-          if (p.walkthrough_complete) localStorage.setItem('pebble_walkthrough_complete', 'true')
-          else                        localStorage.removeItem('pebble_walkthrough_complete')
-        } catch {}
-
-        const walkthroughComplete = !!p.walkthrough_complete
+        // Walkthrough is considered complete if EITHER Cosmos or localStorage says so.
+        // Once dismissed, it should never return — localStorage is the persistent guard.
+        const localWt = (() => { try { return localStorage.getItem('pebble_walkthrough_complete') === 'true' } catch { return false } })()
+        const walkthroughComplete = !!p.walkthrough_complete || localWt
+        // Keep localStorage in sync so future loads without Cosmos also skip it
+        try { if (walkthroughComplete) localStorage.setItem('pebble_walkthrough_complete', 'true') } catch {}
 
         dispatch(prefsActions.setPrefs({
           name:               p.name,
@@ -135,20 +156,32 @@ export default function App() {
         <div className="app-shell">
           <TopNav />
           <main className="main-content" aria-label="Main content">
-            <AnimatePresence mode="wait">
-              <Routes location={location} key={location.pathname}>
-                <Route path="/" element={<Home />} />
-                <Route path="/home" element={<Home />} />
-                <Route path="/documents" element={<Documents />} />
-                <Route path="/tasks" element={<Tasks />} />
-                <Route path="/settings" element={<Settings />} />
-              </Routes>
-            </AnimatePresence>
+            <PageErrorBoundary key={location.pathname}>
+              <AnimatePresence mode="wait">
+                <Routes location={location} key={location.pathname}>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/home" element={<Home />} />
+                  <Route path="/documents" element={<Documents />} />
+                  <Route path="/tasks" element={<Tasks />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Routes>
+              </AnimatePresence>
+            </PageErrorBoundary>
           </main>
         </div>
       )}
 
       {showWalkthrough && <WalkthroughOverlay />}
+
+      {/* Break room — available everywhere except Focus Mode */}
+      {!isFocusMode && (
+        <BreakRoomButton onClick={() => setBreakRoomOpen(true)} />
+      )}
+      <AnimatePresence>
+        {breakRoomOpen && (
+          <BreakRoomOverlay onClose={() => setBreakRoomOpen(false)} />
+        )}
+      </AnimatePresence>
     </>
   )
 }

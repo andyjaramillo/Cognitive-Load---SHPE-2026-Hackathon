@@ -146,7 +146,7 @@ export default function Settings() {
         <motion.div variants={staggerItem}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 400, color: 'var(--text-primary)', marginBottom: '0.35rem', display: 'flex', alignItems: 'baseline', gap: 0 }}>
             Settings
-            <span aria-hidden="true" style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: '#5A8A80', marginLeft: 5, marginBottom: 2, verticalAlign: 'baseline', flexShrink: 0 }} />
+            <span aria-hidden="true" style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: 'var(--color-pebble)', marginLeft: 5, marginBottom: 2, verticalAlign: 'baseline', flexShrink: 0 }} />
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem' }}>
             Adjust how Pebble looks and feels — changes apply instantly.
@@ -226,8 +226,8 @@ export default function Settings() {
                   onClick={() => setCommStyle(c.value)}
                   style={{
                     textAlign:    'left',
-                    background:   prefs.communicationStyle === c.value ? 'rgba(42,122,144,0.1)' : 'var(--bg-card)',
-                    border:       prefs.communicationStyle === c.value ? '1.5px solid rgba(42,122,144,0.4)' : '1px solid var(--border)',
+                    background:   prefs.communicationStyle === c.value ? 'var(--accent-soft)' : 'var(--bg-card)',
+                    border:       prefs.communicationStyle === c.value ? '1.5px solid var(--color-active)' : '1px solid var(--border)',
                     borderRadius: 10,
                     padding:      '10px 14px',
                     cursor:       'pointer',
@@ -253,8 +253,8 @@ export default function Settings() {
                   onClick={() => setReadingLevel(r.value)}
                   style={{
                     textAlign:    'left',
-                    background:   prefs.readingLevel === r.value ? 'rgba(42,122,144,0.1)' : 'var(--bg-card)',
-                    border:       prefs.readingLevel === r.value ? '1.5px solid rgba(42,122,144,0.4)' : '1px solid var(--border)',
+                    background:   prefs.readingLevel === r.value ? 'var(--accent-soft)' : 'var(--bg-card)',
+                    border:       prefs.readingLevel === r.value ? '1.5px solid var(--color-active)' : '1px solid var(--border)',
                     borderRadius: 10,
                     padding:      '10px 14px',
                     cursor:       'pointer',
@@ -280,8 +280,8 @@ export default function Settings() {
                   onClick={() => setGranularity(g.value)}
                   style={{
                     textAlign:    'left',
-                    background:   prefs.granularity === g.value ? 'rgba(42,122,144,0.1)' : 'var(--bg-card)',
-                    border:       prefs.granularity === g.value ? '1.5px solid rgba(42,122,144,0.4)' : '1px solid var(--border)',
+                    background:   prefs.granularity === g.value ? 'var(--accent-soft)' : 'var(--bg-card)',
+                    border:       prefs.granularity === g.value ? '1.5px solid var(--color-active)' : '1px solid var(--border)',
                     borderRadius: 10,
                     padding:      '10px 14px',
                     cursor:       'pointer',

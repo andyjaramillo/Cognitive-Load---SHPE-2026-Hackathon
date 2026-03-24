@@ -131,6 +131,7 @@ class TaskGroupTask(BaseModel):
     task_name: str = Field(..., max_length=200)
     description: str = Field(default="", max_length=1_000)
     duration_minutes: int = Field(default=15, ge=1, le=240)
+    priority: int = Field(default=2, ge=1, le=3)   # 1=high, 2=normal, 3=low. Default 2 handles existing tasks without the field.
     status: Literal["pending", "in_progress", "done", "skipped"] = "pending"
     due_date: str | None = None    # ISO 8601 string or null
     due_label: str | None = None   # friendly label or null
@@ -163,7 +164,12 @@ class TaskSuggestion(BaseModel):
     title: str = Field(..., max_length=200)
     description: str = Field(default="", max_length=500)
     duration_minutes: int = Field(default=20, ge=1, le=120)
+    priority: str = Field(default="normal")   # "high" | "normal" | "low" — inferred by GPT-4o from context
     due_date: str | None = None
     due_label: str | None = None
     needs_clarification: bool = False
     clarification_question: str | None = None
+
+
+class TitleRequest(BaseModel):
+    messages: list[dict]

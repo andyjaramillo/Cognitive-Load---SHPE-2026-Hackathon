@@ -7,6 +7,7 @@ function mapTasks(tasks = []) {
     id:               t.id || genId(),
     task_name:        t.task_name || t.name || 'Task',
     duration_minutes: t.duration_minutes || 15,
+    priority:         t.priority ?? 2,   // 1=high, 2=medium, 3=low. ?? 2 handles old tasks without field
     motivation_nudge: t.motivation_nudge || '',
     due_date:         t.due_date || null,
     due_label:        t.due_label || null,
@@ -75,15 +76,15 @@ const tasksSlice = createSlice({
 
     // Add a single task to the "My Tasks" group (creates it if missing)
     addSimpleTask(state, action) {
-      const { task_name, duration_minutes = 15, motivation_nudge = '', due_date = null, due_label = null } = action.payload
+      const { task_name, duration_minutes = 15, priority = 2, motivation_nudge = '', due_date = null, due_label = null } = action.payload
       let group = state.groups.find(g => g.name === 'My Tasks' && g.source === 'manual')
       if (!group) {
         group = { id: genId(), name: 'My Tasks', source: 'manual', tasks: [] }
         state.groups.push(group)
       }
       group.tasks.push({
-        id: genId(), task_name, duration_minutes, motivation_nudge,
-        due_date, due_label,
+        id: genId(), task_name, duration_minutes, priority,
+        motivation_nudge, due_date, due_label,
         done: false, paused: false, timerStarted: null, nudgeText: null,
       })
     },
@@ -117,9 +118,12 @@ const tasksSlice = createSlice({
       const group = state.groups.find(g => g.id === groupId)
       if (!group) return
       group.tasks = group.tasks.filter(t => t.id !== taskId)
-      // Remove empty non-manual groups
+      // Clear focus refs if they pointed to the deleted task
+      if (state.focusTaskId === taskId) state.focusTaskId = null
+      // Remove empty non-manual groups and clear group focus ref
       if (group.tasks.length === 0 && group.source !== 'manual') {
         state.groups = state.groups.filter(g => g.id !== groupId)
+        if (state.focusGroupId === groupId) { state.focusGroupId = null; state.focusTaskId = null }
       }
     },
 
@@ -140,12 +144,13 @@ const tasksSlice = createSlice({
     },
 
     updateTask(state, action) {
-      const { groupId, taskId, task_name, duration_minutes, motivation_nudge } = action.payload
+      const { groupId, taskId, task_name, duration_minutes, motivation_nudge, priority } = action.payload
       const task = state.groups.find(g => g.id === groupId)?.tasks.find(t => t.id === taskId)
       if (!task) return
       if (task_name        !== undefined) task.task_name        = task_name
       if (duration_minutes !== undefined) task.duration_minutes = duration_minutes
       if (motivation_nudge !== undefined) task.motivation_nudge = motivation_nudge
+      if (priority         !== undefined) task.priority         = priority
     },
 
     setTaskTimer(state, action) {
@@ -167,6 +172,50 @@ const tasksSlice = createSlice({
 
     deleteGroup(state, action) {
       state.groups = state.groups.filter(g => g.id !== action.payload)
+      // Clear focus refs if they pointed to the deleted group
+      if (state.focusGroupId === action.payload) { state.focusGroupId = null; state.focusTaskId = null }
+    },
+
+    // Merge two or more tasks into one combined task
+    // payload: { sourceTaskNames: string[], mergedTask: { task_name, duration_minutes, priority, motivation_nudge } }
+    mergeTasks(state, action) {
+      const { sourceTaskNames, mergedTask } = action.payload
+      // Find which group has the most matches (supports cross-group edge case gracefully)
+      let targetGroup = null
+      let maxMatches = 0
+      for (const group of state.groups) {
+        const matches = group.tasks.filter(t => sourceTaskNames.includes(t.task_name)).length
+        if (matches > maxMatches) { maxMatches = matches; targetGroup = group }
+      }
+      if (!targetGroup || maxMatches < 1) return
+      // Remember position of the first source task
+      const firstIdx = targetGroup.tasks.findIndex(t => sourceTaskNames.includes(t.task_name))
+      // Remove all source tasks
+      targetGroup.tasks = targetGroup.tasks.filter(t => !sourceTaskNames.includes(t.task_name))
+      // Insert merged task at the original position of the first source task
+      const insertAt = Math.min(firstIdx, targetGroup.tasks.length)
+      targetGroup.tasks.splice(insertAt, 0, {
+        id:               Math.random().toString(36).slice(2, 10),
+        task_name:        mergedTask.task_name,
+        duration_minutes: mergedTask.duration_minutes || 15,
+        priority:         mergedTask.priority ?? 2,
+        motivation_nudge: mergedTask.motivation_nudge || '',
+        due_date:         null,
+        due_label:        null,
+        done:             false,
+        paused:           false,
+        timerStarted:     null,
+        nudgeText:        null,
+      })
+    },
+
+    // Reorder tasks within a group (drag-to-reorder)
+    reorderTasks(state, action) {
+      const { groupId, oldIndex, newIndex } = action.payload
+      const group = state.groups.find(g => g.id === groupId)
+      if (!group) return
+      const [moved] = group.tasks.splice(oldIndex, 1)
+      group.tasks.splice(newIndex, 0, moved)
     },
 
     setFocusGroup(state, action) { state.focusGroupId = action.payload },
