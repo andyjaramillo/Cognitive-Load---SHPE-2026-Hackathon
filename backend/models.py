@@ -25,7 +25,7 @@ class UserPreferences(BaseModel):
 # ── Task Decomposer ──────────────────────────────────────────────────────── #
 
 class DecomposeRequest(BaseModel):
-    goal: str = Field(..., min_length=3, max_length=4_000)
+    goal: str = Field(..., min_length=3, max_length=100_000)
     granularity: Literal["micro", "normal", "broad"] = "normal"
     context: str = Field(default="", max_length=2_000)
 
@@ -87,6 +87,15 @@ class DocumentItem(BaseModel):
     filename: str
     page_count: int | None = None
     summary: str | None = None
+    created_at: str
+
+
+class DocumentDetail(BaseModel):
+    """Full document record including extracted text — used for session reload."""
+    id: str
+    filename: str
+    page_count: int | None = None
+    extracted_text: str
     created_at: str
 
 
