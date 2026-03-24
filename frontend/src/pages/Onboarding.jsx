@@ -574,7 +574,7 @@ export default function Onboarding() {
             >
               <span style={{
                 fontFamily:  '"DM Serif Display", Georgia, serif',
-                fontSize:    'clamp(32px, 6vw, 44px)',
+                fontSize:    'clamp(44px, 8vw, 62px)',
                 fontWeight:  400,
                 color:       'var(--text-primary)',
                 lineHeight:  1.1,
@@ -603,12 +603,13 @@ export default function Onboarding() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0, transition: { duration: 0.6, delay: 0.55, ease: [0.4, 0, 0.2, 1] } }}
               style={{
-                fontSize:      '0.95rem',
+                fontFamily:    '"Inter", sans-serif',
+                fontWeight:    300,
+                fontSize:      '1rem',
                 color:         'var(--text-secondary)',
                 letterSpacing: '0.08em',
                 lineHeight:    1.6,
                 margin:        0,
-                fontWeight:    400,
               }}
             >
               a calm place to start
