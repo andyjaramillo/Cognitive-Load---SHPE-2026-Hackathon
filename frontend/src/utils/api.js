@@ -49,6 +49,15 @@ export async function decompose(payload) {
   return res.json()
 }
 
+// ── Suggest Task (single-task preview from conversation) ───────────────── //
+export async function suggestTask(conversation_history, granularity = 'normal') {
+  const res = await apiFetch('/api/suggest-task', {
+    method: 'POST',
+    body: JSON.stringify({ conversation_history, granularity }),
+  })
+  return res.json()
+}
+
 // ── Summarise (streaming) ──────────────────────────────────────────────── //
 export async function summariseStream(payload, onChunk, onDone, onError) {
   const res = await fetch('/api/summarise', {

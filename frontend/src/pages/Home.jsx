@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { tasksActions } from '../store'
-import { chatStream, decompose, loadConversation, loadDocuments } from '../utils/api'
+import { chatStream, suggestTask, saveTasks, loadConversation, loadDocuments } from '../utils/api'
 
 // ── Constants ─────────────────────────────────────────────────────────── //
 
@@ -262,6 +262,155 @@ function UserBubble({ content, userName }) {
       }}>
         {initial}
       </div>
+    </div>
+  )
+}
+
+// ── TaskPreviewCard ────────────────────────────────────────────────────── //
+// Rendered inline in the chat as a soft sticky-note the user can edit before saving.
+
+function TaskPreviewCard({ task, onConfirm, onRevise }) {
+  const [title,           setTitle]           = useState(task.title || '')
+  const [description,     setDescription]     = useState(task.description || '')
+  const [durationMinutes, setDurationMinutes] = useState(task.duration_minutes || 20)
+  const [saving,          setSaving]          = useState(false)
+
+  const DURATIONS = [5, 10, 15, 20, 30, 45, 60, 90, 120]
+
+  const handleConfirm = async () => {
+    if (!title.trim() || saving) return
+    setSaving(true)
+    await onConfirm({ title: title.trim(), description, duration_minutes: durationMinutes, due_date: task.due_date, due_label: task.due_label })
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'flex-start', maxWidth: '85%' }}>
+      {/* Pebble dot avatar */}
+      <motion.div
+        animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
+        transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+        style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '1.2rem' }}
+      />
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -4 }}
+        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderLeft: '3px solid var(--color-pebble)',
+          borderRadius: '4px 14px 14px 4px',
+          padding: '1rem 1.2rem 0.95rem',
+          width: '100%',
+        }}
+      >
+        {/* Eyebrow */}
+        <div style={{
+          fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em',
+          color: 'var(--color-pebble)', textTransform: 'uppercase',
+          marginBottom: '0.6rem', opacity: 0.9,
+        }}>
+          task idea · tap to edit
+        </div>
+
+        {/* Editable title */}
+        <input
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          placeholder="task title..."
+          disabled={saving}
+          style={{
+            width: '100%', border: 'none', borderBottom: '1px solid transparent',
+            background: 'transparent', outline: 'none',
+            fontFamily: '"DM Serif Display", Georgia, serif',
+            fontSize: '1.05rem', fontWeight: 400,
+            color: 'var(--text-primary)',
+            padding: '0 0 2px', marginBottom: '0.45rem',
+            transition: 'border-color 0.2s ease',
+          }}
+          onFocus={e => { e.target.style.borderBottomColor = 'var(--color-pebble)' }}
+          onBlur={e => { e.target.style.borderBottomColor = 'transparent' }}
+        />
+
+        {/* Editable description */}
+        <textarea
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          placeholder="add context from the conversation..."
+          rows={2}
+          disabled={saving}
+          style={{
+            width: '100%', border: 'none', background: 'transparent',
+            outline: 'none', resize: 'none',
+            fontSize: '0.875rem', color: 'var(--text-secondary)',
+            lineHeight: 1.65, fontFamily: 'inherit',
+            padding: 0,
+          }}
+        />
+
+        {/* Duration + due row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginTop: '0.55rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            {/* Clock icon */}
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style={{ opacity: 0.45 }}>
+              <circle cx="6" cy="6" r="5" stroke="var(--text-muted)" strokeWidth="1.3"/>
+              <path d="M6 3.5V6L7.5 7.5" stroke="var(--text-muted)" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            <select
+              value={durationMinutes}
+              onChange={e => setDurationMinutes(Number(e.target.value))}
+              disabled={saving}
+              style={{
+                border: 'none', background: 'transparent',
+                fontSize: '0.8rem', color: 'var(--text-muted)',
+                cursor: 'pointer', outline: 'none',
+              }}
+            >
+              {DURATIONS.map(m => (
+                <option key={m} value={m}>{m < 60 ? `~${m} min` : `~${m / 60} hr`}</option>
+              ))}
+            </select>
+          </div>
+          {task.due_label && (
+            <span style={{ fontSize: '0.78rem', color: 'var(--color-queued)', fontWeight: 500 }}>
+              due {task.due_label}
+            </span>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.9rem' }}>
+          <button
+            onClick={handleConfirm}
+            disabled={saving || !title.trim()}
+            style={{
+              background: 'var(--color-pebble)', color: '#fff',
+              border: 'none', borderRadius: 8,
+              padding: '0.42rem 1rem', fontSize: '0.85rem', fontWeight: 500,
+              cursor: saving || !title.trim() ? 'default' : 'pointer',
+              opacity: saving || !title.trim() ? 0.65 : 1,
+              transition: 'all 0.2s ease', minHeight: 36,
+            }}
+          >
+            {saving ? 'saving...' : 'looks good'}
+          </button>
+          <button
+            onClick={onRevise}
+            disabled={saving}
+            style={{
+              background: 'none', color: 'var(--text-muted)',
+              border: '1px solid var(--border)', borderRadius: 8,
+              padding: '0.42rem 0.9rem', fontSize: '0.85rem',
+              cursor: saving ? 'default' : 'pointer',
+              opacity: saving ? 0.4 : 1,
+              transition: 'all 0.2s ease', minHeight: 36,
+            }}
+          >
+            not quite
+          </button>
+        </div>
+      </motion.div>
     </div>
   )
 }
@@ -561,21 +710,90 @@ export default function Home() {
     sendMessage(text, false, next)
   }
 
-  // When chat suggests tasks, decompose the AI message and dispatch before navigating
-  const handleTaskNavigate = useCallback(async (content, route) => {
+  // When chat suggests tasks: call /api/suggest-task with conversation context,
+  // then show an editable TaskPreviewCard inline — never silently create tasks.
+  const handleTaskNavigate = useCallback(async (_content, _route) => {
+    const loadingId = genId()
+    setMessages(prev => [...prev, { id: loadingId, role: 'task-preview-loading' }])
+
     try {
-      const res = await decompose({
-        goal: content.slice(0, 1200),
-        granularity: prefs.granularity || 'normal',
-        reading_level: prefs.readingLevel || 'standard',
-      })
-      if (!res.flagged && res.steps?.length > 0) {
-        const groupName = res.group_name || 'From chat'
-        dispatch(tasksActions.addGroup({ name: groupName, source: 'ai', tasks: res.steps }))
+      // Pass last 10 real messages as conversation context
+      const history = messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .slice(-10)
+        .map(m => ({ role: m.role, content: m.content }))
+
+      const suggestion = await suggestTask(history, prefs.granularity || 'normal')
+
+      if (suggestion.flagged) {
+        setMessages(prev => prev.filter(m => m.id !== loadingId))
+        return
       }
-    } catch { /* decompose failed — navigate anyway */ }
-    navigate(route)
-  }, [prefs.granularity, prefs.readingLevel, dispatch, navigate])
+
+      if (suggestion.needs_clarification) {
+        // Pebble asks before guessing
+        setMessages(prev => [
+          ...prev.filter(m => m.id !== loadingId),
+          {
+            id: genId(), role: 'assistant',
+            content: suggestion.clarification_question || 'what would you like to call this task?',
+            buttons: [],
+          },
+        ])
+        return
+      }
+
+      // Show editable preview card inline in chat
+      const previewId = genId()
+      setMessages(prev => [
+        ...prev.filter(m => m.id !== loadingId),
+        { id: previewId, role: 'task-preview', task: suggestion, _previewId: previewId },
+      ])
+    } catch {
+      setMessages(prev => prev.filter(m => m.id !== loadingId))
+    }
+  }, [messages, prefs.granularity])
+
+  // Called when user clicks "looks good" on the preview card
+  const handleConfirmTask = useCallback(async (editedTask, previewMsgId) => {
+    const newGroupId = genId()
+    const newTaskId  = genId()
+
+    const newTask = {
+      id:               newTaskId,
+      task_name:        editedTask.title,
+      duration_minutes: editedTask.duration_minutes || 20,
+      motivation_nudge: editedTask.description || '',
+      due_date:         editedTask.due_date || null,
+      due_label:        editedTask.due_label || null,
+      done: false, paused: false, timerStarted: null, nudgeText: null,
+    }
+
+    // Remove preview from chat
+    setMessages(prev => prev.filter(m => m.id !== previewMsgId))
+
+    // Add to Redux immediately (UI stays responsive)
+    dispatch(tasksActions.addGroup({ id: newGroupId, name: editedTask.title, source: 'ai', tasks: [newTask] }))
+
+    // Persist to Cosmos — use current taskGroups + the new group
+    // (Redux dispatch is synchronous so taskGroups won't include the new group yet)
+    try {
+      const withNew = [
+        ...taskGroups,
+        { id: newGroupId, name: editedTask.title, source: 'ai', created_at: new Date().toISOString(), tasks: [newTask] },
+      ]
+      saveTasks(withNew).catch(() => {}) // fire-and-forget
+    } catch {}
+
+    // Navigate to Tasks with highlight state so the new task gets a brief pulse
+    navigate('/tasks', { state: { highlightGroupId: newGroupId } })
+  }, [dispatch, taskGroups, navigate])
+
+  // Called when user clicks "not quite" — dismiss preview, focus input to let them redirect Pebble
+  const handleReviseTask = useCallback((previewMsgId) => {
+    setMessages(prev => prev.filter(m => m.id !== previewMsgId))
+    setTimeout(() => inputRef.current?.focus(), 80)
+  }, [])
 
   // Stable poetic greeting — cached in sessionStorage, invalidates when hour or name changes
   const heroGreeting = useMemo(() => {
@@ -1046,10 +1264,19 @@ export default function Home() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0, transition: { duration: 0.38, ease: [0.4, 0, 0.2, 1] } }}
                 >
-                  {msg.role === 'assistant'
-                    ? <AiBubble content={msg.content} buttons={msg.buttons} navigate={navigate} onTaskNavigate={handleTaskNavigate} />
-                    : <UserBubble content={msg.content} userName={prefs.name} />
-                  }
+                  {msg.role === 'task-preview-loading' ? (
+                    <PulseDot phrase="thinking of the right task..." />
+                  ) : msg.role === 'task-preview' ? (
+                    <TaskPreviewCard
+                      task={msg.task}
+                      onConfirm={editedTask => handleConfirmTask(editedTask, msg.id)}
+                      onRevise={() => handleReviseTask(msg.id)}
+                    />
+                  ) : msg.role === 'assistant' ? (
+                    <AiBubble content={msg.content} buttons={msg.buttons} navigate={navigate} onTaskNavigate={handleTaskNavigate} />
+                  ) : (
+                    <UserBubble content={msg.content} userName={prefs.name} />
+                  )}
                 </motion.div>
               ))}
 
