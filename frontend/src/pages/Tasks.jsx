@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDispatch, useSelector } from 'react-redux'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { tasksActions } from '../store'
 import { decompose, fetchNudge, summariseStream, loadTasks, saveTasks, chatStream } from '../utils/api'
 
@@ -865,8 +865,22 @@ function BreakdownChatPanel({ task, groupId, onClose, onReplaceTask }) {
 
 export default function Tasks() {
   const dispatch = useDispatch()
+  const location = useLocation()
   const { groups } = useSelector(s => s.tasks)
   const prefs = useSelector(s => s.prefs)
+
+  // Highlight a newly-created group (navigated here from Home task preview confirm)
+  const [highlightGroupId, setHighlightGroupId] = useState(
+    location.state?.highlightGroupId ?? null
+  )
+  useEffect(() => {
+    if (!highlightGroupId) return
+    // Auto-expand the highlighted group
+    setExpandedGroupId(highlightGroupId)
+    // Clear the highlight after 3s so the glow fades naturally
+    const timer = setTimeout(() => setHighlightGroupId(null), 3000)
+    return () => clearTimeout(timer)
+  }, [highlightGroupId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Track whether initial load from Cosmos is done (prevent saving empty state on mount)
   const [cosmosSynced, setCosmosSynced] = useState(false)
@@ -1191,7 +1205,20 @@ export default function Tasks() {
           </motion.div>
         ) : (
           groups.map(g => (
-            <motion.div key={g.id} variants={item}>
+            <motion.div
+              key={g.id}
+              variants={item}
+              animate={highlightGroupId === g.id ? {
+                boxShadow: [
+                  '0 0 0 0px rgba(111,169,158,0)',
+                  '0 0 0 4px rgba(111,169,158,0.35)',
+                  '0 0 0 4px rgba(111,169,158,0.35)',
+                  '0 0 0 0px rgba(111,169,158,0)',
+                ],
+              } : { boxShadow: '0 0 0 0px rgba(111,169,158,0)' }}
+              transition={{ duration: 2.4, ease: 'easeInOut' }}
+              style={{ borderRadius: 14 }}
+            >
               <TaskGroupCard
                 group={g}
                 isOpen={expandedGroupId === g.id}

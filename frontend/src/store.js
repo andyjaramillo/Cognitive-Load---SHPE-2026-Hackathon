@@ -62,9 +62,10 @@ const tasksSlice = createSlice({
   },
   reducers: {
     // Add a new group (from Documents page or smart AI decomposition)
+    // Accepts optional `id` so callers can pre-generate it (needed for navigate highlight state)
     addGroup(state, action) {
-      const { name, source = 'manual', tasks = [] } = action.payload
-      state.groups.push({ id: genId(), name, source, tasks: mapTasks(tasks) })
+      const { id, name, source = 'manual', tasks = [] } = action.payload
+      state.groups.push({ id: id || genId(), name, source, created_at: new Date().toISOString(), tasks: mapTasks(tasks) })
     },
 
     // Load groups from Cosmos DB (replaces all current groups)

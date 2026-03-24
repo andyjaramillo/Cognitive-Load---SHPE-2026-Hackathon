@@ -36,6 +36,8 @@ from models import (
     TaskGroupsResponse,
     TaskGroupsUpdate,
     TaskStep,
+    TaskSuggestion,
+    TaskSuggestionRequest,
     UploadResponse,
     UserPreferences,
 )
@@ -184,6 +186,50 @@ def make_app(settings: Settings | None = None) -> FastAPI:
             "user_id": user_id,
         })
         return DecomposeResponse(group_name=group_name, steps=steps)
+
+    # ── Task Suggestion (single-task preview from conversation) ──────────── #
+
+    @app.post("/api/suggest-task", response_model=TaskSuggestion, tags=["ai"])
+    async def suggest_task(
+        req: TaskSuggestionRequest,
+        user_id: str = Depends(get_user_id),
+    ):
+        """
+        Read the last N conversation messages and suggest ONE focused task.
+        The task is shown to the user as an editable preview card before saving.
+        Returns needs_clarification=True if conversation lacks enough info.
+        """
+        try:
+            result = await ai.suggest_task(
+                conversation_history=[
+                    {"role": m.role, "content": m.content}
+                    for m in req.conversation_history
+                ],
+                granularity=req.granularity,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="something went quiet — please try again in a moment.",
+            ) from exc
+
+        try:
+            suggestion = TaskSuggestion(**result)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="couldn't generate a task suggestion — please try again.",
+            ) from exc
+
+        # Screen AI output before sending to user
+        check_text = f"{suggestion.title} {suggestion.description}"
+        await safety.screen_output(check_text)
+
+        track_event("task_suggested", {
+            "needs_clarification": suggestion.needs_clarification,
+            "user_id": user_id,
+        })
+        return suggestion
 
     # ── Summarise (streaming SSE) ────────────────────────────────────────── #
 

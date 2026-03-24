@@ -59,6 +59,42 @@ and give the simplified version. Return JSON:
 { "reason": "...", "simplified": "..." }
 """.strip()
 
+_SUGGEST_TASK_SYSTEM = """
+You are Pebble, a calm AI that helps people capture ONE thing they need to do.
+
+Read the conversation carefully. Based on what the user was discussing, suggest ONE clear, actionable task.
+
+TITLE RULES (follow exactly):
+- 3-6 words, action-first, specific, human
+- GOOD: "Study for calc exam" | "Email professor about extension" | "File expense report"
+- BAD: "Complete task" | "Academic preparation" | "Work on project" | anything generic
+- Never start with "Create", "Handle", "Address", "Process"
+
+DESCRIPTION RULES:
+- 1-2 sentences max capturing KEY context from the conversation
+- GOOD: "Exam is next Thursday. Haven't started studying yet."
+- BAD: Multiple sentences, restating the title, vague summaries
+
+OTHER RULES:
+- Pick the SINGLE most clearly stated actionable thing from the conversation
+- duration_minutes: realistic estimate 5-120
+- If a deadline was mentioned, extract due_date (ISO: "YYYY-MM-DDT00:00:00Z") and due_label ("next Thursday", "Friday", etc.)
+- If the conversation does NOT contain enough info for a specific task: set needs_clarification true, give ONE short calm question ("what would you call this task?" or "when is this due?")
+- NEVER invent details not in the conversation
+- NEVER suggest multiple tasks
+
+Return ONLY valid JSON, no prose, no markdown:
+{
+  "title": "...",
+  "description": "...",
+  "duration_minutes": N,
+  "due_date": "... or null",
+  "due_label": "... or null",
+  "needs_clarification": false,
+  "clarification_question": null
+}
+""".strip()
+
 _NUDGE_SYSTEM = """
 You are Pebble, a calm cognitive support companion. A user has been on the same task longer than expected.
 Write ONE short, supportive, non-pressuring check-in message (≤ 20 words).
@@ -237,6 +273,47 @@ class AIService:
             ],
         )
         return resp.choices[0].message.content.strip()
+
+    # ------------------------------------------------------------------ #
+    #  Task Suggestion (single-task preview from conversation context)   #
+    # ------------------------------------------------------------------ #
+
+    async def suggest_task(
+        self,
+        conversation_history: list[dict],
+        granularity: str = "normal",
+    ) -> dict:
+        """
+        Given the last N messages of a conversation, suggest ONE focused task.
+        Returns a dict with title, description, duration_minutes, due_date,
+        due_label, needs_clarification, clarification_question.
+        """
+        today = date.today().isoformat()
+
+        # Format conversation as labeled turns
+        conv_text = "\n".join(
+            f"{msg['role'].upper()}: {msg['content']}"
+            for msg in conversation_history[-10:]
+            if msg.get("content", "").strip()
+        )
+
+        user_msg = f"Today's date: {today}\n\nConversation:\n{conv_text}"
+        if granularity == "micro":
+            user_msg += "\n\nNote: user prefers very small, granular steps."
+        elif granularity == "broad":
+            user_msg += "\n\nNote: user prefers high-level task names."
+
+        resp = await self._client.chat.completions.create(
+            model=self._model,
+            temperature=0.15,
+            response_format={"type": "json_object"},
+            timeout=_TIMEOUT_DEFAULT,
+            messages=[
+                {"role": "system", "content": _SUGGEST_TASK_SYSTEM},
+                {"role": "user", "content": user_msg},
+            ],
+        )
+        return json.loads(resp.choices[0].message.content)
 
     async def close(self) -> None:
         """Release the underlying HTTP connection pool."""

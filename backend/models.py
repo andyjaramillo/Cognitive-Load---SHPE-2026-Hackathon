@@ -150,3 +150,20 @@ class TaskGroupsUpdate(BaseModel):
 
 class TaskGroupsResponse(BaseModel):
     groups: list[TaskGroup]
+
+
+# ── Task Suggestion (single-task preview from conversation) ──────────────── #
+
+class TaskSuggestionRequest(BaseModel):
+    conversation_history: list[ConversationMessage] = Field(default_factory=list, max_length=20)
+    granularity: Literal["micro", "normal", "broad"] = "normal"
+
+
+class TaskSuggestion(BaseModel):
+    title: str = Field(..., max_length=200)
+    description: str = Field(default="", max_length=500)
+    duration_minutes: int = Field(default=20, ge=1, le=120)
+    due_date: str | None = None
+    due_label: str | None = None
+    needs_clarification: bool = False
+    clarification_question: str | None = None
