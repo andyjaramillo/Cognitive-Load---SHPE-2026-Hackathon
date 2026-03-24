@@ -615,29 +615,86 @@ export default function Onboarding() {
               a calm place to start
             </motion.p>
 
-            <motion.button
+            {/* ── 5 button options — pick one, tell Diego, then collapse back to one ── */}
+            <motion.div
               initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: 1.0, ease: [0.4, 0, 0.2, 1] } }}
-              onClick={() => setStage('name')}
-              whileHover={{ opacity: 0.85 }}
-              whileTap={{ scale: 0.97 }}
-              style={{
-                marginTop:     '0.5rem',
-                background:    'var(--color-active)',
-                color:         '#fff',
-                border:        'none',
-                borderRadius:  24,
-                padding:       '0.78rem 2.4rem',
-                fontSize:      '0.95rem',
-                fontWeight:    500,
-                cursor:        'pointer',
-                minHeight:     44,
-                letterSpacing: '0.02em',
-                transition:    'opacity 0.2s ease',
-              }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: 1.0 } }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}
             >
-              Let's begin
-            </motion.button>
+              {/* ── Option A: Breathing outline pill ── */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', width: 16 }}>A</span>
+                <motion.button
+                  onClick={() => setStage('name')}
+                  animate={{ boxShadow: ['0 0 0 0px rgba(90,138,128,0.0)','0 0 0 7px rgba(90,138,128,0.18)','0 0 0 0px rgba(90,138,128,0.0)'] }}
+                  transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+                  whileHover={{ background: 'rgba(90,138,128,0.08)' }}
+                  whileTap={{ scale: 0.97 }}
+                  style={{ background: 'transparent', border: '1.5px solid var(--color-pebble)', color: 'var(--color-pebble)', borderRadius: 99, padding: '0.72rem 2.2rem', fontSize: '0.92rem', fontWeight: 500, letterSpacing: '0.04em', cursor: 'pointer', minHeight: 44, transition: 'background 0.25s ease' }}
+                >Let's begin</motion.button>
+              </div>
+
+              {/* ── Option B: Warm gradient fill ── */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', width: 16 }}>B</span>
+                <motion.button
+                  onClick={() => setStage('name')}
+                  animate={{ backgroundPosition: ['0% 50%','100% 50%','0% 50%'] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                  whileHover={{ boxShadow: '0 6px 28px rgba(90,138,128,0.48)' }}
+                  whileTap={{ scale: 0.97 }}
+                  style={{ background: 'linear-gradient(135deg, #5A8A80 0%, #4EA898 45%, #5A8A80 100%)', backgroundSize: '200% 200%', color: '#fff', border: 'none', borderRadius: 99, padding: '0.72rem 2.2rem', fontSize: '0.92rem', fontWeight: 500, letterSpacing: '0.03em', cursor: 'pointer', minHeight: 44, boxShadow: '0 4px 20px rgba(90,138,128,0.32)' }}
+                >Let's begin</motion.button>
+              </div>
+
+              {/* ── Option C: Frosted glass ── */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', width: 16 }}>C</span>
+                <motion.button
+                  onClick={() => setStage('name')}
+                  whileHover={{ background: 'rgba(255,252,248,0.82)', boxShadow: '0 4px 24px rgba(90,138,128,0.22)' }}
+                  whileTap={{ scale: 0.97 }}
+                  style={{ background: 'rgba(255,252,248,0.5)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(90,138,128,0.28)', color: 'var(--color-pebble)', borderRadius: 99, padding: '0.72rem 2.2rem', fontSize: '0.92rem', fontWeight: 500, letterSpacing: '0.03em', cursor: 'pointer', minHeight: 44, boxShadow: '0 2px 16px rgba(90,138,128,0.10), inset 0 1px 0 rgba(255,255,255,0.6)', transition: 'background 0.25s ease, box-shadow 0.25s ease' }}
+                >Let's begin</motion.button>
+              </div>
+
+              {/* ── Option D: Tri-color shimmer border ── */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', width: 16 }}>D</span>
+                <motion.div
+                  animate={{ rotate: [0, 360] }}
+                  transition={{ duration: 5, repeat: Infinity, ease: 'linear' }}
+                  style={{ background: 'conic-gradient(from 0deg, #5A8A80, #C89450, #9A88B4, #5A8A80)', borderRadius: 99, padding: '1.5px', display: 'inline-block' }}
+                >
+                  <motion.button
+                    onClick={() => setStage('name')}
+                    whileHover={{ background: 'rgba(255,252,246,0.96)' }}
+                    whileTap={{ scale: 0.97 }}
+                    style={{ background: 'var(--bg, #FDF8F2)', borderRadius: 99, padding: '0.7rem 2.15rem', color: 'var(--color-pebble)', border: 'none', fontSize: '0.92rem', fontWeight: 500, letterSpacing: '0.03em', cursor: 'pointer', minHeight: 42, display: 'block', transition: 'background 0.25s ease' }}
+                  >Let's begin</motion.button>
+                </motion.div>
+              </div>
+
+              {/* ── Option E: Bare text + floating dot ── */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', width: 16 }}>E</span>
+                <motion.button
+                  onClick={() => setStage('name')}
+                  whileHover="hovered"
+                  whileTap={{ scale: 0.97 }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem 0', display: 'flex', alignItems: 'center', gap: 9, minHeight: 44 }}
+                >
+                  <motion.span
+                    animate={{ scale: [0.85, 1.2, 0.85], opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+                    style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', display: 'inline-block', flexShrink: 0 }}
+                  />
+                  <span style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: '1.1rem', fontWeight: 400, color: 'var(--text-primary)', borderBottom: '1px solid rgba(90,138,128,0.4)', paddingBottom: 1 }}>
+                    Let's begin
+                  </span>
+                </motion.button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
 
@@ -659,11 +716,12 @@ export default function Onboarding() {
               >
                 <span style={{
                   fontFamily: '"DM Serif Display", Georgia, serif',
-                  fontSize: 15,
-                  color: 'var(--text-muted)',
+                  fontSize: 20,
+                  color: 'var(--text-primary)',
                   letterSpacing: '0.01em',
+                  fontWeight: 400,
                 }}>Pebble</span>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5A8A80', display: 'inline-block', marginBottom: 1 }} />
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-pebble)', display: 'inline-block', marginBottom: 1 }} />
               </motion.div>
             )}
 
