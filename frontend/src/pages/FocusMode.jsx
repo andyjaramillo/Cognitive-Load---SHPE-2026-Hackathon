@@ -816,15 +816,20 @@ export default function FocusMode() {
       completionsSinceCheckinRef.current++
 
       setTimeout(() => {
-        setCompleting(false)
-        setCrossedOut(false)
-        setCompletionNudge(null)
-        setSlideDir(null)
         if (nextTaskSnapshot) {
           setCurrentTaskId(nextTaskSnapshot.id)
           timerRef.current?.reset(nextTaskSnapshot.duration_minutes)
           setTimeout(() => timerRef.current?.start(), 100)
+          // Reset transition-only UI state after task handoff to avoid flicker.
+          setCompleting(false)
+          setCrossedOut(false)
+          setCompletionNudge(null)
+          setSlideDir(null)
         } else {
+          setCompleting(false)
+          setCrossedOut(false)
+          setCompletionNudge(null)
+          setSlideDir(null)
           goToSummary()
         }
       }, 500)
@@ -1025,8 +1030,8 @@ export default function FocusMode() {
               style={{
                 position: 'absolute', top: 18, right: 18,
                 background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 11, letterSpacing: '0.3px', textTransform: 'uppercase',
-                color: 'var(--text-muted)', padding: '4px 8px', minHeight: 32,
+                fontSize: 16, letterSpacing: '0.6px', textTransform: 'uppercase',
+                color: 'var(--text-muted)', padding: '8px 12px', minHeight: 40,
               }}
             >
               EXIT
@@ -1125,38 +1130,55 @@ export default function FocusMode() {
                 </button>
               </div>
 
-              {/* Pebble skip trail */}
-              <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>
-                <PebbleSkipTrail tasks={groupTasks} currentTaskId={currentTaskId} />
+              {/* AI nudge (reserve vertical space to avoid layout jump during transitions) */}
+              <div
+                style={{
+                  marginTop: 20,
+                  minHeight: 42,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'flex-start',
+                }}
+              >
+                <AnimatePresence mode="wait">
+                  {(completionNudge || nudgeText) && (
+                    <motion.p
+                      key={completionNudge || nudgeText}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.4 }}
+                      style={{
+                        margin: 0,
+                        fontSize: 12,
+                        color: 'var(--color-ai)',
+                        textAlign: 'center',
+                        maxWidth: 340,
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      {completionNudge || nudgeText}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
               </div>
-
-              {/* AI nudge */}
-              <AnimatePresence mode="wait">
-                {(completionNudge || nudgeText) && (
-                  <motion.p
-                    key={completionNudge || nudgeText}
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    transition={{ duration: 0.4 }}
-                    style={{
-                      marginTop: 20,
-                      fontSize: 12, color: 'var(--color-ai)',
-                      textAlign: 'center', maxWidth: 340, lineHeight: 1.6,
-                    }}
-                  >
-                    {completionNudge || nudgeText}
-                  </motion.p>
-                )}
-              </AnimatePresence>
             </div>
 
             {/* "I need a pause" — bottom */}
             <button
               onClick={handleEscape}
               style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 13, color: 'var(--color-paused)',
-                padding: '8px 16px', minHeight: 40,
+                background: 'rgba(138,120,174,0.1)',
+                border: '1px solid rgba(138,120,174,0.22)',
+                borderRadius: 999,
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 500,
+                color: 'var(--color-paused)',
+                padding: '9px 16px',
+                minHeight: 40,
                 marginBottom: 8,
+                transition: 'all 0.25s ease',
               }}
             >
               I need a pause
@@ -1373,24 +1395,6 @@ export default function FocusMode() {
               position: 'relative',
             }}
           >
-            {/* Pebble dot */}
-            <motion.div
-              animate={{ scale: [0.88, 1.1, 0.88], opacity: [0.6, 1, 0.6] }}
-              transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ width: 10, height: 10, borderRadius: '50%', background: '#5A8A80', marginBottom: 24 }}
-            />
-
-            {/* Breathing ring */}
-            <motion.div
-              animate={{ scale: [1, 1.06, 1], opacity: [0.18, 0.32, 0.18] }}
-              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-              style={{
-                position: 'absolute',
-                width: 180, height: 180, borderRadius: '50%',
-                border: '2px solid var(--color-paused)',
-                pointerEvents: 'none',
-              }}
-            />
 
             <h2 style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0, textAlign: 'center', position: 'relative' }}>
               you did something. that counts.
@@ -1521,7 +1525,7 @@ export default function FocusMode() {
 // ── MiniTimer (escape hatch 5-minute timer) ─────────────────────────────── //
 
 function MiniTimer({ durationMinutes = 5, onDone }) {
-  const SIZE   = 80
+  const SIZE   = 150
   const STROKE = 2.5
   const R      = (SIZE - STROKE * 2) / 2
   const CIRC   = 2 * Math.PI * R
@@ -1567,7 +1571,7 @@ function MiniTimer({ durationMinutes = 5, onDone }) {
         position: 'absolute', inset: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+        <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)' }}>
           ~{Math.max(1, Math.ceil(fraction * durationMinutes))}m
         </span>
       </div>
