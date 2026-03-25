@@ -101,6 +101,24 @@ class DocumentDetail(BaseModel):
     created_at: str
 
 
+# ── Document Highlights (priority-based extraction) ──────────────────────── #
+
+class HighlightsRequest(BaseModel):
+    text: str = Field(..., min_length=10, max_length=100_000)
+    reading_level: Literal["simple", "standard", "detailed"] = "standard"
+
+
+class HighlightItem(BaseModel):
+    title: str = Field(..., max_length=200)
+    detail: str = Field(..., max_length=500)
+
+
+class HighlightsResponse(BaseModel):
+    high: list[HighlightItem] = []
+    medium: list[HighlightItem] = []
+    low: list[HighlightItem] = []
+
+
 # ── Sessions ─────────────────────────────────────────────────────────────── #
 
 class SessionCreate(BaseModel):

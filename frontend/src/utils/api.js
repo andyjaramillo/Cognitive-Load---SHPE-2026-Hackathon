@@ -49,6 +49,16 @@ export async function decompose(payload) {
   return res.json()
 }
 
+// ── Document Highlights (priority-based extraction) ───────────────────── //
+export async function extractHighlights(payload) {
+  const res = await apiFetch('/api/highlights', { method: 'POST', body: JSON.stringify(payload) })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || 'highlights extraction failed')
+  }
+  return res.json()
+}
+
 // ── Suggest Task (single-task preview from conversation) ───────────────── //
 export async function suggestTask(conversation_history, granularity = 'normal') {
   const res = await apiFetch('/api/suggest-task', {
