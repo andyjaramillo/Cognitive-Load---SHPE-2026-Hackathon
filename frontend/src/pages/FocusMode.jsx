@@ -1189,7 +1189,11 @@ export default function FocusMode() {
                       style={{
                         margin: 0,
                         fontSize: 12,
-                        color: 'var(--color-ai)',
+                        color: 'var(--text-secondary)',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 10,
+                        padding: '8px 12px',
                         textAlign: 'center',
                         maxWidth: 340,
                         lineHeight: 1.6,
