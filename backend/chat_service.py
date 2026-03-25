@@ -193,6 +193,31 @@ TASK MERGING RULE: When the user wants to combine, merge, or consolidate tasks (
 - merged_name should be a clean, concise name that covers both tasks
 - Only merge tasks the user explicitly mentions. Never merge without being asked.
 
+DUE DATE QUESTION RULE: Tasks have optional due dates. When someone describes a task with clear time sensitivity (exam, interview, appointment, deadline, event, project submission) but has not specified a date:
+- If the date is stated or implied in their message ("tomorrow", "next Friday", "by Thursday"), extract it and include it in the suggest_task action. Do not ask.
+- If the task is genuinely time-sensitive and the deadline is unknown, ask ONE calm question: "When is that due?" or "Is there a deadline on that?" Only ask when timing clearly matters.
+- Never ask for a due date on open-ended or low-stakes tasks ("learn piano", "clean desk", "read an article").
+
+DUE DATE UPDATE RULE: When a user tells you a due date for an existing task (e.g. "my homework is due Wednesday", "set the project deadline to Friday", "that group is due next Monday"):
+- Find the matching task from the task context block above. Use the exact task_name as it appears there.
+- Compute the ISO date from relative expressions using today's date from the time context block.
+- Emit this action on its own line at the end of your response:
+###ACTIONS[{"type":"set_due_date","task_name":"<exact task_name from context>","group_name":"<exact group name from context>","due_date":"<YYYY-MM-DDT00:00:00Z>","due_label":"<friendly label like 'Wednesday' or 'next Friday'>"}]###
+- Confirm in Pebble's voice after: "Done." or "Got it." Brief. Do not announce or describe what you did.
+- If the task name is not in context, ask the user to clarify which task they mean. Do not guess.
+
+TASK MOVE RULE: When a user asks to move a task to a different group (e.g. "move call mom to my personal group", "put that in work stuff", "move grocery run to errands"):
+- Find the task by matching task_name from the task context block. Use the exact task_name.
+- Find the destination group by matching its name from the task context block. Use the exact group name.
+- Emit this action on its own line at the end of your response:
+###ACTIONS[{"type":"move_task","task_name":"<exact task_name from context>","from_group":"<exact source group name>","to_group":"<exact destination group name>"}]###
+- Confirm in Pebble's voice: "Done." or "Moved." Brief. Do not narrate the action.
+- If either the task or the destination group is ambiguous, ask one calm clarifying question. Do not guess.
+
+FOCUS OFFER RULE: When you recommend a specific task and end with an offer to start it (e.g. "Want to start there?", "Want to try that?", "Ready to begin?", "Want to jump in?"), you MUST append the Focus Mode button so the user can act immediately. No exceptions. Format:
+###ACTIONS[{"label":"start focus","type":"route","value":"/focus"}]###
+The offer and the button are a unit. If you say "want to start?", the button must follow. If you do not intend to offer the button, do not ask "want to start?" — end differently instead.
+
 RESOURCE SUGGESTION RULE: When you're helping someone with a task, studying, learning, working on a project, or navigating something complex — you can naturally weave in helpful resources when they'd genuinely reduce cognitive load. Not as a list. Not announced. Just mentioned the way a knowledgeable friend would.
 
 Two sources you can draw from:
@@ -205,6 +230,68 @@ How to do this well:
 - Don't mention resources for simple questions or small talk
 - Never generate fake links or made-up tool names
 - If you reference a document, use the filename and content from the document context block — don't invent details beyond what's there"""
+
+_BLOCK_12_CLARIFY = """TASK CLARIFICATION MODE: The user typed a task or goal. Before building a plan, judge how complex it is and gather the right amount of context. Simple tasks need almost nothing. Complex tasks need real understanding — never assume.
+
+STEP 1 — JUDGE COMPLEXITY:
+
+SIMPLE tasks = chores, errands, single-step things that are self-explanatory.
+Examples: "do laundry", "buy groceries", "call dentist", "pay rent", "clean room", "take out trash"
+→ Ask AT MOST 1 brief question (e.g. "anything specific to keep in mind?" or "when are you hoping to do this?"), then build after one reply.
+
+COMPLEX tasks = anything multi-step, academic, work-related, emotionally loaded, or where missing context would produce a useless or wrong plan.
+Examples: "study for exam", "apply to jobs", "move apartments", "finish report", "deal with insurance", "prepare for interview", "plan event", "write essay", "fix a big problem"
+→ Ask up to 4 targeted questions, one per turn. Do NOT assume the subject, the deadline, the scope, or what's already done. Build only when you have real context.
+
+STEP 2 — OPENING PRESENCE:
+For simple tasks: go straight to the one question. No preamble.
+
+For complex tasks: ALWAYS open with one brief Pebble line acknowledging what they're taking on — even if they seem calm. Then ask your first question using [SPLIT].
+
+Example (complex, calm):
+"okay, that's a real one to work through."
+[SPLIT]
+"what subject is the exam for?"
+
+Example (complex, stressed — "panicking", "behind", "overwhelmed", "no idea", "scared"):
+"okay. that's a lot to hold right now."
+[SPLIT]
+"what subject is the exam for?"
+
+Example (simple):
+"when are you hoping to do this?"
+
+The opening line = one short, grounded sentence. Not a therapist. Not a cheerleader.
+Good: "okay." / "that's a real one." / "okay, that's a lot to plan." / "let's slow this down a little." / "we can work through this."
+Never: "I understand how you feel." / "You've got this!" / "That makes sense!" / "Great goal!"
+
+STEP 3 — WHAT TO ASK (one question per response, always):
+Pick the single question that would most change what the plan looks like if answered differently.
+
+For academic tasks: subject first → exam/due date → what topics are covered vs not yet → what resources or materials they have
+For work tasks: what's the deliverable → when is it due → what's done so far → any blockers or dependencies
+For life/admin tasks: what's the scope → hard deadline → blockers → what they've already tried or arranged
+For health/personal tasks: what type → when → what needs to happen first → anything making it harder right now
+
+Never ask: "what does success look like?" / "how are you feeling about it?" / "can you tell me more?" — too vague to help build anything.
+
+STEP 4 — WHEN TO BUILD:
+- Simple tasks: build after 1 user reply.
+- Complex tasks: build after you have enough real context — typically subject + deadline + scope + any blockers. Usually 3–4 replies.
+- If the user says "just go", "make a plan", "figure it out", "I don't know", "just do it" — stop asking and build on your NEXT response (not the same one as the question).
+- Never build on the same response as a question.
+
+CRITICAL — NO MIXING:
+A response with a question MUST NOT contain ###ACTIONS[{"type":"build_plan"}]###.
+A response with ###ACTIONS[{"type":"build_plan"}]### MUST NOT contain a question.
+Ask OR build. Never both.
+
+RULES:
+- Never list subtasks, steps, or plan content in chat. The plan appears as task cards.
+- One sentence per bubble max.
+- Lowercase always. Pebble voice.
+- When you have enough context, end your response with this on its own line:
+###ACTIONS[{"type":"build_plan"}]###"""
 
 
 # ── ChatService ───────────────────────────────────────────────────────────── #
@@ -276,7 +363,21 @@ class ChatService:
         memories = await self._db.get_user_memories(user_id)
         patterns = await self._db.get_learned_patterns(user_id)
         sessions = await self._db.list_sessions(user_id, limit=3)
-        task_groups = await self._db.get_task_groups(user_id)
+        # If the caller supplied fresh task state (e.g. BreakdownChatPanel sending
+        # current Redux groups), use that instead of potentially stale Cosmos data.
+        if request.task_groups:
+            task_groups = [g.model_dump() for g in request.task_groups]
+            logger.info(
+                "[TASK_CONTEXT] Using fresh task_groups from request: %d groups, %d total tasks",
+                len(task_groups),
+                sum(len(g.get("tasks", [])) for g in task_groups),
+            )
+        else:
+            task_groups = await self._db.get_task_groups(user_id)
+            logger.info(
+                "[TASK_CONTEXT] Using Cosmos task_groups: %d groups",
+                len(task_groups),
+            )
         documents = await self._db.get_user_documents(user_id)
 
         # ── Step 3: Analyze emotional signals ───────────────────────── #
@@ -346,6 +447,10 @@ class ChatService:
 
         if needs_replacement:
             yield _sse({"type": "replace", "content": replacement_text})
+        elif clean_text != accumulated:
+            # Actions marker stripped or em-dashes cleaned — send corrected text
+            # so the frontend never displays the raw ###ACTIONS[...]### marker.
+            yield _sse({"type": "replace", "content": clean_text})
 
         if buttons:
             yield _sse({"type": "actions", "buttons": buttons})
@@ -435,6 +540,8 @@ class ChatService:
 
         # Block 12: Response instructions (always)
         parts.append(_BLOCK_12_BASE)
+        if current_page == 'tasks_clarify':
+            parts.append(_BLOCK_12_CLARIFY)
         if is_greeting:
             parts.append(_fmt_block_12_greeting(prefs, task_groups, now))
 
@@ -895,12 +1002,23 @@ def _fmt_block_8(documents: list[dict]) -> str:
 _PRIORITY_LABEL = {1: "high", 2: "medium", 3: "low"}
 
 
-def _fmt_block_9(task_groups: list[dict], now: datetime) -> str:
+def build_task_context(groups: list[dict], now: datetime) -> str:
+    """
+    Serialize task groups into a compact, purely structural context string.
+
+    Accepts groups in the backend shape (group_name, tasks[].task_name, .status,
+    .priority, .duration_minutes, .due_date, .due_label, .description).
+    This is the same format _toBackendGroup() produces on the frontend.
+
+    Returns plain text with no editorial framing — just the facts.
+    Used by both _fmt_block_9 (chat prompt Block 9) and any endpoint that
+    needs to pass fresh task state into the AI.
+    """
     today = now.date()
     lines = ["Current tasks:"]
     upcoming_deadlines = []
 
-    for group in task_groups:
+    for group in groups:
         tasks = group.get("tasks", [])
         done_count = sum(1 for t in tasks if t.get("status") == "done")
         total = len(tasks)
@@ -960,7 +1078,12 @@ def _fmt_block_9(task_groups: list[dict], now: datetime) -> str:
                 days_text = f"{d['days_until']} days away"
             lines.append(f"- '{d['task_name']}' — {d['due_label']} ({days_text})")
 
-    lines.append(
+    return "\n".join(lines)
+
+
+def _fmt_block_9(task_groups: list[dict], now: datetime) -> str:
+    context = build_task_context(task_groups, now)
+    editorial = (
         "\nCRITICAL — task context rule: The tasks above are background awareness, not assumptions. "
         "When the user says something that could plausibly relate to an existing task, do NOT assume it does. "
         "Instead, ask one short warm question that references the specific task by name — like a friend checking in. "
@@ -970,8 +1093,7 @@ def _fmt_block_9(task_groups: list[dict], now: datetime) -> str:
         "If nothing in the list is plausibly related, treat what they said as entirely new — no question needed. "
         "Never inherit specifics (topic, subject, deadline, details) from a prior task unless the user makes the connection themselves."
     )
-
-    return "\n".join(lines)
+    return context + editorial
 
 
 def _fmt_block_12_greeting(
@@ -1039,6 +1161,22 @@ def _fmt_block_12_greeting(
         f'  "It\'s been a few days — no pressure. What feels manageable right now?"'
     )
 
+    # Count ALL pending tasks (with or without due dates)
+    total_pending = sum(
+        1 for g in task_groups
+        for t in g.get("tasks", [])
+        if t.get("status") not in ("done", "skipped")
+    )
+    # Collect one pending task name for natural reference
+    first_pending_name: str | None = None
+    for g in task_groups:
+        for t in g.get("tasks", []):
+            if t.get("status") not in ("done", "skipped"):
+                first_pending_name = t.get("task_name")
+                break
+        if first_pending_name:
+            break
+
     if due_today_name:
         lines.append(
             f"One task is due today: '{due_today_name}'. "
@@ -1053,6 +1191,14 @@ def _fmt_block_12_greeting(
         lines.append(
             f"There are {urgent_count} task(s) due within the next 3 days. "
             "Mention gently: 'You have a couple of things due this week.' Don't list them all."
+        )
+    elif total_pending > 0 and first_pending_name:
+        lines.append(
+            f"The user has {total_pending} pending task(s). "
+            f"The first one is: '{first_pending_name}'. "
+            "You may naturally reference their tasks in the greeting — e.g. 'You've got some things in your list. "
+            "Want to pick one up?' or briefly name the task if it feels natural. "
+            "Don't list everything. One light reference is enough to make the app feel alive and connected."
         )
 
     if time_label == "night":

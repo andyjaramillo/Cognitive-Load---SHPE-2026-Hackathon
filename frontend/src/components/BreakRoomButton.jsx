@@ -24,7 +24,7 @@ export default function BreakRoomButton({ onClick }) {
       style={{
         position: 'fixed',
         bottom: 24,
-        left: 24,
+        left: 'var(--break-btn-left, 24px)',
         zIndex: 9998,
         width: 44,
         height: 44,
@@ -38,7 +38,7 @@ export default function BreakRoomButton({ onClick }) {
         alignItems: 'center',
         justifyContent: 'center',
         padding: 0,
-        transition: 'background 0.18s ease',
+        transition: 'background 0.18s ease, left 0.32s cubic-bezier(0.4,0,0.2,1)',
         // Reset button defaults
         appearance: 'none',
         WebkitAppearance: 'none',

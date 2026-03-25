@@ -44,7 +44,7 @@ All code should be calibrated for solo-builder reality. Efficiency matters, neve
 
 ---
 
-## Build Status — Current State (as of Session 13, March 24 2026)
+## Build Status — Current State (as of Session 14, March 25 2026)
 
 ### What's FULLY BUILT AND WORKING
 
@@ -194,6 +194,14 @@ All code should be calibrated for solo-builder reality. Efficiency matters, neve
 83. ✅ **Block 8 document content improved** — `_fmt_block_8` now passes up to 800 chars of document content per document (labeled "Content excerpt"), with clear instruction to reference by filename. Upload handler stores 2000 chars instead of 500. Both Documents page Q&A and Tasks BreakdownChatPanel confirmed to use full 12-block `/api/chat` pipeline.
 84. ✅ **Page heading dot pattern standardized** — All DM Serif Display page headings now use "text + pebble dot" pattern (dot is the period): "your tasks●", "settings●", "taking a little break●". Dots use `var(--color-pebble)`.
 85. ✅ **Nav hover color fixed** — `.top-nav__item:hover` now uses `var(--color-pebble-soft)` / `var(--color-pebble)` matching the active state. Previously showed `var(--accent)` (always teal regardless of chosen color).
+
+### Fixed in Session 14 (March 25 2026)
+86. ✅ **Break room button moved to bottom-left** — `BreakRoomButton.jsx` changed from `right: 24` to `left: 'var(--break-btn-left, 24px)'` with `transition: left 0.32s`. When the ClarifyPanel opens in Tasks, `Tasks.jsx` sets `--break-btn-left: 404px` on `:root` so the button smoothly slides to sit flush against the panel's right edge. CSS variable is cleaned up on close/unmount.
+87. ✅ **Breakdown chat choice screen redesigned** — `BreakdownChatPanel` choice screen now fully centered with breathing Pebble dot, DM Serif Display heading, muted sub-line, and richer buttons that each show a label + descriptor line ("chat with pebble, step by step" / "break into smaller tasks you can check off").
+88. ✅ **WalkthroughOverlay: pebble-color-aware spotlight glow** — Hardcoded `rgba(90,138,128,...)` in `GLOW_KEYFRAMES` replaced with `buildGlowKeyframes(hexToRgb(...))` that reads the live `--color-pebble` CSS variable on each render. `useSelector(pebbleColor)` triggers re-render when color changes so the glow always matches the user's chosen identity color.
+89. ✅ **WalkthroughOverlay: "take the tour again" on Settings step** — Settings step card now renders a teal outlined button above the nav row that calls `goStep(0)`, restarting the tour from the welcome screen.
+90. ✅ **Demo Mode in Settings** — New "Demo Mode" card at the bottom of Settings with a "Start Demo" button. Resets `onboardingComplete` and `walkthroughComplete` to `false` in Redux, localStorage, and Cosmos. Shows the full onboarding flow from scratch without touching any tasks, chats, or documents.
+91. ✅ **Onboarding comm style copy** — "Like a deep breath" → "A deep breath", "Like a clear path" → "A clear path". Settings comm style sub also updated: "like a deep breath" → "a deep breath".
 
 ### Still Open
 1. **P0-5: Chapter 5 seed data** — Needs running backend: `curl -X POST http://localhost:8000/api/tasks -H "Content-Type: application/json" -H "X-User-Id: diego" -d '{"groups":[]}'`

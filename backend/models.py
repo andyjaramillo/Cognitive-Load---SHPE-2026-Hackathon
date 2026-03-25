@@ -20,6 +20,7 @@ class UserPreferences(BaseModel):
     communication_style: Literal["warm", "direct", "balanced"] = "balanced"
     onboarding_complete: bool = False
     walkthrough_complete: bool = False
+    pebble_color: Literal["sage", "sky", "lilac", "amber"] = "sage"
 
 
 # ── Task Decomposer ──────────────────────────────────────────────────────── #
@@ -27,6 +28,7 @@ class UserPreferences(BaseModel):
 class DecomposeRequest(BaseModel):
     goal: str = Field(..., min_length=3, max_length=100_000)
     granularity: Literal["micro", "normal", "broad"] = "normal"
+    reading_level: Literal["simple", "standard", "detailed"] = "standard"
     context: str = Field(default="", max_length=2_000)
 
 
@@ -131,6 +133,9 @@ class ChatRequest(BaseModel):
     conversation_history: list[ConversationMessage] = Field(
         default_factory=list, max_length=40
     )
+    # Optional: caller can pass current Redux task state so the AI sees live data
+    # instead of potentially stale Cosmos DB data. Same shape as TaskGroupsUpdate.groups.
+    task_groups: list["TaskGroup"] | None = None
 
 
 # ── Task Groups (persistent tasks storage) ───────────────────────────────── #
@@ -150,6 +155,7 @@ class TaskGroup(BaseModel):
     id: str
     group_name: str
     source: str = "chat"    # "chat" | "documents" | "manual"
+    group_color: str = "sage"  # "sage" | "sky" | "lilac" | "amber"
     tasks: list[TaskGroupTask]
     created_at: str = ""
 
@@ -182,3 +188,25 @@ class TaskSuggestion(BaseModel):
 
 class TitleRequest(BaseModel):
     messages: list[dict]
+
+
+# ── Smart Plan ────────────────────────────────────────────────────────────── #
+
+class SmartPlanTask(BaseModel):
+    task_id:         str
+    group_id:        str
+    task_name:       str
+    group_name:      str
+    time_label:      str
+    group_due_label: str | None = None
+
+
+class SmartPlanRequest(BaseModel):
+    groups:            list[TaskGroup]
+    available_minutes: int = Field(..., ge=1, le=480)
+
+
+class SmartPlanResponse(BaseModel):
+    tasks:     list[SmartPlanTask]
+    reasoning: str = ""
+    empty:     bool = False

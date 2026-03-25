@@ -371,6 +371,11 @@ input:focus, textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
+/* Inputs inside styled card containers — suppress the default focus ring */
+input.no-ring:focus, textarea.no-ring:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
