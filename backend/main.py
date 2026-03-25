@@ -29,6 +29,8 @@ from models import (
     DocumentItem,
     ExplainRequest,
     ExplainResponse,
+    HighlightsRequest,
+    HighlightsResponse,
     NudgeRequest,
     NudgeResponse,
     SessionCreate,
@@ -192,6 +194,42 @@ def make_app(settings: Settings | None = None) -> FastAPI:
             "user_id": user_id,
         })
         return DecomposeResponse(group_name=group_name, steps=steps)
+
+    # ── Document Highlights (priority-based extraction) ──────────────────── #
+
+    @app.post("/api/highlights", response_model=HighlightsResponse, tags=["ai"])
+    async def highlights(
+        req: HighlightsRequest,
+        user_id: str = Depends(get_user_id),
+    ):
+        # Screen document content (not user intent — this is uploaded text)
+        if len(req.text) > 2000:
+            await safety.screen_document(req.text[:10_000])
+        else:
+            await safety.screen_user_intent(req.text)
+
+        try:
+            result = await ai.extract_highlights(
+                text=req.text,
+                reading_level=req.reading_level,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="something went quiet — please try again in a moment.",
+            ) from exc
+
+        track_event("document_highlights", {
+            "high_count": len(result.get("high", [])),
+            "medium_count": len(result.get("medium", [])),
+            "low_count": len(result.get("low", [])),
+            "user_id": user_id,
+        })
+        return HighlightsResponse(
+            high=result.get("high", []),
+            medium=result.get("medium", []),
+            low=result.get("low", []),
+        )
 
     # ── Task Suggestion (single-task preview from conversation) ──────────── #
 

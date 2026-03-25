@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { tasksActions } from '../store'
-import { loadDocumentById, summariseStream, explainSentence, decompose, chatStream } from '../utils/api'
+import { loadDocumentById, summariseStream, explainSentence, decompose, extractHighlights, chatStream } from '../utils/api'
 import { bionicify } from '../utils/bionic'
 import { splitIntoBubbles, renderMarkdown } from '../utils/bubbles'
 
@@ -253,15 +253,134 @@ function stripMarkdown(text) {
     .replace(/^[-*]\s+/gm,   '')
 }
 
-function renderSimplified(text, bionicMode) {
-  const clean = stripMarkdown(text)
-  const paragraphs = clean.split(/\n{2,}/).map(p => p.trim()).filter(Boolean)
-  const blocks = paragraphs.length > 0 ? paragraphs : [clean]
-  return blocks.map((block, i) => (
-    <p key={i} style={{ marginBottom: '0.85rem', lineHeight: 1.7 }}>
-      {bionicMode ? bionicify(block) : block}
-    </p>
-  ))
+function parseSimplifiedSections(text) {
+  // Split streamed text into sections by ## headings
+  const parts = text.split(/^## /gm).filter(Boolean)
+  return parts.map(part => {
+    const newline = part.indexOf('\n')
+    if (newline === -1) return { heading: part.trim(), bullets: [] }
+    const heading = part.slice(0, newline).trim()
+    const body = part.slice(newline + 1).trim()
+    const bullets = body
+      .split('\n')
+      .map(l => l.replace(/^[-*]\s+/, '').trim())
+      .filter(Boolean)
+    return { heading, bullets }
+  })
+}
+
+function SimplifiedSections({ text, bionicMode }) {
+  const sections = parseSimplifiedSections(text)
+  if (sections.length === 0) return null
+
+  // Separate bottom line from other sections
+  const bottomLine = sections.find(s => s.heading.toLowerCase() === 'bottom line')
+  const otherSections = sections.filter(s => s.heading.toLowerCase() !== 'bottom line')
+
+  const [expandedSections, setExpandedSections] = useState(() => {
+    // First section auto-expanded, rest collapsed
+    const initial = {}
+    otherSections.forEach((_, i) => { initial[i] = i === 0 })
+    return initial
+  })
+
+  const renderBullet = (bullet, bionicOn) => bionicOn ? bionicify(bullet) : bullet
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      {/* Bottom line — highlighted TL;DR */}
+      {bottomLine && bottomLine.bullets.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+          style={{
+            background: 'rgba(200,148,80,0.07)',
+            borderLeft: '3px solid var(--color-ai)',
+            borderRadius: '10px',
+            padding: '1rem 1.15rem',
+            boxShadow: '0 2px 8px rgba(200,148,80,0.06)',
+          }}
+        >
+          <p style={{
+            fontSize: '0.82rem', color: 'var(--color-ai)', fontWeight: 600,
+            marginBottom: '0.4rem', letterSpacing: '0.01em',
+          }}>
+            bottom line
+          </p>
+          <p style={{
+            fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: 1.6,
+            margin: 0, fontWeight: 500,
+          }}>
+            {renderBullet(bottomLine.bullets[0], bionicMode)}
+          </p>
+        </motion.div>
+      )}
+
+      {/* Content sections — progressive disclosure */}
+      {otherSections.map((section, i) => {
+        const isExpanded = expandedSections[i] !== false
+        return (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 + i * 0.1, duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
+          >
+            <button
+              onClick={() => setExpandedSections(prev => ({ ...prev, [i]: !prev[i] }))}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: '0.88rem', fontFamily: 'var(--font-display)', fontWeight: 400,
+                color: 'var(--text-primary)', padding: '0.4rem 0',
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                width: '100%', textAlign: 'left',
+              }}
+            >
+              <motion.span
+                animate={{ rotate: isExpanded ? 90 : 0 }}
+                transition={{ duration: 0.2 }}
+                style={{ display: 'inline-block', color: 'var(--color-active)', fontSize: '0.9rem' }}
+              >
+                →
+              </motion.span>
+              {section.heading}
+            </button>
+            <AnimatePresence>
+              {isExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div style={{
+                    borderLeft: '3px solid var(--color-active)',
+                    borderRadius: '0 10px 10px 0',
+                    padding: '0.75rem 1rem',
+                    marginTop: '0.25rem',
+                    background: 'var(--bg-card)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                    display: 'flex', flexDirection: 'column', gap: '0.5rem',
+                  }}>
+                    {section.bullets.map((bullet, j) => (
+                      <p key={j} style={{
+                        fontSize: '0.88rem', color: 'var(--text-primary)',
+                        lineHeight: 1.65, margin: 0,
+                      }}>
+                        {renderBullet(bullet, bionicMode)}
+                      </p>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )
+      })}
+    </div>
+  )
 }
 
 // ── Main component ────────────────────────────────────────────────────────── //
@@ -296,6 +415,10 @@ export default function DocumentSession() {
   const [qaMessages, setQaMessages] = useState([])
   const [qaInput, setQaInput] = useState('')
   const [qaStreaming, setQaStreaming] = useState(false)
+
+  // Highlights (priority-based)
+  const [highlightData, setHighlightData] = useState(null) // { high: [], medium: [], low: [] }
+  const [expandedTiers, setExpandedTiers] = useState({ medium: false, low: false })
 
   // Hover state for choice cards
   const [hoveredChoice, setHoveredChoice] = useState(null)
@@ -343,12 +466,24 @@ export default function DocumentSession() {
     setIsStreaming(false)
     setStreamError(null)
 
-    if (modeId === 'actions' || modeId === 'highlights') {
+    if (modeId === 'highlights') {
+      try {
+        const truncated = docText.length > 15000 ? docText.slice(0, 15000) + '\n\n[document continues...]' : docText
+        const res = await extractHighlights({
+          text: truncated,
+          reading_level: prefs.readingLevel || 'standard',
+        })
+        setHighlightData(res)
+        setExpandedTiers({ medium: false, low: false })
+      } catch {
+        setStreamError("something went quiet. try again?")
+      }
+    } else if (modeId === 'actions') {
       try {
         const truncated = docText.length > 15000 ? docText.slice(0, 15000) + '\n\n[document continues...]' : docText
         const res = await decompose({
           goal: truncated,
-          granularity: modeId === 'highlights' ? 'broad' : 'normal',
+          granularity: 'normal',
           reading_level: prefs.readingLevel || 'standard',
         })
         if (res.flagged) {
@@ -624,11 +759,10 @@ export default function DocumentSession() {
                   <AIBubble text="ask me anything about this document. i've read through it and i'm ready to help." />
                 )}
 
-                {(chosenMode === 'actions' || chosenMode === 'highlights') && (
+                {chosenMode === 'actions' && (
                   <AIBubble>
                     <p style={{ marginBottom: '0.85rem', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                      {chosenMode === 'actions' && `found ${actionItems.length > 0 ? actionItems.length : '…'} things you need to do. everything else is background.`}
-                      {chosenMode === 'highlights' && `here are ${actionItems.length > 0 ? `${actionItems.length} sections` : 'the sections'} that matter most.`}
+                      {`found ${actionItems.length > 0 ? actionItems.length : '…'} things you need to do. everything else is background.`}
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                       {actionItems.length === 0 && !streamError && (
@@ -685,7 +819,222 @@ export default function DocumentSession() {
                   </AIBubble>
                 )}
 
-                {/* Simplify — calming loader while streaming, clean text when done */}
+                {/* Highlights — priority-based cognitive offloading */}
+                {chosenMode === 'highlights' && (
+                  <>
+                    {!highlightData && !streamError ? (
+                      <div style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center',
+                        justifyContent: 'center', padding: '3rem 1rem', gap: '1rem',
+                      }}>
+                        <motion.div
+                          animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.5, 1, 0.5] }}
+                          transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+                          style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--color-pebble)' }}
+                        />
+                        <p style={{
+                          fontSize: '0.88rem', color: 'var(--text-muted)', textAlign: 'center',
+                          fontStyle: 'italic', lineHeight: 1.5,
+                        }}>
+                          reading through everything for you...
+                        </p>
+                      </div>
+                    ) : highlightData ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <h3 style={{
+                          fontFamily: 'var(--font-display)', fontSize: 'clamp(1rem, 2.5vw, 1.2rem)',
+                          fontWeight: 400, color: 'var(--text-primary)', textAlign: 'center',
+                          margin: 0,
+                        }}>
+                          here's what matters most
+                        </h3>
+
+                        {/* High priority — always visible */}
+                        {highlightData.high.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+                          >
+                            <p style={{ fontSize: '0.82rem', color: 'var(--color-ai)', fontWeight: 600, marginBottom: '0.6rem' }}>
+                              these need your attention
+                            </p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                              {highlightData.high.map((item, i) => (
+                                <motion.div
+                                  key={i}
+                                  initial={{ opacity: 0, y: 6 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: i * 0.1, duration: 0.4 }}
+                                  style={{
+                                    background: 'var(--bg-card)',
+                                    borderLeft: '3px solid var(--color-ai)',
+                                    borderRadius: '10px',
+                                    padding: '0.85rem 1rem',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                                  }}
+                                >
+                                  <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
+                                    {item.title}
+                                  </div>
+                                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+                                    {item.detail}
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {/* Medium priority — collapsed by default */}
+                        {highlightData.medium.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3, duration: 0.5 }}
+                          >
+                            <button
+                              onClick={() => setExpandedTiers(prev => ({ ...prev, medium: !prev.medium }))}
+                              style={{
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                fontSize: '0.82rem', color: 'var(--color-active)', fontWeight: 600,
+                                padding: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                marginBottom: expandedTiers.medium ? '0.6rem' : 0,
+                              }}
+                            >
+                              <motion.span
+                                animate={{ rotate: expandedTiers.medium ? 90 : 0 }}
+                                transition={{ duration: 0.2 }}
+                                style={{ display: 'inline-block' }}
+                              >
+                                →
+                              </motion.span>
+                              helpful, but no rush
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>
+                                ({highlightData.medium.length})
+                              </span>
+                            </button>
+                            <AnimatePresence>
+                              {expandedTiers.medium && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+                                  style={{ overflow: 'hidden' }}
+                                >
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {highlightData.medium.map((item, i) => (
+                                      <motion.div
+                                        key={i}
+                                        initial={{ opacity: 0, y: 6 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: i * 0.08, duration: 0.35 }}
+                                        style={{
+                                          background: 'var(--bg-card)',
+                                          borderLeft: '3px solid var(--color-active)',
+                                          borderRadius: '10px',
+                                          padding: '0.85rem 1rem',
+                                          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                                        }}
+                                      >
+                                        <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
+                                          {item.title}
+                                        </div>
+                                        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+                                          {item.detail}
+                                        </div>
+                                      </motion.div>
+                                    ))}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </motion.div>
+                        )}
+
+                        {/* Low priority — collapsed by default */}
+                        {highlightData.low.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.45, duration: 0.5 }}
+                          >
+                            <button
+                              onClick={() => setExpandedTiers(prev => ({ ...prev, low: !prev.low }))}
+                              style={{
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600,
+                                padding: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                marginBottom: expandedTiers.low ? '0.6rem' : 0,
+                              }}
+                            >
+                              <motion.span
+                                animate={{ rotate: expandedTiers.low ? 90 : 0 }}
+                                transition={{ duration: 0.2 }}
+                                style={{ display: 'inline-block' }}
+                              >
+                                →
+                              </motion.span>
+                              just background — you can skip this
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>
+                                ({highlightData.low.length})
+                              </span>
+                            </button>
+                            <AnimatePresence>
+                              {expandedTiers.low && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+                                  style={{ overflow: 'hidden' }}
+                                >
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {highlightData.low.map((item, i) => (
+                                      <motion.div
+                                        key={i}
+                                        initial={{ opacity: 0, y: 6 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: i * 0.08, duration: 0.35 }}
+                                        style={{
+                                          background: 'var(--bg-card)',
+                                          borderLeft: '3px solid var(--border)',
+                                          borderRadius: '10px',
+                                          padding: '0.85rem 1rem',
+                                          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                                        }}
+                                      >
+                                        <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
+                                          {item.title}
+                                        </div>
+                                        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+                                          {item.detail}
+                                        </div>
+                                      </motion.div>
+                                    ))}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </motion.div>
+                        )}
+
+                        {streamError && (
+                          <p style={{ fontSize: '0.85rem', color: 'var(--color-ai)', marginTop: '0.5rem' }}>
+                            {streamError}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '0.85rem', color: 'var(--color-ai)' }}>
+                        {streamError}
+                      </p>
+                    )}
+                  </>
+                )}
+
+                {/* Simplify — calming loader while streaming, structured sections when done */}
                 {chosenMode === 'simplify' && (
                   <>
                     {isStreaming ? (
@@ -712,7 +1061,7 @@ export default function DocumentSession() {
                           fontWeight: 400, color: 'var(--text-primary)', textAlign: 'center',
                           margin: '0 0 1.25rem',
                         }}>
-                          here is a simplified version of your document
+                          here's the simple version
                         </h3>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
                           <button
@@ -724,15 +1073,7 @@ export default function DocumentSession() {
                             {bionicMode ? 'normal reading' : 'bionic reading'}
                           </button>
                         </div>
-                        <div
-                          style={{
-                            fontSize: '0.9rem', color: 'var(--text-primary)',
-                            lineHeight: 'var(--line-height)', letterSpacing: 'var(--letter-spacing)',
-                          }}
-                          aria-live="polite"
-                        >
-                          {renderSimplified(streamText, bionicMode)}
-                        </div>
+                        <SimplifiedSections text={streamText} bionicMode={bionicMode} />
                         {streamError && (
                           <p style={{ fontSize: '0.85rem', color: 'var(--color-ai)', marginTop: '0.5rem' }}>
                             {streamError}
@@ -745,7 +1086,7 @@ export default function DocumentSession() {
               </motion.div>
 
               {/* Follow-up actions */}
-              {!isStreaming && chosenMode !== 'questions' && (
+              {!isStreaming && chosenMode !== 'questions' && (chosenMode !== 'highlights' || highlightData) && (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
