@@ -7,7 +7,7 @@ function mapTasks(tasks = []) {
     id:               t.id || genId(),
     task_name:        t.task_name || t.name || 'Task',
     duration_minutes: t.duration_minutes || 15,
-    priority:         t.priority ?? 2,   // 1=high, 2=medium, 3=low. ?? 2 handles old tasks without field
+    priority:         t.priority != null && t.priority !== 2 ? t.priority : null,  // 1=high, 3=low, null=none
     motivation_nudge: t.motivation_nudge || '',
     due_date:         t.due_date || null,
     due_label:        t.due_label || null,
@@ -99,7 +99,7 @@ const tasksSlice = createSlice({
 
     // Add a single task to the "My Tasks" group (creates it if missing)
     addSimpleTask(state, action) {
-      const { task_name, duration_minutes = 15, priority = 2, motivation_nudge = '', due_date = null, due_label = null } = action.payload
+      const { task_name, duration_minutes = 15, priority = null, motivation_nudge = '', due_date = null, due_label = null } = action.payload
       let group = state.groups.find(g => g.name === 'My Tasks' && g.source === 'manual')
       if (!group) {
         group = { id: genId(), name: 'My Tasks', source: 'manual', tasks: [] }
@@ -114,7 +114,7 @@ const tasksSlice = createSlice({
 
     // Add a single task directly to a specific group (inline add inside a group)
     addTaskToGroup(state, action) {
-      const { groupId, task_name, duration_minutes = 15, priority = 2, id, motivation_nudge = '' } = action.payload
+      const { groupId, task_name, duration_minutes = 15, priority = null, id, motivation_nudge = '' } = action.payload
       const group = state.groups.find(g => g.id === groupId)
       if (!group) return
       group.tasks.push({
@@ -257,7 +257,7 @@ const tasksSlice = createSlice({
         id:               Math.random().toString(36).slice(2, 10),
         task_name:        mergedTask.task_name,
         duration_minutes: mergedTask.duration_minutes || 15,
-        priority:         mergedTask.priority ?? 2,
+        priority:         mergedTask.priority ?? null,
         motivation_nudge: mergedTask.motivation_nudge || '',
         due_date:         null,
         due_label:        null,

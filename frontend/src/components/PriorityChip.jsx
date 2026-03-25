@@ -36,8 +36,8 @@ export const PRIORITY_CONFIG = {
   },
 }
 
-// Cycle order: med(2) → high(1) → low(3) → med(2)
-const CYCLE = { 2: 1, 1: 3, 3: 2 }
+// Cycle order: none → high(1) → low(3) → none
+function cyclePriority(p) { if (p == null) return 1; if (p === 1) return 3; return null }
 
 const BASE_STYLE = {
   fontSize:    '0.72rem',
@@ -59,11 +59,11 @@ const BASE_STYLE = {
 /**
  * Single cycling chip — click to advance: med → high → low → med
  */
-export function PriorityChip({ priority = 2, onChange }) {
+export function PriorityChip({ priority = null, onChange }) {
   const cfg = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG[2]
   return (
     <button
-      onClick={e => { e.stopPropagation(); onChange?.(CYCLE[priority] ?? 2) }}
+      onClick={e => { e.stopPropagation(); onChange?.(cyclePriority(priority)) }}
       title={`Priority: ${cfg.label} — tap to change`}
       style={{
         ...BASE_STYLE,
@@ -83,7 +83,7 @@ export function PriorityChip({ priority = 2, onChange }) {
 /**
  * Three-chip picker — shows all three options, selected is lit, others dimmed
  */
-export function PriorityPicker({ priority = 2, onChange }) {
+export function PriorityPicker({ priority = null, onChange }) {
   return (
     <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
       {[1, 2, 3].map(p => {
@@ -92,7 +92,7 @@ export function PriorityPicker({ priority = 2, onChange }) {
         return (
           <button
             key={p}
-            onClick={e => { e.stopPropagation(); onChange?.(p) }}
+            onClick={e => { e.stopPropagation(); onChange?.(selected ? null : p) }}
             style={{
               ...BASE_STYLE,
               background:  selected ? cfg.bg        : 'transparent',

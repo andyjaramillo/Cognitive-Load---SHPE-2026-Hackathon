@@ -254,7 +254,7 @@ function _toFrontendGroup(g) {
       id:               t.id,
       task_name:        t.task_name,
       duration_minutes: t.duration_minutes || 15,
-      priority:         t.priority ?? 2,   // graceful: old tasks without field default to medium
+      priority:         (t.priority != null && t.priority !== 2) ? t.priority : null,  // 1=high, 3=low, null=none
       motivation_nudge: t.description || '',
       due_date:         t.due_date || null,
       due_label:        t.due_label || null,

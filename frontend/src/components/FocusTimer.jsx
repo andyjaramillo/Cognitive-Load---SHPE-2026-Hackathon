@@ -109,11 +109,13 @@ const FocusTimer = forwardRef(function FocusTimer({ durationMinutes = 25, onOver
   // Cleanup on unmount
   useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
 
+  // Negative offset shifts the dash pattern backward, so the gap grows CLOCKWISE from 12 o'clock.
+  // Positive offset (old) caused the gap to grow counterclockwise (wrong direction).
   const dashOffset = fillComplete
     ? 0
     : overtime
       ? 0
-      : CIRCUMFERENCE * (1 - fraction)
+      : -(CIRCUMFERENCE * (1 - fraction))
 
   // Ring uses user's personal pebble color; green only on fill-complete animation
   const strokeColor = fillComplete ? 'var(--color-done)' : 'var(--color-pebble)'
@@ -121,10 +123,11 @@ const FocusTimer = forwardRef(function FocusTimer({ durationMinutes = 25, onOver
     ? 'radial-gradient(circle, #50946A 0%, transparent 70%)'
     : 'radial-gradient(circle, var(--color-pebble) 0%, transparent 70%)'
 
-  // Arc-tip dot — sits on the leading edge of the progress arc
-  // Inside the -90deg-rotated SVG: angle (1-f)*2π from 3-o'clock maps to correct screen position
+  // Arc-tip dot — rides the leading (clockwise) edge of the shrinking arc.
+  // SVG is rotated -90deg so angle=0 maps to 12 o'clock on screen.
+  // As elapsed time grows (fraction shrinks), (1-fraction) increases → dot sweeps clockwise.
   const safeFrac = Math.max(0, Math.min(1, fraction))
-  const dotAngle = safeFrac * 2 * Math.PI
+  const dotAngle = (1 - safeFrac) * 2 * Math.PI
   const dotX     = SIZE / 2 + R * Math.cos(dotAngle)
   const dotY     = SIZE / 2 + R * Math.sin(dotAngle)
   const showDot  = !fillComplete && !overtime && safeFrac > 0.005
@@ -163,8 +166,8 @@ const FocusTimer = forwardRef(function FocusTimer({ durationMinutes = 25, onOver
         {/* Track */}
         <circle
           cx={SIZE / 2} cy={SIZE / 2} r={R}
-          stroke="var(--color-inactive)"
-          strokeOpacity={0.08}
+          stroke="var(--color-pebble)"
+          strokeOpacity={0.18}
           strokeWidth={STROKE_BG}
           fill="none"
         />
