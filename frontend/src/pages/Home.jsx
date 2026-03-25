@@ -1484,8 +1484,8 @@ export default function Home() {
                       </>
                     )}
 
-                    {/* ── Tasks section ─────────────────────────────── */}
-                    {taskGroups.length > 0 && (
+                    {/* ── Documents section ─────────────────────────── */}
+                    {recentDocs.length > 0 && (
                       <>
                         <div style={{
                           padding: sessions.length > 0 ? '0.8rem 1rem 0.35rem' : '0.7rem 1rem 0.35rem',
@@ -1493,46 +1493,6 @@ export default function Home() {
                           color: 'var(--text-muted)', textTransform: 'uppercase',
                           display: 'flex', alignItems: 'center', gap: '0.5rem',
                           borderTop: sessions.length > 0 ? '1px solid var(--border)' : 'none',
-                        }}>
-                          <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-queued)', opacity: 0.8 }} />
-                          tasks
-                        </div>
-                        {[...taskGroups].slice(-4).reverse().map((g, i) => (
-                          <button key={g.id}
-                            onClick={() => { setShowHistory(false); navigate('/tasks') }}
-                            style={{
-                              width: '100%', display: 'flex', alignItems: 'flex-start', gap: '0.65rem',
-                              padding: '0.65rem 1rem', background: 'none', border: 'none',
-                              borderTop: i === 0 ? 'none' : '1px solid var(--border)',
-                              cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s ease',
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft)' }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
-                          >
-                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-queued)', flexShrink: 0, marginTop: '0.38rem', opacity: 0.6 }} />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: '0.84rem', fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {g.name || 'untitled group'}
-                              </div>
-                              <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
-                                {g.tasks.length} task{g.tasks.length !== 1 ? 's' : ''}
-                                {g.tasks.filter(t => t.done).length > 0 && ` · ${g.tasks.filter(t => t.done).length} done`}
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </>
-                    )}
-
-                    {/* ── Documents section ─────────────────────────── */}
-                    {recentDocs.length > 0 && (
-                      <>
-                        <div style={{
-                          padding: (sessions.length > 0 || taskGroups.length > 0) ? '0.8rem 1rem 0.35rem' : '0.7rem 1rem 0.35rem',
-                          fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em',
-                          color: 'var(--text-muted)', textTransform: 'uppercase',
-                          display: 'flex', alignItems: 'center', gap: '0.5rem',
-                          borderTop: (sessions.length > 0 || taskGroups.length > 0) ? '1px solid var(--border)' : 'none',
                         }}>
                           <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-ai)', opacity: 0.8 }} />
                           documents
@@ -1566,13 +1526,13 @@ export default function Home() {
                     )}
 
                     {/* ── Empty state ───────────────────────────────── */}
-                    {sessions.length === 0 && taskGroups.length === 0 && recentDocs.length === 0 && (
+                    {sessions.length === 0 && recentDocs.length === 0 && (
                       <div style={{ padding: '1.2rem 1rem', textAlign: 'center' }}>
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
                           nothing yet.
                         </div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', opacity: 0.7, marginTop: '0.2rem' }}>
-                          start a chat, add tasks, or upload a doc.
+                          start a chat or upload a doc to see it here.
                         </div>
                       </div>
                     )}

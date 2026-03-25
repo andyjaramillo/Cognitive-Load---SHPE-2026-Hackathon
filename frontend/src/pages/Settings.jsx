@@ -43,7 +43,7 @@ const TIMERS = [
 ]
 
 const COMM_STYLES = [
-  { label: 'warm',      value: 'warm',     sub: 'like a deep breath' },
+  { label: 'warm',      value: 'warm',     sub: 'a deep breath' },
   { label: 'direct',    value: 'direct',   sub: 'calm and to the point' },
   { label: 'balanced',  value: 'balanced', sub: 'a little of each' },
 ]
@@ -413,6 +413,30 @@ export default function Settings() {
               </div>
             </div>
           ))}
+
+        </motion.div>
+
+        {/* Demo mode */}
+        <motion.div variants={staggerItem} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>Demo Mode</h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>
+              Restart the onboarding flow to show a friend.
+            </p>
+          </div>
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: '0.82rem', padding: '0.45rem 1rem', flexShrink: 0, whiteSpace: 'nowrap' }}
+            onClick={() => {
+              try { localStorage.removeItem('pebble_onboarding_complete') } catch {}
+              try { localStorage.removeItem('pebble_walkthrough_complete') } catch {}
+              try { sessionStorage.removeItem('pebble_wt_step') } catch {}
+              savePreferences({ onboarding_complete: false, walkthrough_complete: false }).catch(() => {})
+              dispatch(prefsActions.setPrefs({ onboardingComplete: false, walkthroughComplete: false }))
+            }}
+          >
+            Start Demo
+          </button>
         </motion.div>
 
       </motion.div>

@@ -15,6 +15,7 @@ function mapTasks(tasks = []) {
     paused:           t.paused || false,
     timerStarted:     null,
     nudgeText:        null,
+    userSetTime:      false,
   }))
 }
 
@@ -56,6 +57,7 @@ const tasksSlice = createSlice({
   name: 'tasks',
   initialState: {
     groups:       [],
+    categories:   [],   // [{ id, name, color: 'sage'|'sky'|'lilac'|'amber' }]
     focusGroupId: null,
     focusTaskId:  null,
     loading:      false,
@@ -65,13 +67,34 @@ const tasksSlice = createSlice({
     // Add a new group (from Documents page or smart AI decomposition)
     // Accepts optional `id` so callers can pre-generate it (needed for navigate highlight state)
     addGroup(state, action) {
-      const { id, name, source = 'manual', tasks = [] } = action.payload
-      state.groups.push({ id: id || genId(), name, source, created_at: new Date().toISOString(), tasks: mapTasks(tasks) })
+      const { id, name, source = 'manual', tasks = [], groupColor = 'sage' } = action.payload
+      state.groups.push({ id: id || genId(), name, source, groupColor, created_at: new Date().toISOString(), tasks: mapTasks(tasks) })
     },
 
     // Load groups from Cosmos DB (replaces all current groups)
     setGroups(state, action) {
       state.groups = action.payload
+    },
+
+    // Only populates from Cosmos if Redux is still empty — prevents race condition
+    // where loadTasks resolves AFTER the user already added a group locally
+    setGroupsIfEmpty(state, action) {
+      if (state.groups.length === 0) {
+        state.groups = action.payload
+      }
+    },
+
+    // Rename a group
+    updateGroupName(state, action) {
+      const { groupId, name } = action.payload
+      const group = state.groups.find(g => g.id === groupId)
+      if (group && name.trim()) group.name = name.trim()
+    },
+
+    setGroupColor(state, action) {
+      const { groupId, color } = action.payload
+      const group = state.groups.find(g => g.id === groupId)
+      if (group) group.groupColor = color
     },
 
     // Add a single task to the "My Tasks" group (creates it if missing)
@@ -85,7 +108,19 @@ const tasksSlice = createSlice({
       group.tasks.push({
         id: genId(), task_name, duration_minutes, priority,
         motivation_nudge, due_date, due_label,
-        done: false, paused: false, timerStarted: null, nudgeText: null,
+        done: false, paused: false, timerStarted: null, nudgeText: null, userSetTime: false,
+      })
+    },
+
+    // Add a single task directly to a specific group (inline add inside a group)
+    addTaskToGroup(state, action) {
+      const { groupId, task_name, duration_minutes = 15, priority = 2, id, motivation_nudge = '' } = action.payload
+      const group = state.groups.find(g => g.id === groupId)
+      if (!group) return
+      group.tasks.push({
+        id: id || genId(), task_name, duration_minutes, priority,
+        motivation_nudge, due_date: null, due_label: null,
+        done: false, paused: false, timerStarted: null, nudgeText: null, userSetTime: false,
       })
     },
 
@@ -144,13 +179,16 @@ const tasksSlice = createSlice({
     },
 
     updateTask(state, action) {
-      const { groupId, taskId, task_name, duration_minutes, motivation_nudge, priority } = action.payload
+      const { groupId, taskId, task_name, duration_minutes, motivation_nudge, priority, due_date, due_label, userSetTime } = action.payload
       const task = state.groups.find(g => g.id === groupId)?.tasks.find(t => t.id === taskId)
       if (!task) return
       if (task_name        !== undefined) task.task_name        = task_name
       if (duration_minutes !== undefined) task.duration_minutes = duration_minutes
       if (motivation_nudge !== undefined) task.motivation_nudge = motivation_nudge
       if (priority         !== undefined) task.priority         = priority
+      if (due_date         !== undefined) task.due_date         = due_date
+      if (due_label        !== undefined) task.due_label        = due_label
+      if (userSetTime      !== undefined) task.userSetTime      = userSetTime
     },
 
     setTaskTimer(state, action) {
@@ -170,9 +208,30 @@ const tasksSlice = createSlice({
       group.tasks.push(task)
     },
 
+    clearCompletedTasks(state, action) {
+      // action.payload = groupId (string) OR null/undefined to clear all groups
+      const groupId = action.payload
+      const targets = groupId
+        ? state.groups.filter(g => g.id === groupId)
+        : state.groups
+      for (const group of targets) {
+        group.tasks = group.tasks.filter(t => !t.done)
+      }
+    },
+
     deleteGroup(state, action) {
+      const group = state.groups.find(g => g.id === action.payload)
+      if (!group) return
+      // Rescue non-empty groups: move all tasks to "My Tasks"
+      if (group.tasks.length > 0) {
+        let myTasks = state.groups.find(g => g.name === 'My Tasks' && g.source === 'manual')
+        if (!myTasks) {
+          myTasks = { id: genId(), name: 'My Tasks', source: 'manual', groupColor: 'sage', created_at: new Date().toISOString(), tasks: [] }
+          state.groups.unshift(myTasks)
+        }
+        myTasks.tasks.push(...group.tasks)
+      }
       state.groups = state.groups.filter(g => g.id !== action.payload)
-      // Clear focus refs if they pointed to the deleted group
       if (state.focusGroupId === action.payload) { state.focusGroupId = null; state.focusTaskId = null }
     },
 
@@ -206,6 +265,7 @@ const tasksSlice = createSlice({
         paused:           false,
         timerStarted:     null,
         nudgeText:        null,
+        userSetTime:      false,
       })
     },
 
@@ -218,9 +278,42 @@ const tasksSlice = createSlice({
       group.tasks.splice(newIndex, 0, moved)
     },
 
+    reorderGroups(state, action) {
+      const { oldIndex, newIndex } = action.payload
+      const [moved] = state.groups.splice(oldIndex, 1)
+      state.groups.splice(newIndex, 0, moved)
+    },
+
+    moveTaskToGroup(state, action) {
+      const { taskId, fromGroupId, toGroupId } = action.payload
+      const fromGroup = state.groups.find(g => g.id === fromGroupId)
+      const toGroup   = state.groups.find(g => g.id === toGroupId)
+      if (!fromGroup || !toGroup || fromGroupId === toGroupId) return
+      const idx = fromGroup.tasks.findIndex(t => t.id === taskId)
+      if (idx === -1) return
+      const [task] = fromGroup.tasks.splice(idx, 1)
+      toGroup.tasks.push(task)
+      // Clean up empty non-manual groups
+      if (fromGroup.tasks.length === 0 && fromGroup.source !== 'manual') {
+        state.groups = state.groups.filter(g => g.id !== fromGroupId)
+        if (state.focusGroupId === fromGroupId) { state.focusGroupId = null; state.focusTaskId = null }
+      }
+    },
+
     setFocusGroup(state, action) { state.focusGroupId = action.payload },
     setFocusTask(state, action)  { state.focusTaskId  = action.payload },
     clearFocus(state)            { state.focusGroupId = null; state.focusTaskId = null },
+
+    // Add a category — one per color max
+    addCategory(state, action) {
+      const { name, color } = action.payload
+      if (state.categories.some(c => c.color === color)) return
+      state.categories.push({ id: genId(), name: name.trim(), color })
+    },
+
+    deleteCategory(state, action) {
+      state.categories = state.categories.filter(c => c.id !== action.payload)
+    },
 
     setLoading(state, action) { state.loading = action.payload },
     setError(state, action)   { state.error = action.payload },

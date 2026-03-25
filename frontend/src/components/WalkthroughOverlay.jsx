@@ -11,9 +11,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { prefsActions } from '../store'
 import { savePreferences } from '../utils/api'
+
+function hexToRgb(hex) {
+  const h = hex.trim().replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  return `${r},${g},${b}`
+}
 
 // ── Step definitions ────────────────────────────────────────────────────── //
 
@@ -110,14 +118,16 @@ const STEPS = [
 
 const TOTAL = STEPS.length
 
-// ── Spotlight glow animation ─────────────────────────────────────────────── //
+// ── Spotlight glow animation — built dynamically in component ────────────── //
 
-const GLOW_KEYFRAMES = {
-  boxShadow: [
-    '0 0 0 4px rgba(90,138,128,0.22), 0 0 0 8px rgba(90,138,128,0.08), 0 0 0 9999px rgba(0,0,0,0.52)',
-    '0 0 0 6px rgba(90,138,128,0.16), 0 0 0 14px rgba(90,138,128,0.05), 0 0 0 9999px rgba(0,0,0,0.52)',
-    '0 0 0 4px rgba(90,138,128,0.22), 0 0 0 8px rgba(90,138,128,0.08), 0 0 0 9999px rgba(0,0,0,0.52)',
-  ],
+function buildGlowKeyframes(rgb) {
+  return {
+    boxShadow: [
+      `0 0 0 4px rgba(${rgb},0.22), 0 0 0 8px rgba(${rgb},0.08), 0 0 0 9999px rgba(0,0,0,0.52)`,
+      `0 0 0 6px rgba(${rgb},0.16), 0 0 0 14px rgba(${rgb},0.05), 0 0 0 9999px rgba(0,0,0,0.52)`,
+      `0 0 0 4px rgba(${rgb},0.22), 0 0 0 8px rgba(${rgb},0.08), 0 0 0 9999px rgba(0,0,0,0.52)`,
+    ],
+  }
 }
 
 // Per-property transitions — opacity must NOT inherit repeat:Infinity
@@ -129,13 +139,21 @@ const GLOW_TRANSITION = {
 // ── Component ────────────────────────────────────────────────────────────── //
 
 export default function WalkthroughOverlay() {
-  const dispatch = useDispatch()
-  const navigate = useNavigate()
+  const dispatch     = useDispatch()
+  const navigate     = useNavigate()
+  const pebbleColor  = useSelector(s => s.prefs.pebbleColor)
   const [step,    setStep]    = useState(() => {
     try { return Math.min(parseInt(sessionStorage.getItem('pebble_wt_step') || '0', 10), TOTAL - 1) } catch { return 0 }
   })
   const [rect,    setRect]    = useState(null)
   const [visible, setVisible] = useState(true)
+
+  // Build glow keyframes from the live CSS variable so it follows pebble color.
+  // Reading pebbleColor from Redux ensures we re-render (and recompute) when it changes.
+  const glowKeyframes = buildGlowKeyframes(
+    hexToRgb(getComputedStyle(document.documentElement).getPropertyValue('--color-pebble').trim() || '#5A8A80')
+  )
+  void pebbleColor // consumed above via getComputedStyle — keeps lint happy
 
   const current  = STEPS[step]
   const isFirst  = step === 0
@@ -229,7 +247,7 @@ export default function WalkthroughOverlay() {
       </div>
 
       {/* Bullets */}
-      <ul style={{ margin: '0 0 1.1rem', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <ul style={{ margin: `0 0 ${current.id === 'settings' ? '0.75rem' : '1.1rem'}`, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         {current.bullets.map((b, i) => (
           <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.55rem' }}>
             <span style={{
@@ -242,6 +260,32 @@ export default function WalkthroughOverlay() {
           </li>
         ))}
       </ul>
+
+      {/* Settings step: restart tour button */}
+      {current.id === 'settings' && (
+        <button
+          onClick={() => goStep(0)}
+          style={{
+            width: '100%', marginBottom: '0.85rem',
+            padding: '0.6rem 1rem', borderRadius: 10,
+            border: '1px solid color-mix(in srgb, var(--color-pebble) 30%, transparent)',
+            background: 'color-mix(in srgb, var(--color-pebble) 8%, transparent)',
+            color: 'var(--color-pebble)', fontSize: '0.83rem', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: '0.5rem',
+            transition: 'background 0.18s ease',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'color-mix(in srgb, var(--color-pebble) 15%, transparent)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'color-mix(in srgb, var(--color-pebble) 8%, transparent)' }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 12a8 8 0 0 1 14-5.29" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            <path d="M20 12a8 8 0 0 1-14 5.29" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            <path d="M17 6l1-3 3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M7 18l-1 3-3-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          take the tour again from the start
+        </button>
+      )}
 
       {/* Nav row: Back + Next | progress pills + skip */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
@@ -305,7 +349,7 @@ export default function WalkthroughOverlay() {
               <motion.div
                 key={`spot-${step}`}
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 1, ...GLOW_KEYFRAMES }}
+                animate={{ opacity: 1, ...glowKeyframes }}
                 transition={GLOW_TRANSITION}
                 exit={{ opacity: 0, transition: { duration: 0.3 } }}
                 style={{

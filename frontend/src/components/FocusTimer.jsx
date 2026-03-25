@@ -1,17 +1,11 @@
 import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react'
+import { motion } from 'framer-motion'
 
 const SIZE        = 170
 const STROKE_BG   = 2
 const STROKE_FG   = 3
 const R           = (SIZE - STROKE_FG * 2) / 2
 const CIRCUMFERENCE = 2 * Math.PI * R
-
-// Returns current ring color hex string based on fraction remaining (0–1)
-function ringColor(fraction) {
-  if (fraction > 0.5) return 'var(--color-done)'          // green
-  if (fraction > 0.2) return 'var(--color-active)'        // teal
-  return 'var(--color-ai)'                                // amber/orange
-}
 
 // Ambient display: "~15m", "~5m", "+1m" etc.
 function ambientLabel(remainingMs, overtime) {
@@ -22,20 +16,6 @@ function ambientLabel(remainingMs, overtime) {
   const mins = Math.ceil(remainingMs / 60000)
   if (mins <= 0) return '~1m'
   return `~${mins}m`
-}
-
-// Resolve CSS variable to a hex/rgb string for use in radial-gradient
-// We pass a fallback for the glow since CSS vars can't go inside radial-gradient easily
-const GLOW_COLORS = {
-  done:    '#50946A',
-  active:  '#2A7A90',
-  ai:      '#C8A046',
-}
-
-function glowColor(fraction) {
-  if (fraction > 0.5) return GLOW_COLORS.done
-  if (fraction > 0.2) return GLOW_COLORS.active
-  return GLOW_COLORS.ai
 }
 
 // FocusTimer exposes: start(), pause(), resume(), reset(durationMinutes), forceComplete()
@@ -135,24 +115,38 @@ const FocusTimer = forwardRef(function FocusTimer({ durationMinutes = 25, onOver
       ? 0
       : CIRCUMFERENCE * (1 - fraction)
 
-  const strokeColor = fillComplete ? 'var(--color-done)' : ringColor(fraction)
-  const glow        = fillComplete ? GLOW_COLORS.done    : glowColor(fraction)
-  const glowOpacity = 0.15
-  const label       = ambientLabel(remainingMs, overtime && !fillComplete)
+  // Ring uses user's personal pebble color; green only on fill-complete animation
+  const strokeColor = fillComplete ? 'var(--color-done)' : 'var(--color-pebble)'
+  const glowBg = fillComplete
+    ? 'radial-gradient(circle, #50946A 0%, transparent 70%)'
+    : 'radial-gradient(circle, var(--color-pebble) 0%, transparent 70%)'
+
+  // Arc-tip dot — sits on the leading edge of the progress arc
+  // Inside the -90deg-rotated SVG: angle (1-f)*2π from 3-o'clock maps to correct screen position
+  const safeFrac = Math.max(0, Math.min(1, fraction))
+  const dotAngle = safeFrac * 2 * Math.PI
+  const dotX     = SIZE / 2 + R * Math.cos(dotAngle)
+  const dotY     = SIZE / 2 + R * Math.sin(dotAngle)
+  const showDot  = !fillComplete && !overtime && safeFrac > 0.005
+
+  const label = ambientLabel(remainingMs, overtime && !fillComplete)
 
   return (
     <div style={{ position: 'relative', width: SIZE, height: SIZE, flexShrink: 0 }}>
-      {/* Glow behind ring */}
-      <div style={{
-        position: 'absolute',
-        top: -25, left: -25,
-        width: SIZE + 50, height: SIZE + 50,
-        borderRadius: '50%',
-        background: `radial-gradient(circle, ${glow} 0%, transparent 70%)`,
-        opacity: glowOpacity,
-        transition: 'background 2s ease, opacity 0.6s ease',
-        pointerEvents: 'none',
-      }} />
+      {/* Breathing glow — calm inhale/exhale behind the ring */}
+      <motion.div
+        animate={{ opacity: [0.07, 0.22, 0.07], scale: [0.93, 1.07, 0.93] }}
+        transition={{ duration: 5, ease: 'easeInOut', repeat: Infinity }}
+        style={{
+          position: 'absolute',
+          top: -30, left: -30,
+          width: SIZE + 60, height: SIZE + 60,
+          borderRadius: '50%',
+          background: glowBg,
+          pointerEvents: 'none',
+          transition: 'background 2s ease',
+        }}
+      />
 
       {/* SVG ring */}
       <svg
@@ -160,7 +154,10 @@ const FocusTimer = forwardRef(function FocusTimer({ durationMinutes = 25, onOver
         height={SIZE}
         style={{
           transform: 'rotate(-90deg)',
-          filter: 'var(--focus-ring-shadow, none)',
+          filter: fillComplete
+            ? 'drop-shadow(0 0 7px var(--color-done))'
+            : 'drop-shadow(0 0 4px var(--color-pebble))',
+          transition: 'filter 1s ease',
         }}
       >
         {/* Track */}
@@ -174,18 +171,26 @@ const FocusTimer = forwardRef(function FocusTimer({ durationMinutes = 25, onOver
         {/* Progress arc */}
         <circle
           cx={SIZE / 2} cy={SIZE / 2} r={R}
-          stroke={strokeColor}
           strokeWidth={STROKE_FG}
           strokeLinecap="round"
           strokeDasharray={CIRCUMFERENCE}
           strokeDashoffset={dashOffset}
           fill="none"
           style={{
+            stroke: strokeColor,
             transition: fillComplete
               ? 'stroke-dashoffset 0.4s ease, stroke 0.4s ease'
-              : 'stroke-dashoffset 1s linear, stroke 2s ease',
+              : 'stroke-dashoffset 1s linear, stroke 0.6s ease',
           }}
         />
+        {/* Arc-tip pebble — brand dot riding the leading edge of the arc */}
+        {showDot && (
+          <>
+            <circle cx={dotX} cy={dotY} r={11}  style={{ fill: 'var(--color-pebble)', opacity: 0.08 }} />
+            <circle cx={dotX} cy={dotY} r={7}   style={{ fill: 'var(--color-pebble)', opacity: 0.22 }} />
+            <circle cx={dotX} cy={dotY} r={4.5} style={{ fill: 'var(--color-pebble)', opacity: 1    }} />
+          </>
+        )}
       </svg>
 
       {/* Time label — centered */}

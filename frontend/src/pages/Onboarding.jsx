@@ -449,7 +449,9 @@ export default function Onboarding() {
                   <ThemePreviewCard label={t.l} themeKey={t.v} selected={themeChoice === t.v}
                     onClick={() => {
                       setThemeChoice(t.v)
-                      document.documentElement.setAttribute('data-time-theme', resolveTheme(t.v))
+                      const resolved = resolveTheme(t.v)
+                      document.documentElement.setAttribute('data-time-theme', resolved)
+                      document.documentElement.setAttribute('data-theme', resolved)
                       setSelectedCard(t.v)
                     }}
                   />
@@ -522,8 +524,8 @@ export default function Onboarding() {
             </motion.p>
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
               {[
-                { v: 'warm',    l: 'Like a deep breath',         s: 'Warm and reassuring.' },
-                { v: 'direct',  l: 'Like a clear path',          s: 'Calm and to the point.' },
+                { v: 'warm',    l: 'A deep breath',               s: 'Warm and reassuring.' },
+                { v: 'direct',  l: 'A clear path',               s: 'Calm and to the point.' },
                 { v: 'balanced',l: 'A little of each',           s: null },
                 { v: 'describe',l: "Let me describe what works", s: null },
                 { v: 'unsure',  l: "I'll figure it out as I go", s: null },

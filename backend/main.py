@@ -33,6 +33,8 @@ from models import (
     NudgeResponse,
     SessionCreate,
     SessionItem,
+    SmartPlanRequest,
+    SmartPlanResponse,
     SummariseRequest,
     TaskGroupsResponse,
     TaskGroupsUpdate,
@@ -159,14 +161,11 @@ def make_app(settings: Settings | None = None) -> FastAPI:
         req: DecomposeRequest,
         user_id: str = Depends(get_user_id),
     ):
-        # Short goals = typed by user → screen as intent.
-        # Long goals = document text from Documents page → screen as document.
-        if len(req.goal) > 2000:
-            await safety.screen_document(req.goal[:10_000])
-        else:
-            await safety.screen_user_intent(req.goal)
+        await safety.screen_user_intent(req.goal)
+        # Context is a conversation transcript (may contain "right now", "panicking", etc.)
+        # — only run Azure harmful-content check, not cognitive-pressure regex.
         if req.context:
-            await safety.screen_user_intent(req.context)
+            await safety.screen_document(req.context)
 
         try:
             result = await ai.decompose(
@@ -311,6 +310,22 @@ def make_app(settings: Settings | None = None) -> FastAPI:
 
         await safety.screen_output(msg)
         return NudgeResponse(message=msg)
+
+    # ── Task Description ─────────────────────────────────────────────────── #
+
+    @app.post("/api/task-description", tags=["ai"])
+    async def task_description(
+        req: dict,
+        user_id: str = Depends(get_user_id),
+    ):
+        task_name = (req.get("task_name") or "").strip()
+        if not task_name:
+            return {"description": ""}
+        try:
+            desc = await ai.task_description(task_name)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail="couldn't generate a description — please try again.") from exc
+        return {"description": desc}
 
     # ── Document Upload ──────────────────────────────────────────────────── #
 
@@ -578,6 +593,46 @@ def make_app(settings: Settings | None = None) -> FastAPI:
             "user_id": user_id,
         })
         return TaskGroupsResponse(groups=groups_dict)
+
+    # ── Smart Plan ────────────────────────────────────────────────── #
+
+    @app.post("/api/smart-plan", response_model=SmartPlanResponse, tags=["ai"])
+    async def smart_plan(
+        body: SmartPlanRequest,
+        user_id: str = Depends(get_user_id),
+    ):
+        """
+        Given the user's task groups and available time budget, ask AI to
+        select the best tasks to focus on right now.
+        Returns a ranked list of tasks plus a Pebble-voice reasoning line.
+        """
+        try:
+            groups_raw = [g.model_dump() for g in body.groups]
+            result = await ai.smart_plan(
+                groups=groups_raw,
+                available_minutes=body.available_minutes,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="something went quiet — please try again in a moment.",
+            ) from exc
+
+        try:
+            response = SmartPlanResponse(**result)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="couldn't build your plan right now — please try again.",
+            ) from exc
+
+        track_event("smart_plan_generated", {
+            "task_count":        len(response.tasks),
+            "available_minutes": body.available_minutes,
+            "empty":             response.empty,
+            "user_id":           user_id,
+        })
+        return response
 
     return app
 

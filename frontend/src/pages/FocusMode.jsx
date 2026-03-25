@@ -90,6 +90,32 @@ const MOTIVATIONAL_QUOTES = [
 // Preset options — minutes only (hrs shown in custom)
 const DURATION_PRESETS = [5, 10, 15, 25, 45, 60]
 
+// ── Focus palette rotation ──────────────────────────────────────────────── //
+// Ring + Start/Done always use --color-pebble (identity uniform).
+// Pause, Reset, and quote text rotate to complementary palette per pebble color.
+const FOCUS_ROTATIONS = {
+  sage:  {
+    pauseBg: 'rgba(138,120,174,0.1)',  pauseBorder: 'rgba(138,120,174,0.22)',  pauseText: 'var(--color-paused)',    // lilac
+    resetBg: 'rgba(200,148,80,0.1)',   resetBorder: 'rgba(200,148,80,0.22)',   resetText: 'var(--color-ai)',        // amber
+    quoteColor: 'var(--color-upcoming)',                                                                              // sky
+  },
+  sky:   {
+    pauseBg: 'rgba(80,148,106,0.1)',   pauseBorder: 'rgba(80,148,106,0.22)',   pauseText: 'var(--color-done)',      // green
+    resetBg: 'rgba(200,148,80,0.1)',   resetBorder: 'rgba(200,148,80,0.22)',   resetText: 'var(--color-ai)',        // amber
+    quoteColor: 'var(--color-paused)',                                                                                // lilac
+  },
+  lilac: {
+    pauseBg: 'rgba(80,148,106,0.1)',   pauseBorder: 'rgba(80,148,106,0.22)',   pauseText: 'var(--color-done)',      // green
+    resetBg: 'rgba(106,150,184,0.1)',  resetBorder: 'rgba(106,150,184,0.22)',  resetText: 'var(--color-upcoming)',  // sky
+    quoteColor: 'var(--color-ai)',                                                                                    // amber
+  },
+  amber: {
+    pauseBg: 'rgba(106,150,184,0.1)',  pauseBorder: 'rgba(106,150,184,0.22)',  pauseText: 'var(--color-upcoming)', // sky
+    resetBg: 'rgba(138,120,174,0.1)',  resetBorder: 'rgba(138,120,174,0.22)',  resetText: 'var(--color-paused)',   // lilac
+    quoteColor: 'var(--color-done)',                                                                                  // green
+  },
+}
+
 // Format seconds as [+][H:]MM:SS
 function formatCountdown(secs) {
   const neg = secs < 0
@@ -109,6 +135,8 @@ function clamp(val, min, max) { return Math.max(min, Math.min(max, val || 0)) }
 function StandaloneFocus({ startBreak = false }) {
   const navigate = useNavigate()
   const defaultMinutes = useSelector(s => s.prefs.timerLengthMinutes) || 25
+  const pebbleColor    = useSelector(s => s.prefs.pebbleColor) || 'sage'
+  const rotation       = FOCUS_ROTATIONS[pebbleColor] || FOCUS_ROTATIONS.sage
 
   // Break-only mode: user came here via "Take a break" from Tasks
   if (startBreak) {
@@ -120,10 +148,10 @@ function StandaloneFocus({ startBreak = false }) {
           animate={{ opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.25, 0.46, 0.45, 0.94] } }}
           style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '2rem' }}
         >
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 400, color: 'var(--text-primary)', margin: 0 }}>
-            taking a break.
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'baseline' }}>
+            taking a break<PebbleDot />
           </h2>
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 28px' }}>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 28px' }}>
             no rush.
           </p>
           <BreathingCircle />
@@ -134,7 +162,7 @@ function StandaloneFocus({ startBreak = false }) {
             style={{
               marginTop: 24,
               padding: '10px 28px', borderRadius: 8,
-              background: 'var(--color-active)', color: 'white',
+              background: 'var(--color-pebble)', color: 'white',
               fontSize: 12, fontWeight: 500,
               border: 'none', cursor: 'pointer',
             }}
@@ -180,8 +208,14 @@ function StandaloneFocus({ startBreak = false }) {
 
   const fraction   = totalSecs > 0 ? Math.max(0, remaining / totalSecs) : 1
   const dashOffset = CIRC * (1 - fraction)
-  const ringColor  = fraction > 0.5 ? 'var(--color-done)' : fraction > 0.2 ? 'var(--color-pebble)' : 'var(--color-ai)'
-  const glowHex    = fraction > 0.5 ? '#50946A'            : fraction > 0.2 ? '#2A7A90'             : '#C8A046'
+  const ringColor  = 'var(--color-pebble)'
+
+  // Arc-tip pebble dot
+  const sFrac   = Math.max(0, Math.min(1, fraction))
+  const sDotAng = sFrac * 2 * Math.PI
+  const sDotX   = SIZE / 2 + R * Math.cos(sDotAng)
+  const sDotY   = SIZE / 2 + R * Math.sin(sDotAng)
+  const showSDot = status === 'running' && sFrac > 0.005
 
   // Countdown label — real H:MM:SS
   const displaySecs  = remaining
@@ -329,7 +363,7 @@ function StandaloneFocus({ startBreak = false }) {
       {/* Ambient glow */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse 60% 50% at 50% 55%, rgba(42,122,144,0.07) 0%, transparent 70%)',
+        background: 'radial-gradient(ellipse 60% 50% at 50% 55%, color-mix(in srgb, var(--color-pebble) 8%, transparent) 0%, transparent 70%)',
         zIndex: 0,
       }} />
       <TopNav />
@@ -348,13 +382,19 @@ function StandaloneFocus({ startBreak = false }) {
 
         {/* ── Focus topic label (shown when timer is running) ── */}
         {focusTopic && (
-          <motion.p
+          <motion.h2
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, transition: { duration: 0.5 } }}
-            style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, letterSpacing: '0.02em', textAlign: 'center' }}
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 20, fontWeight: 400,
+              color: 'var(--text-primary)',
+              marginBottom: 16, letterSpacing: '-0.2px',
+              textAlign: 'center', lineHeight: 1.4,
+            }}
           >
             {focusTopic}
-          </motion.p>
+          </motion.h2>
         )}
 
         {/* ── Duration picker ── */}
@@ -455,15 +495,21 @@ function StandaloneFocus({ startBreak = false }) {
             : { scale: 1, transition: { duration: 0.6 } }}
           style={{ position: 'relative', width: SIZE, height: SIZE }}
         >
-          <div style={{
-            position: 'absolute', top: -28, left: -28,
-            width: SIZE + 56, height: SIZE + 56, borderRadius: '50%',
-            background: `radial-gradient(circle, ${glowHex} 0%, transparent 70%)`,
-            opacity: status === 'running' ? 0.2 : 0.07,
-            transition: 'opacity 0.8s ease, background 2s ease',
-            pointerEvents: 'none',
-          }} />
-          <svg width={SIZE} height={SIZE} style={{ transform: 'rotate(-90deg)', filter: 'var(--focus-ring-shadow, none)' }}>
+          <motion.div
+            animate={status === 'running'
+              ? { opacity: [0.06, 0.22, 0.06], scale: [0.92, 1.08, 0.92] }
+              : { opacity: 0.06, scale: 1 }}
+            transition={status === 'running'
+              ? { duration: 5, ease: 'easeInOut', repeat: Infinity }
+              : { duration: 0.8 }}
+            style={{
+              position: 'absolute', top: -28, left: -28,
+              width: SIZE + 56, height: SIZE + 56, borderRadius: '50%',
+              background: 'radial-gradient(circle, var(--color-pebble) 0%, transparent 70%)',
+              pointerEvents: 'none',
+            }}
+          />
+          <svg width={SIZE} height={SIZE} style={{ transform: 'rotate(-90deg)', filter: 'drop-shadow(0 0 4px var(--color-pebble))', transition: 'filter 1s ease' }}>
             <circle cx={SIZE/2} cy={SIZE/2} r={R} stroke="var(--color-inactive)" strokeOpacity={0.08} strokeWidth={STROKE} fill="none" />
             <circle
               cx={SIZE/2} cy={SIZE/2} r={R}
@@ -475,6 +521,13 @@ function StandaloneFocus({ startBreak = false }) {
               fill="none"
               style={{ transition: 'stroke-dashoffset 1s linear, stroke 2s ease' }}
             />
+            {showSDot && (
+              <>
+                <circle cx={sDotX} cy={sDotY} r={12}  style={{ fill: 'var(--color-pebble)', opacity: 0.08 }} />
+                <circle cx={sDotX} cy={sDotY} r={7.5} style={{ fill: 'var(--color-pebble)', opacity: 0.22 }} />
+                <circle cx={sDotX} cy={sDotY} r={5}   style={{ fill: 'var(--color-pebble)', opacity: 1    }} />
+              </>
+            )}
           </svg>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{
@@ -494,8 +547,8 @@ function StandaloneFocus({ startBreak = false }) {
           style={{ display: 'flex', gap: 10, marginTop: 30 }}
         >
           {status === 'idle'    && <Btn color="active" onClick={handleStart}>Start</Btn>}
-          {status === 'running' && <><Btn color="paused" onClick={handlePause}>Pause</Btn><Btn color="stop" onClick={handleStop}>Stop</Btn></>}
-          {status === 'paused'  && <><Btn color="active" onClick={handleResume}>Resume</Btn><Btn color="stop" onClick={handleStop}>Stop</Btn></>}
+          {status === 'running' && <><Btn color="paused" onClick={handlePause} rotation={rotation}>Pause</Btn><Btn color="reset" onClick={handleStop} rotation={rotation}>Reset</Btn></>}
+          {status === 'paused'  && <><Btn color="active" onClick={handleResume}>Resume</Btn><Btn color="reset" onClick={handleStop} rotation={rotation}>Reset</Btn></>}
         </motion.div>
 
         {/* ── Quote ── */}
@@ -510,9 +563,9 @@ function StandaloneFocus({ startBreak = false }) {
               transition={{ duration: 0.7 }}
               style={{
                 fontSize: 15, fontWeight: 400,
-                color: 'var(--color-ai)',
+                color: rotation.quoteColor,
+                opacity: 0.75,
                 textAlign: 'center', maxWidth: 340, lineHeight: 1.7,
-                textShadow: '0 0 18px rgba(200,160,70,0.38), 0 0 44px rgba(200,160,70,0.16)',
                 letterSpacing: '0.01em',
               }}
             >
@@ -526,24 +579,32 @@ function StandaloneFocus({ startBreak = false }) {
 }
 
 // Small helper to keep button styles DRY
-function Btn({ color, onClick, children }) {
-  const styles = {
-    active: { bg: 'var(--color-pebble)', shadow: '0 2px 12px rgba(42,122,144,0.22)',   text: 'white' },
-    paused: { bg: 'var(--color-paused)', shadow: '0 2px 12px rgba(138,120,174,0.22)', text: 'white' },
-    stop:   { bg: 'var(--color-paused)',  shadow: '0 2px 12px rgba(154,136,180,0.22)', text: 'white' },
-    ghost:  { bg: 'transparent',         shadow: 'none', text: 'var(--text-secondary)', border: '1px solid var(--border)' },
+// `rotation` (optional) overrides pause/reset colors with the user's palette rotation.
+function Btn({ color, onClick, children, rotation }) {
+  let s
+  if (color === 'active') {
+    s = { bg: 'var(--color-pebble)', shadow: '0 2px 12px color-mix(in srgb, var(--color-pebble) 25%, transparent)', text: 'white' }
+  } else if (color === 'paused' && rotation) {
+    s = { bg: rotation.pauseBg, shadow: 'none', text: rotation.pauseText, border: `1px solid ${rotation.pauseBorder}` }
+  } else if (color === 'reset' && rotation) {
+    s = { bg: rotation.resetBg, shadow: 'none', text: rotation.resetText, border: `1px solid ${rotation.resetBorder}` }
+  } else if (color === 'paused') {
+    s = { bg: 'var(--color-pebble-soft)', shadow: 'none', text: 'var(--color-pebble)', border: '1px solid color-mix(in srgb, var(--color-pebble) 30%, transparent)' }
+  } else if (color === 'reset') {
+    s = { bg: 'rgba(200,148,80,0.1)', shadow: 'none', text: 'var(--color-ai)', border: '1px solid rgba(200,148,80,0.22)' }
+  } else {
+    s = { bg: 'transparent', shadow: 'none', text: 'var(--text-secondary)', border: '1px solid var(--border)' }
   }
-  const s = styles[color] ?? styles.ghost
   return (
     <motion.button
       whileHover={{ filter: 'brightness(1.08)' }}
       whileTap={{ scale: 0.96 }}
       onClick={onClick}
       style={{
-        padding: '11px 28px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+        padding: '11px 28px', borderRadius: 999, fontSize: 13, fontWeight: 500,
         background: s.bg, color: s.text, border: s.border ?? 'none',
         boxShadow: s.shadow, cursor: 'pointer', minWidth: 90,
-        transition: 'background 0.25s ease',
+        transition: 'all 0.25s ease',
       }}
     >
       {children}
@@ -558,15 +619,16 @@ function RippleDot({ x, y }) {
     <g>
       <motion.circle
         cx={x} cy={y} r={3}
-        fill="rgba(90,138,128,0.55)"
+        style={{ fill: 'var(--color-pebble)', opacity: 0.55 }}
         initial={{ r: 3, opacity: 0.6 }}
         animate={{ r: 3, opacity: 0.55 }}
       />
       <motion.circle
         cx={x} cy={y}
         fill="none"
-        stroke="rgba(90,138,128,0.35)"
+        style={{ stroke: 'var(--color-pebble)' }}
         strokeWidth={1}
+        opacity={0.35}
         initial={{ r: 3, opacity: 0.5 }}
         animate={{ r: 13, opacity: 0 }}
         transition={{ duration: 1.1, ease: 'easeOut' }}
@@ -579,10 +641,9 @@ function ActiveDot({ x, y }) {
   return (
     <motion.circle
       cx={x} cy={y} r={4}
-      fill="rgba(90,138,128,0.85)"
       animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.7, 1, 0.7] }}
       transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-      style={{ transformOrigin: `${x}px ${y}px` }}
+      style={{ transformOrigin: `${x}px ${y}px`, fill: 'var(--color-pebble)' }}
     />
   )
 }
@@ -609,7 +670,7 @@ function PebbleSkipTrail({ tasks, currentTaskId }) {
       {/* Gentle water line */}
       <path
         d={`M 0 ${WATER_Y} Q ${W * 0.25} ${WATER_Y - 2} ${W * 0.5} ${WATER_Y} Q ${W * 0.75} ${WATER_Y + 2} ${W} ${WATER_Y}`}
-        stroke="rgba(90,138,128,0.18)"
+        style={{ stroke: 'var(--color-pebble)', opacity: 0.18 }}
         strokeWidth={1}
         fill="none"
       />
@@ -625,7 +686,7 @@ function PebbleSkipTrail({ tasks, currentTaskId }) {
           <circle
             key={task.id}
             cx={x} cy={DOT_Y} r={2.5}
-            fill="rgba(90,138,128,0.15)"
+            style={{ fill: 'var(--color-pebble)', opacity: 0.15 }}
           />
         )
       })}
@@ -666,7 +727,7 @@ function BreathingCircle() {
           position: 'absolute',
           width: 200, height: 200,
           borderRadius: '50%',
-          border: '1px solid rgba(80,148,106,0.25)',
+          border: '1px solid color-mix(in srgb, var(--color-pebble) 25%, transparent)',
         }}
       />
       {/* Main circle */}
@@ -676,8 +737,8 @@ function BreathingCircle() {
         style={{
           width: 160, height: 160,
           borderRadius: '50%',
-          border: '1.5px solid rgba(80,148,106,0.3)',
-          background: 'radial-gradient(circle, rgba(80,148,106,0.12) 0%, transparent 70%)',
+          border: '1.5px solid color-mix(in srgb, var(--color-pebble) 30%, transparent)',
+          background: 'var(--color-pebble-soft)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
       >
@@ -697,17 +758,105 @@ function BreathingCircle() {
   )
 }
 
+// ── PebbleDot — consistent brand dot for headings ───────────────────────── //
+
+function PebbleDot({ size = 8 }) {
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 8 8"
+      aria-hidden="true"
+      style={{ display: 'inline-block', verticalAlign: 'baseline', marginLeft: 3, marginBottom: 1, flexShrink: 0 }}
+    >
+      <circle cx={4} cy={4} r={3.5} fill="var(--color-pebble)" />
+    </svg>
+  )
+}
+
+// ── BreathingRing — pebble-colored breathing animation for escape hatch ──── //
+// Replaces MiniTimer: still fires onDone after 5 min, but shows calm glow
+// instead of a countdown ring. Same outer dimensions as FocusTimer (170px).
+
+function BreathingRing({ onDone }) {
+  const [phase, setPhase] = useState('in')
+  const phaseRef = useRef('in')
+
+  // Auto-complete after 5 minutes
+  useEffect(() => {
+    const id = setTimeout(() => onDone?.(), 5 * 60 * 1000)
+    return () => clearTimeout(id)
+  }, [onDone]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Breathing cycle: in(4s) → hold(1s) → out(4s) → repeat
+  useEffect(() => {
+    const durations = { in: 4000, hold: 1000, out: 4000 }
+    let timeout
+    function advance() {
+      const next = phaseRef.current === 'in' ? 'hold' : phaseRef.current === 'hold' ? 'out' : 'in'
+      phaseRef.current = next
+      setPhase(next)
+      timeout = setTimeout(advance, durations[next])
+    }
+    timeout = setTimeout(advance, durations['in'])
+    return () => clearTimeout(timeout)
+  }, [])
+
+  const scale = phase === 'in' ? 1.18 : phase === 'hold' ? 1.18 : 0.82
+  const label = phase === 'in' ? 'breathe in' : phase === 'hold' ? 'hold' : 'breathe out'
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', width: 170, height: 170 }}>
+      {/* Outer ghost ring */}
+      <motion.div
+        animate={{ scale, opacity: phase === 'hold' ? 0.22 : 0.1 }}
+        transition={{ duration: phase === 'hold' ? 0.15 : 4, ease: 'easeInOut' }}
+        style={{
+          position: 'absolute', width: 170, height: 170, borderRadius: '50%',
+          border: '1px solid var(--color-pebble)',
+        }}
+      />
+      {/* Inner breathing circle */}
+      <motion.div
+        animate={{ scale }}
+        transition={{ duration: phase === 'hold' ? 0.15 : 4, ease: 'easeInOut' }}
+        style={{
+          width: 130, height: 130, borderRadius: '50%',
+          border: '2px solid color-mix(in srgb, var(--color-pebble) 35%, transparent)',
+          background: 'var(--color-pebble-soft)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={phase}
+            initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.5 } }}
+            exit={{ opacity: 0, transition: { duration: 0.4 } }}
+            style={{ fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center', padding: '0 16px', letterSpacing: '0.3px' }}
+          >
+            {label}
+          </motion.span>
+        </AnimatePresence>
+      </motion.div>
+    </div>
+  )
+}
+
 // ── Main FocusMode ──────────────────────────────────────────────────────── //
 
 export default function FocusMode() {
   const dispatch   = useDispatch()
   const navigate   = useNavigate()
   const location   = useLocation()
-  const startBreak = location.state?.startBreak ?? false
+  const startBreak  = location.state?.startBreak ?? false
+  const customQueue = location.state?.customQueue ?? null   // [{...task, groupId}] for mixed-group sessions
   const { groups, focusGroupId, focusTaskId } = useSelector(s => s.tasks)
+  const pebbleColor = useSelector(s => s.prefs.pebbleColor) || 'sage'
+  const rotation    = FOCUS_ROTATIONS[pebbleColor] || FOCUS_ROTATIONS.sage
   const timerRef  = useRef(null)
 
-  // Find the group and build task list
+  // Custom queue index — only used when customQueue is set
+  const [customQueueIndex, setCustomQueueIndex] = useState(0)
+
+  // Find the group and build task list (single-group mode only)
   const group = groups.find(g => g.id === focusGroupId) ?? null
   const groupTasks = group ? group.tasks.filter(t => !t.paused) : []
 
@@ -722,16 +871,21 @@ export default function FocusMode() {
 
   // Which task is currently focused
   const getStartTask = useCallback(() => {
+    if (customQueue) return customQueue[0] ?? null
     if (!group) return null
     if (focusTaskId) {
       const t = group.tasks.find(t => t.id === focusTaskId && !t.done && !t.paused)
       if (t) return t
     }
     return group.tasks.find(t => !t.done && !t.paused) ?? null
-  }, [group, focusTaskId])
+  }, [group, focusTaskId, customQueue]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [currentTaskId, setCurrentTaskId] = useState(() => getStartTask()?.id ?? null)
-  const currentTask = group?.tasks.find(t => t.id === currentTaskId) ?? null
+  // In queue mode, currentTask comes from the queue (has .groupId embedded).
+  // In normal mode, look it up in the Redux group as before.
+  const currentTask = customQueue
+    ? (customQueue[customQueueIndex] ?? null)
+    : (group?.tasks.find(t => t.id === currentTaskId) ?? null)
 
   // App states
   // 'focusing' | 'checkin' | 'break' | 'escape' | 'after-escape' | 'summary'
@@ -752,7 +906,8 @@ export default function FocusMode() {
   // For escape hatch
   const [microTask, setMicroTask]   = useState(null)
   const [microTimerActive, setMicroTimerActive] = useState(false)
-  const escapedTaskIdRef = useRef(null)
+  const escapedTaskIdRef  = useRef(null)
+  const escapedGroupIdRef = useRef(null)   // captured at escape time (works in both modes)
 
   // For break screen
   const [breakTip, setBreakTip]     = useState(null)
@@ -842,10 +997,12 @@ export default function FocusMode() {
     }, 600)
 
     // Step 5+: fade out, update Redux, advance
-    const completedTaskId = currentTask.id
-    const completedGroupId = group.id
-    // Capture next task from current snapshot BEFORE marking done
-    const nextTaskSnapshot = group.tasks.find(t => !t.done && !t.paused && t.id !== completedTaskId) ?? null
+    const completedTaskId  = currentTask.id
+    const completedGroupId = customQueue ? currentTask.groupId : group.id
+    // Capture next task BEFORE marking done
+    const nextTaskSnapshot = customQueue
+      ? (customQueue[customQueueIndex + 1] ?? null)
+      : (group.tasks.find(t => !t.done && !t.paused && t.id !== completedTaskId) ?? null)
 
     setTimeout(() => {
       setSlideDir('next')
@@ -855,6 +1012,7 @@ export default function FocusMode() {
 
       setTimeout(() => {
         if (nextTaskSnapshot) {
+          if (customQueue) setCustomQueueIndex(i => i + 1)
           setCurrentTaskId(nextTaskSnapshot.id)
           timerRef.current?.reset(nextTaskSnapshot.duration_minutes)
           setTimeout(() => timerRef.current?.start(), 100)
@@ -886,7 +1044,10 @@ export default function FocusMode() {
     skippedTaskIdRef.current = currentTask.id
     tasksSkippedRef.current++
     setSkipPending(true)
-    dispatch(tasksActions.skipTask({ groupId: group.id, taskId: currentTask.id }))
+    dispatch(tasksActions.skipTask({
+      groupId: customQueue ? currentTask.groupId : group.id,
+      taskId: currentTask.id,
+    }))
   }
 
   useEffect(() => {
@@ -894,20 +1055,32 @@ export default function FocusMode() {
     setSkipPending(false)
     setTimeout(() => {
       setSlideDir(null)
-      // Find first uncompleted task in the updated group
-      // The skipped task is now at the end; first uncompleted != skipped unless only one task
-      const updatedGroup = groups.find(g => g.id === group?.id)
-      if (!updatedGroup) return
-      const undoneTasks = updatedGroup.tasks.filter(t => !t.done && !t.paused)
-      // Find first that is not the just-skipped task
-      const nextTask = undoneTasks.find(t => t.id !== skippedTaskIdRef.current)
-        ?? (undoneTasks.length > 0 ? undoneTasks[0] : null)
-      if (nextTask) {
-        setCurrentTaskId(nextTask.id)
-        timerRef.current?.reset(nextTask.duration_minutes)
-        setTimeout(() => timerRef.current?.start(), 100)
+      if (customQueue) {
+        // In queue mode: advance index, skip already-done items
+        const nextIdx = customQueue.findIndex((t, i) => i > customQueueIndex && !t.done)
+        const nextTask = nextIdx !== -1 ? customQueue[nextIdx] : (customQueue[customQueueIndex + 1] ?? null)
+        if (nextTask) {
+          setCustomQueueIndex(customQueueIndex + 1)
+          setCurrentTaskId(nextTask.id)
+          timerRef.current?.reset(nextTask.duration_minutes)
+          setTimeout(() => timerRef.current?.start(), 100)
+        } else {
+          goToSummary()
+        }
       } else {
-        goToSummary()
+        // Normal single-group mode: find first uncompleted task in updated group
+        const updatedGroup = groups.find(g => g.id === group?.id)
+        if (!updatedGroup) return
+        const undoneTasks = updatedGroup.tasks.filter(t => !t.done && !t.paused)
+        const nextTask = undoneTasks.find(t => t.id !== skippedTaskIdRef.current)
+          ?? (undoneTasks.length > 0 ? undoneTasks[0] : null)
+        if (nextTask) {
+          setCurrentTaskId(nextTask.id)
+          timerRef.current?.reset(nextTask.duration_minutes)
+          setTimeout(() => timerRef.current?.start(), 100)
+        } else {
+          goToSummary()
+        }
       }
     }, 350)
   }, [skipPending]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -936,7 +1109,8 @@ export default function FocusMode() {
 
   function handleEscape() {
     timerRef.current?.pause()
-    escapedTaskIdRef.current = currentTask?.id ?? null
+    escapedTaskIdRef.current  = currentTask?.id ?? null
+    escapedGroupIdRef.current = customQueue ? currentTask?.groupId : group?.id
     setMicroTask(null)
     setMicroTimerActive(false)
     setAppState('escape')
@@ -960,8 +1134,8 @@ export default function FocusMode() {
 
   function handleMicroDone() {
     // Mark escaped original task as complete
-    if (escapedTaskIdRef.current && group) {
-      dispatch(tasksActions.completeTask({ groupId: group.id, taskId: escapedTaskIdRef.current }))
+    if (escapedTaskIdRef.current && escapedGroupIdRef.current) {
+      dispatch(tasksActions.completeTask({ groupId: escapedGroupIdRef.current, taskId: escapedTaskIdRef.current }))
       tasksDoneThisSessionRef.current++
     }
     setAppState('after-escape')
@@ -970,10 +1144,13 @@ export default function FocusMode() {
   // ── AFTER ESCAPE ───────────────────────────────────────────────────────── //
 
   function handleKeepGoing() {
-    // group is from selector — already reflects completed task (dispatched in handleMicroDone)
-    const nextTask = group?.tasks.find(t => !t.done && !t.paused) ?? null
+    // escaped task was completed in handleMicroDone; advance past it
+    const nextTask = customQueue
+      ? (customQueue[customQueueIndex + 1] ?? null)
+      : (group?.tasks.find(t => !t.done && !t.paused) ?? null)
     setAppState('focusing')
     if (nextTask) {
+      if (customQueue) setCustomQueueIndex(i => i + 1)
       setCurrentTaskId(nextTask.id)
       timerRef.current?.reset(nextTask.duration_minutes)
       setTimeout(() => timerRef.current?.start(), 100)
@@ -991,8 +1168,11 @@ export default function FocusMode() {
   useEffect(() => {
     if (appState !== 'summary') return
     // Generate heading
-    const allDone = tasksDoneThisSessionRef.current > 0 &&
-      (group?.tasks.filter(t => !t.paused).every(t => t.done) ?? false)
+    const allDone = tasksDoneThisSessionRef.current > 0 && (
+      customQueue
+        ? tasksDoneThisSessionRef.current >= customQueue.length
+        : (group?.tasks.filter(t => !t.paused).every(t => t.done) ?? false)
+    )
     setSummaryMsg(allDone ? 'you finished everything.' : pickRandom(SUMMARY_FALLBACKS))
     setSummaryCtx('you put in focused time on what matters. the rest can wait.')
 
@@ -1005,7 +1185,7 @@ export default function FocusMode() {
         tasks_completed: tasksDoneThisSessionRef.current,
         tasks_skipped:   tasksSkippedRef.current,
         total_minutes:   totalMinutes,
-        group_name:      group?.name ?? 'Focus Session',
+        group_name:      customQueue ? 'mixed focus session' : (group?.name ?? 'Focus Session'),
       }).catch(() => {})
     }
   }, [appState]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1020,7 +1200,7 @@ export default function FocusMode() {
 
   // ── No tasks: show standalone timer ──────────────────────────────────── //
 
-  if (!group || groupTasks.length === 0 || startBreak) {
+  if (startBreak || (!customQueue && (!group || groupTasks.length === 0))) {
     return <StandaloneFocus startBreak={startBreak} />
   }
 
@@ -1042,7 +1222,7 @@ export default function FocusMode() {
       {/* Ambient glow — breathes at page level, color shifts with timer state */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse 60% 50% at 50% 55%, rgba(42,122,144,0.07) 0%, transparent 70%)',
+        background: 'radial-gradient(ellipse 60% 50% at 50% 55%, color-mix(in srgb, var(--color-pebble) 8%, transparent) 0%, transparent 70%)',
         zIndex: 0,
       }} />
       <AnimatePresence mode="wait">
@@ -1062,18 +1242,28 @@ export default function FocusMode() {
               padding: '18px',
             }}
           >
-            {/* EXIT — top right */}
-            <button
+            {/* exit session — top left pill button */}
+            <motion.button
+              whileHover={{ opacity: 0.75 }}
+              whileTap={{ scale: 0.97 }}
               onClick={goToSummary}
               style={{
-                position: 'absolute', top: 18, right: 18,
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 16, letterSpacing: '0.6px', textTransform: 'uppercase',
-                color: 'var(--text-muted)', padding: '8px 12px', minHeight: 40,
+                position: 'absolute', top: 18, left: 18,
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--color-pebble-soft)',
+                border: '1px solid color-mix(in srgb, var(--color-pebble) 22%, transparent)',
+                borderRadius: 999, cursor: 'pointer',
+                fontSize: 12, fontWeight: 500,
+                color: 'var(--text-secondary)',
+                padding: '8px 16px', minHeight: 40,
+                transition: 'all 0.25s ease',
               }}
             >
-              EXIT
-            </button>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              exit session
+            </motion.button>
 
             {/* Centered content */}
             <div style={{
@@ -1086,12 +1276,12 @@ export default function FocusMode() {
                 <motion.h2
                   key={currentTaskId}
                   initial={slideDir === 'skip'
-                    ? { opacity: 0, x: -40 }
-                    : { opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, x: 0, y: 0, transition: { duration: 0.45, ease: [0.4,0,0.2,1] } }}
+                    ? { opacity: 0, x: -20, scale: 0.97 }
+                    : { opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, x: 0, scale: 1, transition: { duration: 0.3, ease: [0.4,0,0.2,1] } }}
                   exit={slideDir === 'skip'
-                    ? { opacity: 0, x: 40, transition: { duration: 0.3 } }
-                    : { opacity: 0, y: -12, transition: { duration: 0.4 } }}
+                    ? { opacity: 0, x: 20, scale: 0.97, transition: { duration: 0.28, ease: [0.4,0,0.2,1] } }
+                    : { opacity: 0, scale: 0.96, transition: { duration: 0.28, ease: [0.4,0,0.2,1] } }}
                   style={{
                     fontFamily: 'var(--font-display)',
                     fontSize: 22, fontWeight: 400, color: 'var(--text-primary)',
@@ -1160,7 +1350,7 @@ export default function FocusMode() {
                   disabled={completing}
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: 13, color: 'var(--color-upcoming)',
+                    fontSize: 13, color: rotation.resetText,
                     padding: '6px 10px', minHeight: 36,
                   }}
                 >
@@ -1189,11 +1379,7 @@ export default function FocusMode() {
                       style={{
                         margin: 0,
                         fontSize: 12,
-                        color: 'var(--text-secondary)',
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 10,
-                        padding: '8px 12px',
+                        color: rotation.quoteColor,
                         textAlign: 'center',
                         maxWidth: 340,
                         lineHeight: 1.6,
@@ -1210,20 +1396,20 @@ export default function FocusMode() {
             <button
               onClick={handleEscape}
               style={{
-                background: 'rgba(138,120,174,0.1)',
-                border: '1px solid rgba(138,120,174,0.22)',
+                background: rotation.pauseBg,
+                border: `1px solid ${rotation.pauseBorder}`,
                 borderRadius: 999,
                 cursor: 'pointer',
                 fontSize: 13,
                 fontWeight: 500,
-                color: 'var(--color-paused)',
+                color: rotation.pauseText,
                 padding: '9px 16px',
                 minHeight: 40,
                 marginBottom: 8,
                 transition: 'all 0.25s ease',
               }}
             >
-              I need a pause
+              i need a pause
             </button>
 
             {/* ── Energy check-in overlay ── */}
@@ -1314,10 +1500,10 @@ export default function FocusMode() {
               padding: '2rem',
             }}
           >
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, color: 'var(--text-primary)', margin: 0 }}>
-              taking a break.
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'baseline' }}>
+              taking a break<PebbleDot />
             </h2>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 28px' }}>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 28px' }}>
               no rush.
             </p>
 
@@ -1393,19 +1579,20 @@ export default function FocusMode() {
                 </motion.button>
               </>
             ) : (
-              /* Mini focus mode for micro-task */
+              /* Breathing ring for micro-task — pebble color, same size as main timer */
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0, transition: { duration: 0.4 } }}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}
               >
                 <h2 style={{
-                  fontSize: 18, fontWeight: 500, color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-display)',
+                  fontSize: 20, fontWeight: 400, color: 'var(--text-primary)',
                   textAlign: 'center', maxWidth: 300, lineHeight: 1.4, margin: 0,
                 }}>
                   {microTask}
                 </h2>
-                <MiniTimer durationMinutes={5} onDone={handleMicroDone} />
+                <BreathingRing onDone={handleMicroDone} />
                 <button
                   onClick={handleMicroDone}
                   style={{
@@ -1434,64 +1621,63 @@ export default function FocusMode() {
               display: 'flex', flexDirection: 'column',
               alignItems: 'center', gap: 0,
               padding: '3rem 2rem',
-              position: 'relative',
             }}
           >
-            {/* Pebble dot */}
+            {/* Pebble dot with soft glow — no ghost circle */}
             <motion.div
               animate={{ scale: [0.88, 1.1, 0.88], opacity: [0.6, 1, 0.6] }}
               transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--color-pebble)', marginBottom: 24 }}
-            />
-
-            {/* Breathing ring */}
-            <motion.div
-              animate={{ scale: [1, 1.06, 1], opacity: [0.18, 0.32, 0.18] }}
-              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
               style={{
-                position: 'absolute',
-                width: 180, height: 180, borderRadius: '50%',
-                border: '2px solid var(--color-paused)',
-                pointerEvents: 'none',
+                width: 12, height: 12, borderRadius: '50%',
+                background: 'var(--color-pebble)',
+                boxShadow: '0 0 18px color-mix(in srgb, var(--color-pebble) 40%, transparent)',
+                marginBottom: 28,
               }}
             />
 
-            <h2 style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-primary)', margin: 0, textAlign: 'center', position: 'relative' }}>
+            <h2 style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 22, fontWeight: 400, color: 'var(--text-primary)',
+              margin: 0, textAlign: 'center', lineHeight: 1.4,
+            }}>
               you did something. that counts.
             </h2>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '8px 0 0', textAlign: 'center', lineHeight: 1.6, maxWidth: 280, position: 'relative' }}>
+            <p style={{
+              fontSize: 13, color: 'var(--text-secondary)',
+              margin: '10px 0 32px', textAlign: 'center',
+              lineHeight: 1.65, maxWidth: 280,
+            }}>
               seriously. taking a step back takes courage.
             </p>
-            {currentTask && (
-              <p style={{ fontSize: 11, color: 'var(--color-paused)', margin: '12px 0 28px', position: 'relative' }}>
-                paused: {currentTask.task_name}
-              </p>
-            )}
-            {!currentTask && <div style={{ marginBottom: 28 }} />}
 
-            <div style={{ display: 'flex', gap: 10, position: 'relative' }}>
-              <button
+            <div style={{ display: 'flex', gap: 10 }}>
+              <motion.button
+                whileHover={{ filter: 'brightness(1.08)' }}
+                whileTap={{ scale: 0.97 }}
                 onClick={handleKeepGoing}
                 style={{
-                  padding: '10px 24px', borderRadius: 8,
-                  background: 'var(--color-done)', color: 'white',
-                  fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer',
+                  padding: '11px 28px', borderRadius: 8,
+                  background: 'var(--color-pebble)', color: 'white',
+                  fontSize: 13, fontWeight: 500, border: 'none', cursor: 'pointer',
+                  boxShadow: '0 2px 12px color-mix(in srgb, var(--color-pebble) 25%, transparent)',
                 }}
               >
                 Keep going
-              </button>
-              <button
+              </motion.button>
+              <motion.button
+                whileHover={{ opacity: 0.75 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={goToSummary}
                 style={{
-                  padding: '10px 24px', borderRadius: 8,
+                  padding: '11px 28px', borderRadius: 8,
                   background: 'transparent',
                   border: '1px solid var(--border)',
                   color: 'var(--text-secondary)',
-                  fontSize: 12, cursor: 'pointer',
+                  fontSize: 13, cursor: 'pointer',
                 }}
               >
                 I'm done for now
-              </button>
+              </motion.button>
             </div>
           </motion.div>
         )}
@@ -1582,59 +1768,3 @@ export default function FocusMode() {
   )
 }
 
-// ── MiniTimer (escape hatch 5-minute timer) ─────────────────────────────── //
-
-function MiniTimer({ durationMinutes = 5, onDone }) {
-  const SIZE   = 150
-  const STROKE = 2.5
-  const R      = (SIZE - STROKE * 2) / 2
-  const CIRC   = 2 * Math.PI * R
-
-  const totalMs = durationMinutes * 60 * 1000
-  const [fraction, setFraction] = useState(1)
-  const startRef = useRef(Date.now())
-  const doneRef  = useRef(false)
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      const elapsed    = Date.now() - startRef.current
-      const remaining  = Math.max(0, totalMs - elapsed)
-      const newFraction = remaining / totalMs
-      setFraction(newFraction)
-      if (remaining <= 0 && !doneRef.current) {
-        doneRef.current = true
-        clearInterval(id)
-        onDone?.()
-      }
-    }, 1000)
-    return () => clearInterval(id)
-  }, [totalMs, onDone])
-
-  const dashOffset = CIRC * (1 - fraction)
-
-  return (
-    <div style={{ position: 'relative', width: SIZE, height: SIZE }}>
-      <svg width={SIZE} height={SIZE} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={SIZE/2} cy={SIZE/2} r={R} stroke="var(--color-inactive)" strokeOpacity={0.1} strokeWidth={STROKE} fill="none" />
-        <circle
-          cx={SIZE/2} cy={SIZE/2} r={R}
-          stroke="var(--color-pebble)"
-          strokeWidth={STROKE}
-          strokeLinecap="round"
-          strokeDasharray={CIRC}
-          strokeDashoffset={dashOffset}
-          fill="none"
-          style={{ transition: 'stroke-dashoffset 1s linear' }}
-        />
-      </svg>
-      <div style={{
-        position: 'absolute', inset: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)' }}>
-          ~{Math.max(1, Math.ceil(fraction * durationMinutes))}m
-        </span>
-      </div>
-    </div>
-  )
-}

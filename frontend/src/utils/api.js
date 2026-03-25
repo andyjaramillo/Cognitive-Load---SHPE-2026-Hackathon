@@ -110,6 +110,12 @@ export async function explainSentence(sentence) {
   return res.json()
 }
 
+// ── Task Description (Pebble-voice one-liner for a new task) ───────────── //
+export async function fetchTaskDescription(task_name) {
+  const res = await apiFetch('/api/task-description', { method: 'POST', body: JSON.stringify({ task_name }) })
+  return res.json()
+}
+
 // ── Nudge ──────────────────────────────────────────────────────────────── //
 export async function fetchNudge(task_name, elapsed_minutes) {
   const res = await apiFetch('/api/nudge', { method: 'POST', body: JSON.stringify({ task_name, elapsed_minutes }) })
@@ -203,12 +209,17 @@ export async function loadDocumentById(docId) {
 
 // ── Tasks ──────────────────────────────────────────────────────────────── //
 
+export function toBackendGroups(groups) {
+  return groups.map(_toBackendGroup)
+}
+
 function _toBackendGroup(g) {
   return {
-    id:         g.id,
-    group_name: g.name || g.group_name || 'Tasks',
-    source:     g.source || 'manual',
-    created_at: g.created_at || '',
+    id:          g.id,
+    group_name:  g.name || g.group_name || 'Tasks',
+    source:      g.source || 'manual',
+    group_color: g.groupColor || 'sage',
+    created_at:  g.created_at || '',
     tasks: (g.tasks || []).map(t => ({
       id:               t.id,
       task_name:        t.task_name,
@@ -227,6 +238,7 @@ function _toFrontendGroup(g) {
     id:         g.id,
     name:       g.group_name || g.name || 'Tasks',
     source:     g.source || 'manual',
+    groupColor: g.group_color || 'sage',
     created_at: g.created_at || '',
     tasks: (g.tasks || []).map(t => ({
       id:               t.id,
@@ -257,6 +269,15 @@ export async function loadTasks() {
   const res = await apiFetch('/api/tasks')
   const data = await res.json()
   return { groups: (data.groups || []).map(_toFrontendGroup) }
+}
+
+// ── Smart Plan (AI time-fit selection) ─────────────────────────────────── //
+export async function fetchSmartPlan(groups, available_minutes) {
+  const res = await apiFetch('/api/smart-plan', {
+    method: 'POST',
+    body: JSON.stringify({ groups: groups.map(_toBackendGroup), available_minutes }),
+  })
+  return res.json()
 }
 
 // ── Documents (delete) ─────────────────────────────────────────────────── //
