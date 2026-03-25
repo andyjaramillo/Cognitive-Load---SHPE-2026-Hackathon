@@ -56,19 +56,25 @@ export default function App() {
   useEffect(() => {
     fetchPreferences()
       .then(p => {
-        // Persist completion flags to localStorage so offline/error refreshes don't reset them
-        if (p.onboarding_complete) try { localStorage.setItem('pebble_onboarding_complete', 'true') } catch {}
-        // Walkthrough is considered complete if EITHER Cosmos or localStorage says so.
-        // Once dismissed, it should never return — localStorage is the persistent guard.
-        const localWt = (() => { try { return localStorage.getItem('pebble_walkthrough_complete') === 'true' } catch { return false } })()
-        const walkthroughComplete = !!p.walkthrough_complete || localWt
-        // Keep localStorage in sync so future loads without Cosmos also skip it
-        try { if (walkthroughComplete) localStorage.setItem('pebble_walkthrough_complete', 'true') } catch {}
+        // If Cosmos says true, write localStorage. If Cosmos says false, check
+        // localStorage as fallback — handles silent savePreferences failures
+        // during onboarding where the flag never reached Cosmos.
+        let onboardingComplete = p.onboarding_complete
+        if (!onboardingComplete) {
+          try { onboardingComplete = localStorage.getItem('pebble_onboarding_complete') === 'true' } catch {}
+        }
+        if (onboardingComplete) try { localStorage.setItem('pebble_onboarding_complete', 'true') } catch {}
+        // Cosmos is the source of truth for walkthrough — sync localStorage to match exactly
+        const walkthroughComplete = !!p.walkthrough_complete
+        try {
+          if (walkthroughComplete) localStorage.setItem('pebble_walkthrough_complete', 'true')
+          else                     localStorage.removeItem('pebble_walkthrough_complete')
+        } catch {}
 
         dispatch(prefsActions.setPrefs({
           name:               p.name,
           communicationStyle: p.communication_style,
-          onboardingComplete: p.onboarding_complete,
+          onboardingComplete,
           walkthroughComplete,
           readingLevel: p.reading_level,
           fontChoice:   p.font_choice,

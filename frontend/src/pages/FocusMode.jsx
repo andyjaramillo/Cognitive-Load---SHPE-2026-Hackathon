@@ -132,7 +132,7 @@ function formatCountdown(secs) {
 // Clamp a number input value
 function clamp(val, min, max) { return Math.max(min, Math.min(max, val || 0)) }
 
-function StandaloneFocus({ startBreak = false }) {
+function StandaloneFocus({ startBreak = false, initialTopic = '' }) {
   const navigate = useNavigate()
   const defaultMinutes = useSelector(s => s.prefs.timerLengthMinutes) || 25
   const pebbleColor    = useSelector(s => s.prefs.pebbleColor) || 'sage'
@@ -174,10 +174,10 @@ function StandaloneFocus({ startBreak = false }) {
     )
   }
 
-  // Focus topic — blank timer is broken UX; prompt user to name what they're focusing on
-  const [focusTopic, setFocusTopic] = useState('')
-  const [topicInput, setTopicInput] = useState('')
-  const [topicSet,   setTopicSet]   = useState(false)
+  // Focus topic — pre-filled when coming from breakdown panel
+  const [focusTopic, setFocusTopic] = useState(initialTopic)
+  const [topicInput, setTopicInput] = useState(initialTopic)
+  const [topicSet,   setTopicSet]   = useState(!!initialTopic)
 
   // Duration picker mode
   const [durationMode, setDurationMode] = useState('preset')
@@ -1200,8 +1200,9 @@ export default function FocusMode() {
 
   // ── No tasks: show standalone timer ──────────────────────────────────── //
 
+  const initialTopic = location.state?.focusTopic ?? ''
   if (startBreak || (!customQueue && (!group || groupTasks.length === 0))) {
-    return <StandaloneFocus startBreak={startBreak} />
+    return <StandaloneFocus startBreak={startBreak} initialTopic={initialTopic} />
   }
 
   // Compute elapsed minutes for summary

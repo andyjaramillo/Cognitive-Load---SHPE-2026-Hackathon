@@ -234,17 +234,14 @@ export default function WalkthroughOverlay() {
   // ── Shared card interior ─────────────────────────────────────────────── //
   const cardInner = (
     <>
-      {/* Pebble dot + DM Serif heading */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.8rem' }}>
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0 }} />
-        <h3 style={{
-          fontFamily: '"DM Serif Display", Georgia, serif',
-          fontWeight: 400, fontSize: '1.15rem',
-          color: 'var(--text-primary)', margin: 0, lineHeight: 1.3,
-        }}>
-          {current.heading}
-        </h3>
-      </div>
+      {/* DM Serif heading */}
+      <h3 style={{
+        fontFamily: '"DM Serif Display", Georgia, serif',
+        fontWeight: 400, fontSize: '1.15rem',
+        color: 'var(--text-primary)', margin: '0 0 0.8rem', lineHeight: 1.3,
+      }}>
+        {current.heading}
+      </h3>
 
       {/* Bullets */}
       <ul style={{ margin: `0 0 ${current.id === 'settings' ? '0.75rem' : '1.1rem'}`, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

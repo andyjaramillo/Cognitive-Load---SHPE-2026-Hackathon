@@ -25,6 +25,17 @@ const COMPLETION_MESSAGES = [
 ]
 
 
+const TITLE_CASE_LOWER = new Set(['a', 'an', 'the', 'and', 'but', 'or', 'nor', 'for', 'so', 'yet', 'at', 'by', 'in', 'of', 'on', 'to', 'up', 'via', 'with'])
+function toTitleCase(str) {
+  if (!str) return str
+  return str.trim().split(/\s+/).map((word, i) => {
+    const lower = word.toLowerCase()
+    return (i === 0 || !TITLE_CASE_LOWER.has(lower))
+      ? lower.charAt(0).toUpperCase() + lower.slice(1)
+      : lower
+  }).join(' ')
+}
+
 function sumMinutes(tasks) {
   return tasks.filter(t => !t.done && !t.paused).reduce((s, t) => s + (t.duration_minutes || 0), 0)
 }
@@ -565,11 +576,11 @@ function OptInPills({ task, groupId }) {
       )}
 
       {/* ── Priority pill ── */}
-      {task.priority === 2 || task.priority == null ? (
+      {task.priority == null ? (
         activeField === 'priority' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
             <PriorityPicker
-              priority={task.priority ?? 2}
+              priority={task.priority}
               onChange={p => { dispatch(tasksActions.updateTask({ groupId, taskId: task.id, priority: p })); setActiveField(null) }}
             />
           </div>
@@ -588,23 +599,24 @@ function OptInPills({ task, groupId }) {
           </button>
         )
       ) : (
-        // Priority is set — click chip to re-open picker, pick medium to remove
+        // Priority is set — click chip to clear it (same pattern as time)
         <button
-          onClick={e => { e.stopPropagation(); setActiveField('priority') }}
+          onClick={e => { e.stopPropagation(); dispatch(tasksActions.updateTask({ groupId, taskId: task.id, priority: null })); setActiveField(null) }}
+          title="click to remove priority"
           style={{
             fontSize: '0.72rem', padding: '1px 7px', height: 18, lineHeight: 1,
             borderRadius: 99, cursor: 'pointer', fontWeight: 500,
             letterSpacing: '0.02em', display: 'inline-flex', alignItems: 'center',
             userSelect: 'none', flexShrink: 0, fontFamily: 'inherit',
-            background: task.priority === 1 ? 'rgba(224,160,96,0.12)' : 'rgba(180,170,154,0.10)',
-            border: task.priority === 1 ? '1px solid rgba(224,160,96,0.3)' : '1px solid rgba(180,170,154,0.22)',
-            color: task.priority === 1 ? 'var(--color-ai)' : 'var(--color-inactive)',
+            background: task.priority === 1 ? 'rgba(224,160,96,0.12)' : task.priority === 2 ? 'rgba(106,150,184,0.09)' : 'rgba(180,170,154,0.10)',
+            border: task.priority === 1 ? '1px solid rgba(224,160,96,0.3)' : task.priority === 2 ? '1px solid rgba(106,150,184,0.2)' : '1px solid rgba(180,170,154,0.22)',
+            color: task.priority === 1 ? 'var(--color-ai)' : task.priority === 2 ? 'var(--color-upcoming)' : 'var(--color-inactive)',
             transition: 'opacity 0.15s ease',
           }}
-          onMouseEnter={e => { e.currentTarget.style.opacity = '0.7' }}
+          onMouseEnter={e => { e.currentTarget.style.opacity = '0.6' }}
           onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
         >
-          {task.priority === 1 ? 'high' : 'low'}
+          {task.priority === 1 ? 'high' : task.priority === 2 ? 'med' : 'low'}
         </button>
       )}
 
@@ -649,7 +661,7 @@ function TaskRow({ task, groupId, isExpanded, onToggleExpand, onComplete, onDele
   // Chips shown on collapsed row — only when user explicitly set them
   const showDateChip     = !!task.due_date
   const showTimeChip     = !!task.userSetTime
-  const showPriorityChip = task.priority != null && task.priority !== 2
+  const showPriorityChip = task.priority != null
 
   return (
     <motion.div
@@ -1032,7 +1044,7 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive, 
                 onChange={e => setNameVal(e.target.value)}
                 onClick={e => e.stopPropagation()}
                 onBlur={() => {
-                  const trimmed = nameVal.trim()
+                  const trimmed = toTitleCase(nameVal.trim())
                   if (trimmed && trimmed !== group.name) {
                     dispatch(tasksActions.updateGroupName({ groupId: group.id, name: trimmed }))
                   } else {
@@ -1043,7 +1055,7 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive, 
                 onKeyDown={e => {
                   e.stopPropagation()
                   if (e.key === 'Enter') {
-                    const trimmed = nameVal.trim()
+                    const trimmed = toTitleCase(nameVal.trim())
                     if (trimmed && trimmed !== group.name) {
                       dispatch(tasksActions.updateGroupName({ groupId: group.id, name: trimmed }))
                     }
@@ -1607,7 +1619,14 @@ function BreakdownChatPanel({ task, groupId, onClose, onReplaceTask }) {
                             key={bi}
                             className="btn btn-primary"
                             style={{ fontSize: '0.78rem', padding: '0.35rem 0.9rem', borderRadius: 99 }}
-                            onClick={() => navigate(btn.value)}
+                            onClick={() => {
+                              const dest = btn.value || '/focus'
+                              if (dest === '/focus' || dest.startsWith('/focus')) {
+                                navigate('/focus', { state: { focusTopic: task.task_name, topicSet: true } })
+                              } else {
+                                navigate(dest)
+                              }
+                            }}
                           >
                             {btn.label}
                           </button>
@@ -1647,12 +1666,16 @@ function BreakdownChatPanel({ task, groupId, onClose, onReplaceTask }) {
                 padding: '0.65rem 0.9rem', fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.65,
               }}>
                 {streamText ? renderMarkdown(streamText) : (
-                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                    {[0, 1, 2].map(i => (
+                  <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 16 }}>
+                    {[
+                      { color: '#50946A', delay: 0 },
+                      { color: '#E0A060', delay: 0.18 },
+                      { color: '#9A88B4', delay: 0.36 },
+                    ].map((dot, i) => (
                       <motion.span key={i}
-                        animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.35, 0.9, 0.35] }}
-                        transition={{ duration: 2.2, delay: i * 0.35, repeat: Infinity, ease: 'easeInOut' }}
-                        style={{ display: 'block', width: 5, height: 5, borderRadius: '50%', background: 'var(--color-pebble)' }}
+                        animate={{ y: [0, -6, 0] }}
+                        transition={{ duration: 1.1, delay: dot.delay, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.5 }}
+                        style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: dot.color, flexShrink: 0 }}
                       />
                     ))}
                   </div>
@@ -1715,12 +1738,16 @@ function BreakdownChatPanel({ task, groupId, onClose, onReplaceTask }) {
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '2rem 0' }}
             >
-              <div style={{ display: 'flex', gap: 5 }}>
-                {[0, 1, 2].map(i => (
+              <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 16 }}>
+                {[
+                  { color: '#50946A', delay: 0 },
+                  { color: '#E0A060', delay: 0.18 },
+                  { color: '#9A88B4', delay: 0.36 },
+                ].map((dot, i) => (
                   <motion.span key={i}
-                    animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.35, 0.9, 0.35] }}
-                    transition={{ duration: 2.2, delay: i * 0.35, repeat: Infinity, ease: 'easeInOut' }}
-                    style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: 'var(--color-pebble)' }}
+                    animate={{ y: [0, -6, 0] }}
+                    transition={{ duration: 1.1, delay: dot.delay, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.5 }}
+                    style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: dot.color, flexShrink: 0 }}
                   />
                 ))}
               </div>
@@ -1908,7 +1935,7 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
       if (res.flagged) { setPlanError("something went quiet. want to try again?"); setBuilding(false); return }
       const steps = res.steps || []
       if (steps.length === 0) { setPlanError("couldn't break that down. want to try again?"); setBuilding(false); return }
-      const groupName = res.group_name || (goal.length > 36 ? goal.slice(0, 34) + '…' : goal)
+      const groupName = toTitleCase(res.group_name || (goal.length > 36 ? goal.slice(0, 34) + '…' : goal))
       setPreview({ groupName, steps })
       setEditSteps(steps.map(s => ({ ...s, _id: Math.random().toString(36).slice(2, 8) })))  // editable copy with stable drag IDs
     } catch {
@@ -1927,6 +1954,7 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
     setStreaming(true)
     setStreamText('')
     let accumulated = ''
+    let finalContent = null  // set by onReplace; onDone is the single place that commits
     await chatStream(
       {
         message:              text,
@@ -1937,18 +1965,16 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
       {
         onToken: t => { accumulated += t; setStreamText(stripClarifyActions(accumulated)) },
         onReplace: content => {
+          // Save clean content — do NOT add to messages here.
+          // onDone is the single place that commits the assistant message.
           const clean = stripClarifyActions(content)
+          finalContent = clean
           accumulated = clean
           setStreamText('')
-          setMessages(prev => [...prev, { id: genId(), role: 'assistant', content: clean }])
-          historyRef.current = [...historyRef.current, { role: 'assistant', content: clean }]
         },
         onActions: buttons => {
           for (const btn of (buttons || [])) {
             if (btn.type === 'build_plan') {
-              // Guard: only build if the user has sent at least one visible reply.
-              // historyRef only gets user messages added on non-hidden sends, so
-              // length >= 1 means the user answered at least once.
               const hasUserReply = historyRef.current.some(m => m.role === 'user')
               if (hasUserReply) {
                 setTimeout(() => triggerBuildPlan(), 150)
@@ -1957,7 +1983,7 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
           }
         },
         onDone: () => {
-          const clean = stripClarifyActions(accumulated)
+          const clean = finalContent ?? stripClarifyActions(accumulated)
           if (clean) {
             setMessages(prev => [...prev, { id: genId(), role: 'assistant', content: clean }])
             historyRef.current = [...historyRef.current, { role: 'assistant', content: clean }]
@@ -2115,12 +2141,16 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
               padding: '0.65rem 0.9rem', fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.65,
             }}>
               {streamText ? renderMarkdown(streamText) : (
-                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                  {[0,1,2].map(i => (
+                <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 16 }}>
+                  {[
+                    { color: '#50946A', delay: 0 },
+                    { color: '#E0A060', delay: 0.18 },
+                    { color: '#9A88B4', delay: 0.36 },
+                  ].map((dot, i) => (
                     <motion.span key={i}
-                      animate={{ scale: [0.85,1.15,0.85], opacity: [0.35,0.9,0.35] }}
-                      transition={{ duration: 2.2, delay: i*0.35, repeat: Infinity, ease: 'easeInOut' }}
-                      style={{ display: 'block', width: 5, height: 5, borderRadius: '50%', background: 'var(--color-pebble)' }}
+                      animate={{ y: [0, -6, 0] }}
+                      transition={{ duration: 1.1, delay: dot.delay, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.5 }}
+                      style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: dot.color, flexShrink: 0 }}
                     />
                   ))}
                 </div>
@@ -2135,11 +2165,19 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             style={{ display: 'flex', gap: '0.55rem', alignItems: 'center', padding: '0.4rem 0' }}
           >
-            <motion.div
-              animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.4, 1, 0.4] }}
-              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0 }}
-            />
+            <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 14 }}>
+              {[
+                { color: '#50946A', delay: 0 },
+                { color: '#E0A060', delay: 0.18 },
+                { color: '#9A88B4', delay: 0.36 },
+              ].map((dot, i) => (
+                <motion.span key={i}
+                  animate={{ y: [0, -5, 0] }}
+                  transition={{ duration: 1.1, delay: dot.delay, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.5 }}
+                  style={{ display: 'block', width: 5, height: 5, borderRadius: '50%', background: dot.color, flexShrink: 0 }}
+                />
+              ))}
+            </div>
             <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>building plan...</span>
           </motion.div>
         )}
@@ -2341,15 +2379,16 @@ function SmartPlanView({ minutes, result, loading, onBack, onLetsGo, onTryTime }
       {loading && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {[0, 1, 2].map(i => (
+            {[
+              { color: '#50946A', delay: 0 },
+              { color: '#E0A060', delay: 0.18 },
+              { color: '#9A88B4', delay: 0.36 },
+            ].map((dot, i) => (
               <motion.div
                 key={i}
-                animate={{ scale: [0.7, 1.2, 0.7], opacity: [0.4, 1, 0.4] }}
-                transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.18, ease: 'easeInOut' }}
-                style={{
-                  width: 7, height: 7, borderRadius: '50%',
-                  background: i === 0 ? '#50946A' : i === 1 ? '#E0A060' : '#9A88B4',
-                }}
+                animate={{ y: [0, -6, 0] }}
+                transition={{ duration: 1.1, delay: dot.delay, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.5 }}
+                style={{ width: 7, height: 7, borderRadius: '50%', background: dot.color, flexShrink: 0 }}
               />
             ))}
           </div>
@@ -2565,7 +2604,7 @@ export default function Tasks() {
   }, [newGroupOpen])
 
   function handleCreateGroup() {
-    const name = newGroupName.trim()
+    const name = toTitleCase(newGroupName.trim())
     if (!name) return
     const newId = Math.random().toString(36).slice(2, 10)
     dispatch(tasksActions.addGroup({ id: newId, name, source: 'manual', groupColor: newGroupColor }))
@@ -3476,12 +3515,8 @@ export default function Tasks() {
           animate={{ opacity: 1, transition: { delay: 0.3, duration: 0.4 } }}
           style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.25rem' }}
         >
-          {/* Divider label */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>ask pebble</span>
-            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-          </div>
+          {/* Divider */}
+          <div style={{ height: 1, background: 'var(--border)' }} />
 
           {/* Chat thread */}
           <AnimatePresence initial={false}>
@@ -3584,13 +3619,17 @@ export default function Tasks() {
                   {qaStream
                     ? renderMarkdown(qaStream)
                     : (
-                      <div style={{ display: 'flex', gap: 5, alignItems: 'center', padding: '2px 0' }}>
-                        {[0, 1, 2].map(i => (
+                      <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 16 }}>
+                        {[
+                          { color: '#50946A', delay: 0 },
+                          { color: '#E0A060', delay: 0.18 },
+                          { color: '#9A88B4', delay: 0.36 },
+                        ].map((dot, i) => (
                           <motion.span
                             key={i}
-                            animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.4, 1, 0.4] }}
-                            transition={{ duration: 2.2, delay: i * 0.35, repeat: Infinity, ease: 'easeInOut' }}
-                            style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: 'var(--color-pebble)' }}
+                            animate={{ y: [0, -6, 0] }}
+                            transition={{ duration: 1.1, delay: dot.delay, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.5 }}
+                            style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: dot.color, flexShrink: 0 }}
                           />
                         ))}
                       </div>
@@ -3617,7 +3656,7 @@ export default function Tasks() {
               aria-label="Ask Pebble about your tasks"
             />
             <button
-              className="btn btn-ghost"
+              className="btn btn-primary"
               style={{ borderRadius: 99, padding: '0.6rem 1.1rem', fontSize: '0.85rem', flexShrink: 0, opacity: !qaInput.trim() || qaStreaming ? 0.45 : 1 }}
               disabled={!qaInput.trim() || qaStreaming}
               onClick={handleQaSubmit}

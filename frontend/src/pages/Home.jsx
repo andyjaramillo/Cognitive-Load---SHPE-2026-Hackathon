@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { tasksActions } from '../store'
-import { chatStream, suggestTask, saveTasks, loadConversation, loadDocuments, generateSessionTitle } from '../utils/api'
+import { chatStream, suggestTask, decompose, saveTasks, loadConversation, loadDocuments, generateSessionTitle } from '../utils/api'
 import { splitIntoBubbles, renderMarkdown } from '../utils/bubbles'
 import { PriorityPicker } from '../components/PriorityChip'
 
@@ -570,6 +570,145 @@ function TaskChoiceCard({ task, onAddToTasks, onFocusNow, onDismiss }) {
   )
 }
 
+// ── GroupSuggestionBubble ──────────────────────────────────────────────── //
+// Shown when Pebble detects a multi-step goal in the conversation.
+// Self-contained: manages idle → loading → preview flow internally.
+
+function GroupSuggestionBubble({ conversationContext, onConfirm, onDismiss }) {
+  const [phase, setPhase]       = useState('idle')   // idle | loading | preview
+  const [tasks, setTasks]       = useState([])
+  const [groupName, setGroupName] = useState('')
+  const prefs = useSelector(s => s.prefs)
+
+  async function handleBreakDown() {
+    setPhase('loading')
+    try {
+      const res = await decompose({
+        goal: conversationContext,
+        granularity: prefs.granularity || 'normal',
+        reading_level: prefs.readingLevel || 'standard',
+      })
+      if (!res.flagged && res.steps?.length) {
+        setTasks(res.steps)
+        setGroupName(res.group_name || 'from our chat')
+        setPhase('preview')
+      } else {
+        setPhase('idle')
+      }
+    } catch {
+      setPhase('idle')
+    }
+  }
+
+  const dotStyle = {
+    width: 8, height: 8, borderRadius: '50%',
+    background: 'var(--color-pebble)', flexShrink: 0, marginTop: '1.1rem',
+  }
+
+  const cardStyle = {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border)',
+    borderLeft: '3px solid var(--color-pebble)',
+    borderRadius: '4px 14px 14px 4px',
+    padding: '1rem 1.2rem',
+    width: '100%',
+  }
+
+  const btnPrimary = {
+    background: 'var(--color-pebble)', color: '#fff',
+    border: 'none', borderRadius: 8,
+    padding: '0.42rem 1rem', fontSize: '0.85rem', fontWeight: 500,
+    cursor: 'pointer', transition: 'opacity 0.18s ease', minHeight: 36,
+  }
+
+  const btnGhost = {
+    background: 'none', color: 'var(--text-muted)',
+    border: '1px solid var(--border)', borderRadius: 8,
+    padding: '0.42rem 0.9rem', fontSize: '0.85rem',
+    cursor: 'pointer', transition: 'opacity 0.18s ease', minHeight: 36,
+  }
+
+  if (phase === 'loading') {
+    return <PulseDot phrase="breaking it down…" />
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'flex-start', maxWidth: '85%' }}>
+      <motion.div
+        animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
+        transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+        style={dotStyle}
+      />
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -4 }}
+        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+        style={cardStyle}
+      >
+        {phase === 'idle' && (
+          <>
+            <div style={{
+              fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em',
+              color: 'var(--color-pebble)', textTransform: 'uppercase',
+              marginBottom: '0.5rem', opacity: 0.9,
+            }}>
+              looks like a few steps
+            </div>
+            <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '0.9rem', lineHeight: 1.55 }}>
+              want me to break this into a list of tasks you can check off?
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button style={btnPrimary} onClick={handleBreakDown}>break it down</button>
+              <button style={btnGhost} onClick={onDismiss}>not now</button>
+            </div>
+          </>
+        )}
+
+        {phase === 'preview' && (
+          <>
+            <div style={{
+              fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em',
+              color: 'var(--color-pebble)', textTransform: 'uppercase',
+              marginBottom: '0.45rem', opacity: 0.9,
+            }}>
+              ready to add · {tasks.length} tasks
+            </div>
+            <div style={{
+              fontFamily: '"DM Serif Display", Georgia, serif',
+              fontSize: '1rem', fontWeight: 400,
+              color: 'var(--text-primary)', marginBottom: '0.75rem', lineHeight: 1.3,
+            }}>
+              {groupName}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '0.9rem' }}>
+              {tasks.map((t, i) => (
+                <div key={i} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  fontSize: '0.86rem', color: 'var(--text-secondary)',
+                  padding: '0.3rem 0',
+                  borderBottom: i < tasks.length - 1 ? '1px solid var(--border)' : 'none',
+                }}>
+                  <span style={{ lineHeight: 1.4 }}>{t.task_name}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', flexShrink: 0, marginLeft: '0.75rem' }}>
+                    ~{t.duration_minutes} min
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button style={btnPrimary} onClick={() => onConfirm(tasks, groupName)}>
+                add to my tasks
+              </button>
+              <button style={btnGhost} onClick={onDismiss}>not now</button>
+            </div>
+          </>
+        )}
+      </motion.div>
+    </div>
+  )
+}
+
 // ── MergePreviewCard ───────────────────────────────────────────────────── //
 // Shown inline in chat when Pebble detects a merge_tasks action.
 // User can edit the merged task name / priority before confirming.
@@ -799,9 +938,10 @@ export default function Home() {
           if (streamIdRef.current !== myId) return
           if (!replaced && accumulated) {
             // Separate special action types from regular navigation buttons
-            const taskSuggestion = accButtons.find(b => b.type === 'suggest_task')
-            const mergeAction    = accButtons.find(b => b.type === 'merge_tasks')
-            const regularButtons = accButtons.filter(b => b.type !== 'suggest_task' && b.type !== 'merge_tasks')
+            const taskSuggestion  = accButtons.find(b => b.type === 'suggest_task')
+            const mergeAction     = accButtons.find(b => b.type === 'merge_tasks')
+            const groupSuggestion = accButtons.find(b => b.type === 'suggest_task_group')
+            const regularButtons  = accButtons.filter(b => !['suggest_task','merge_tasks','suggest_task_group'].includes(b.type))
 
             const aiMsg = {
               id:      genId(),
@@ -835,6 +975,19 @@ export default function Home() {
                 priority:          mergeAction.priority ?? 2,
                 duration_minutes:  mergeAction.duration_minutes || 30,
               })
+            } else if (groupSuggestion) {
+              // Build conversation context string for decompose
+              const ctxLines = (currentMsgs || [])
+                .filter(m => m.role === 'user' || m.role === 'assistant')
+                .slice(-10)
+                .map(m => `${m.role === 'user' ? 'user' : 'pebble'}: ${m.content}`)
+              const conversationContext = [...ctxLines, `pebble: ${accumulated}`].join('\n')
+              const suggestId = genId()
+              setMessages(prev => [...prev, aiMsg, {
+                id: suggestId,
+                role: 'task-group-suggest',
+                conversationContext,
+              }])
             } else {
               setMessages(prev => [...prev, aiMsg])
             }
@@ -1146,6 +1299,21 @@ export default function Home() {
     setTimeout(() => inputRef.current?.focus(), 80)
   }, [])
 
+  // Group suggestion confirm — dispatches addGroup with all tasks, navigates to /tasks
+  const handleConfirmTaskGroup = useCallback((tasks, groupName, msgId) => {
+    const newGroupId = genId()
+    setMessages(prev => prev.filter(m => m.id !== msgId))
+    dispatch(tasksActions.addGroup({ id: newGroupId, name: groupName, source: 'ai', tasks }))
+    try {
+      const withNew = [
+        ...taskGroups,
+        { id: newGroupId, name: groupName, source: 'ai', created_at: new Date().toISOString(), tasks },
+      ]
+      saveTasks(withNew).catch(() => {})
+    } catch {}
+    navigate('/tasks', { state: { highlightGroupId: newGroupId } })
+  }, [dispatch, taskGroups, navigate])
+
   // Merge preview confirm — dispatches mergeTasks reducer then navigates to /tasks
   const handleConfirmMerge = useCallback((mergedTask) => {
     if (!mergePending) return
@@ -1388,7 +1556,7 @@ export default function Home() {
                 onMouseEnter={e => { if (!isStreaming) { e.currentTarget.style.background = 'var(--accent-soft)'; e.currentTarget.style.borderColor = 'rgba(154,136,180,0.4)' } }}
                 onMouseLeave={e => { if (!showHistory) { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = 'rgba(154,136,180,0.25)' } }}
               >
-                pick up where you left off
+                Pick up where you left off
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.7, transform: showHistory ? 'rotate(180deg)' : 'none', transition: 'transform 0.22s ease' }}>
                   <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
@@ -1633,6 +1801,12 @@ export default function Home() {
                       task={msg.task}
                       onConfirm={editedTask => handleConfirmTask(editedTask, msg.id)}
                       onRevise={() => handleReviseTask(msg.id)}
+                    />
+                  ) : msg.role === 'task-group-suggest' ? (
+                    <GroupSuggestionBubble
+                      conversationContext={msg.conversationContext}
+                      onConfirm={(tasks, groupName) => handleConfirmTaskGroup(tasks, groupName, msg.id)}
+                      onDismiss={() => setMessages(prev => prev.filter(m => m.id !== msg.id))}
                     />
                   ) : msg.role === 'assistant' ? (
                     <AiBubble content={msg.content} buttons={msg.buttons} navigate={navigate} onTaskNavigate={handleTaskNavigate} />

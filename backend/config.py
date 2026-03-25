@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from typing import Optional
 
@@ -46,7 +47,7 @@ class Settings(BaseSettings):
     keyvault_url: Optional[str] = None
 
     # App
-    allowed_origins: str = "http://localhost:5173"
+    allowed_origins: str = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")
 
     @property
     def origins_list(self) -> list[str]:

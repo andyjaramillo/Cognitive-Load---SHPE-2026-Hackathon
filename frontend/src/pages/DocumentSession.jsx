@@ -3,18 +3,82 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { tasksActions } from '../store'
-import { loadDocumentById, summariseStream, explainSentence, decompose, extractHighlights, chatStream } from '../utils/api'
+import { loadDocumentById, loadDocuments, summariseStream, explainSentence, decompose, extractHighlights, chatStream, saveTasks } from '../utils/api'
 import { bionicify } from '../utils/bionic'
 import { splitIntoBubbles, renderMarkdown } from '../utils/bubbles'
 
 // ── Constants ─────────────────────────────────────────────────────────────── //
 
 const CHOICES = [
-  { id: 'actions',    dot: 'var(--color-active)',   title: "lets turn this into tasks",             sub: 'action items and deadlines, nothing extra' },
-  { id: 'simplify',   dot: 'var(--color-done)',     title: "lets simplify document information",    sub: 'plain language, easier to digest' },
-  { id: 'highlights', dot: 'var(--color-ai)',       title: 'show me what matters most',             sub: 'highlight the key sections to focus on' },
-  { id: 'questions',  dot: 'var(--color-paused)',   title: 'i have questions about the document',   sub: "let's chat about what's inside" },
+  { id: 'actions',    dot: 'var(--color-pebble)',  title: "Let's turn this into tasks",            sub: 'Action items and deadlines, nothing extra' },
+  { id: 'simplify',   dot: 'var(--color-done)',     title: "Let's simplify document information",   sub: 'Plain language, easier to digest' },
+  { id: 'highlights', dot: 'var(--color-ai)',       title: 'Show me what matters most',             sub: 'Highlight the key sections to focus on' },
+  { id: 'questions',  dot: 'var(--color-paused)',   title: 'I have questions about the document',   sub: "Let's chat about what's inside" },
 ]
+
+// ── Loading dots ─────────────────────────────────────────────────────────── //
+
+const LOADING_DOTS = [
+  { color: '#50946A', delay: 0 },
+  { color: '#E0A060', delay: 0.18 },
+  { color: '#9A88B4', delay: 0.36 },
+]
+
+// ── Pill colors (same as Tasks page) ─────────────────────────────────────── //
+const _ALL_PILL_COLORS = [
+  { key: 'sage',  color: 'var(--color-active)',   border: 'rgba(111,169,158,0.6)',  bg: 'rgba(111,169,158,0.1)'  },
+  { key: 'sky',   color: 'var(--color-upcoming)', border: 'rgba(106,150,184,0.6)',  bg: 'rgba(106,150,184,0.1)'  },
+  { key: 'lilac', color: 'var(--color-paused)',   border: 'rgba(154,136,180,0.6)',  bg: 'rgba(154,136,180,0.1)'  },
+  { key: 'amber', color: 'var(--color-ai)',        border: 'rgba(224,160,96,0.6)',   bg: 'rgba(224,160,96,0.1)'   },
+]
+
+function ThreeDotLoader({ text }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '3rem 1rem' }}>
+      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+        {LOADING_DOTS.map((dot, i) => (
+          <motion.div
+            key={i}
+            animate={{ y: [0, -8, 0], opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut', delay: dot.delay }}
+            style={{ width: 8, height: 8, borderRadius: '50%', background: dot.color }}
+          />
+        ))}
+      </div>
+      {text && (
+        <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic', lineHeight: 1.5, margin: 0 }}>
+          {text}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── Filename helper ───────────────────────────────────────────────────────── //
+
+function formatFilename(filename) {
+  if (!filename) return ''
+  return filename
+    .replace(/\.[^/.]+$/, '')   // strip extension
+    .replace(/[_-]+/g, ' ')     // underscores/hyphens → spaces
+    .trim()
+}
+
+// ── SVG chevron ──────────────────────────────────────────────────────────── //
+
+function Chevron({ expanded, color = 'var(--color-active)' }) {
+  return (
+    <motion.span
+      animate={{ rotate: expanded ? 90 : 0 }}
+      transition={{ duration: 0.2 }}
+      style={{ display: 'inline-flex', alignItems: 'center', color }}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="9 18 15 12 9 6" />
+      </svg>
+    </motion.span>
+  )
+}
 
 const CALM_QUOTES = [
   { text: 'almost everything will work again if you unplug it for a few minutes — including you.', author: 'anne lamott' },
@@ -187,7 +251,7 @@ function CalmQuotes() {
   useEffect(() => {
     const timer = setInterval(() => {
       setIndex(prev => (prev + 1) % CALM_QUOTES.length)
-    }, 6000)
+    }, 18000)
     return () => clearInterval(timer)
   }, [])
 
@@ -236,12 +300,12 @@ function detectDocType(text, fileName) {
 function buildAiDesc(docType, pages, filename) {
   const base = pages ? `${pages} page${pages !== 1 ? 's' : ''}` : filename
   switch (docType) {
-    case 'academic':     return `looks like course material. ${base}. how should i help?`
-    case 'legal':        return `looks like a legal document. ${base}. how should i help?`
-    case 'instructions': return `looks like a how-to guide. ${base}. how should i help?`
-    case 'work':         return `looks like work notes. ${base}. how should i help?`
-    case 'article':      return `looks like an article. ${base}. how should i help?`
-    default:             return `${base} loaded. how should i help?`
+    case 'academic':     return `Looks like course material. ${base}. How should I help?`
+    case 'legal':        return `Looks like a legal document. ${base}. How should I help?`
+    case 'instructions': return `Looks like a how-to guide. ${base}. How should I help?`
+    case 'work':         return `Looks like work notes. ${base}. How should I help?`
+    case 'article':      return `Looks like an article. ${base}. How should I help?`
+    default:             return `${base} loaded. How should I help?`
   }
 }
 
@@ -306,7 +370,7 @@ function SimplifiedSections({ text, bionicMode }) {
             fontSize: '0.82rem', color: 'var(--color-ai)', fontWeight: 600,
             marginBottom: '0.4rem', letterSpacing: '0.01em',
           }}>
-            bottom line
+            Bottom line
           </p>
           <p style={{
             fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: 1.6,
@@ -337,13 +401,7 @@ function SimplifiedSections({ text, bionicMode }) {
                 width: '100%', textAlign: 'left',
               }}
             >
-              <motion.span
-                animate={{ rotate: isExpanded ? 90 : 0 }}
-                transition={{ duration: 0.2 }}
-                style={{ display: 'inline-block', color: 'var(--color-active)', fontSize: '0.9rem' }}
-              >
-                →
-              </motion.span>
+              <Chevron expanded={isExpanded} />
               {section.heading}
             </button>
             <AnimatePresence>
@@ -356,7 +414,7 @@ function SimplifiedSections({ text, bionicMode }) {
                   style={{ overflow: 'hidden' }}
                 >
                   <div style={{
-                    borderLeft: '3px solid var(--color-active)',
+                    borderLeft: '3px solid var(--color-pebble)',
                     borderRadius: '0 10px 10px 0',
                     padding: '0.75rem 1rem',
                     marginTop: '0.25rem',
@@ -389,7 +447,25 @@ export default function DocumentSession() {
   const { id: docId } = useParams()
   const dispatch = useDispatch()
   const navigate = useNavigate()
-  const prefs = useSelector(s => s.prefs)
+  const prefs       = useSelector(s => s.prefs)
+  const taskGroups  = useSelector(s => s.tasks.groups)
+
+  // Batch-aware doc switcher
+  const [allDocs, setAllDocs] = useState([])
+  useEffect(() => {
+    loadDocuments().then(docs => { if (Array.isArray(docs)) setAllDocs(docs) }).catch(() => {})
+  }, [docId])
+  // Check if this doc is part of a batch
+  const batches = (() => { try { return JSON.parse(localStorage.getItem('pebble_doc_batches') || '[]') } catch { return [] } })()
+  const myBatch = batches.find(b => b.docIds.includes(docId))
+  // Navigation context: within batch if batched, else across all docs
+  const navDocs = myBatch
+    ? myBatch.docIds.map(id => allDocs.find(d => d.id === id)).filter(Boolean)
+    : allDocs
+  const currentIndex = navDocs.findIndex(d => d.id === docId)
+  const prevDoc = currentIndex > 0 ? navDocs[currentIndex - 1] : null
+  const nextDoc = currentIndex !== -1 && currentIndex < navDocs.length - 1 ? navDocs[currentIndex + 1] : null
+  const navLabel = myBatch ? 'in this batch' : 'documents'
 
   // Loading state
   const [loadState, setLoadState] = useState('loading') // 'loading' | 'ready' | 'error'
@@ -406,6 +482,7 @@ export default function DocumentSession() {
   const [chosenMode, setChosenMode] = useState(null)
   const [actionItems, setActionItems] = useState([])
   const [aiGroupName, setAiGroupName] = useState('')
+  const [isSaving,    setIsSaving]    = useState(false)
   const [streamText, setStreamText] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamError, setStreamError] = useState(null)
@@ -476,7 +553,7 @@ export default function DocumentSession() {
         setHighlightData(res)
         setExpandedTiers({ medium: false, low: false })
       } catch {
-        setStreamError("something went quiet. try again?")
+        setStreamError("That didn't work the way I expected. Let's try again.")
       }
     } else if (modeId === 'actions') {
       try {
@@ -487,13 +564,13 @@ export default function DocumentSession() {
           reading_level: prefs.readingLevel || 'standard',
         })
         if (res.flagged) {
-          setStreamError("this content couldn't be processed. try a different document?")
+          setStreamError("Hmm, that one didn't come through. Want to try a different document?")
           return
         }
         setActionItems(res.steps || [])
         setAiGroupName(res.group_name || '')
       } catch {
-        setStreamError("something went quiet. try again?")
+        setStreamError("That didn't work the way I expected. Let's try again.")
       }
     } else {
       setIsStreaming(true)
@@ -509,27 +586,52 @@ export default function DocumentSession() {
 
   // ── Turn into tasks ───────────────────────────────────────────────────── //
 
-  async function handleTurnIntoTasks() {
-    const fallbackName = docName || 'document'
-    if (actionItems.length > 0) {
-      const groupName = aiGroupName || fallbackName
-      dispatch(tasksActions.addGroup({ name: groupName, source: 'document', tasks: actionItems }))
-      navigate('/tasks')
-      return
-    }
+  async function handleTurnIntoTasks(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault()
+    if (isSaving) return
+    setIsSaving(true)
+    setStreamError(null)
+
     try {
-      const truncated = docText.length > 15000 ? docText.slice(0, 15000) + '\n\n[document continues...]' : docText
-      const res = await decompose({
-        goal: truncated,
-        granularity: 'normal',
-        reading_level: prefs.readingLevel || 'standard',
-      })
-      if (!res.flagged && res.steps?.length) {
-        const groupName = res.group_name || fallbackName
-        dispatch(tasksActions.addGroup({ name: groupName, source: 'document', tasks: res.steps }))
-        navigate('/tasks')
+      const fallbackName = docName || 'document'
+      let tasks     = actionItems
+      let groupName = aiGroupName || fallbackName
+
+      // If actionItems is empty for some reason, decompose on the fly
+      if (tasks.length === 0) {
+        const truncated = docText.length > 15000 ? docText.slice(0, 15000) + '\n\n[document continues...]' : docText
+        const res = await decompose({
+          goal: truncated,
+          granularity: 'normal',
+          reading_level: prefs.readingLevel || 'standard',
+        })
+        if (res.flagged || !res.steps?.length) {
+          setStreamError("something went quiet. let's try again.")
+          setIsSaving(false)
+          return
+        }
+        tasks     = res.steps
+        groupName = res.group_name || fallbackName
       }
-    } catch {}
+
+      // Build a stable group ID so Tasks.jsx can highlight it
+      const newGroupId = Math.random().toString(36).slice(2, 10)
+
+      // 1. Dispatch to Redux immediately (synchronous — Tasks.jsx will see it)
+      dispatch(tasksActions.addGroup({ id: newGroupId, name: groupName, source: 'document', tasks }))
+
+      // 2. Persist to Cosmos explicitly — don't rely on Tasks.jsx debounce
+      //    Build combined list manually since Redux dispatch is synchronous but
+      //    the selector won't reflect it until next render.
+      const newGroup = { id: newGroupId, name: groupName, source: 'document', created_at: new Date().toISOString(), tasks }
+      saveTasks([...taskGroups, newGroup]).catch(() => {}) // fire-and-forget
+
+      // 3. Navigate with highlight state
+      navigate('/tasks', { state: { highlightGroupId: newGroupId } })
+    } catch {
+      setStreamError("something went quiet. let's try again.")
+      setIsSaving(false)
+    }
   }
 
   // ── Q&A ────────────────────────────────────────────────────────────────── //
@@ -571,7 +673,7 @@ export default function DocumentSession() {
         }),
         onDone: () => setQaStreaming(false),
         onError: () => {
-          setQaMessages(prev => [...prev, { role: 'ai', text: "something went quiet. try asking again?" }])
+          setQaMessages(prev => [...prev, { role: 'ai', text: "That didn't come through. Want to try asking again?" }])
           setQaStreaming(false)
         },
       },
@@ -592,12 +694,7 @@ export default function DocumentSession() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto', minHeight: 0 }}>
         <div style={{ ...pageStyle, justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
-          <motion.div
-            animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-            style={{ width: 12, height: 12, borderRadius: '50%', background: 'var(--color-pebble)' }}
-          />
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.75rem' }}>loading document...</p>
+          <ThreeDotLoader text="Loading document..." />
         </div>
       </div>
     )
@@ -608,13 +705,13 @@ export default function DocumentSession() {
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto', minHeight: 0 }}>
         <div style={{ ...pageStyle, justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '1rem' }}>
-            something went quiet. couldn't load this document.
+            Something went quiet. We couldn't load this document.
           </p>
           <Link
             to="/documents"
             style={{ fontSize: '0.85rem', color: 'var(--color-active)', textDecoration: 'none' }}
           >
-            ← back to documents
+            ← Back to documents
           </Link>
         </div>
       </div>
@@ -631,19 +728,22 @@ export default function DocumentSession() {
         padding: '1.25rem 2rem 0',
         maxWidth: '720px', margin: '0 auto', width: '100%',
       }}>
-        {/* Back link — absolute left */}
+        {/* Back link — left */}
         <Link
           to="/documents"
           style={{
             position: 'absolute', left: '2rem', top: '1.25rem',
-            fontSize: '0.78rem', color: 'var(--text-muted)', textDecoration: 'none',
-            display: 'flex', alignItems: 'center', gap: '0.3rem',
+            fontSize: '0.78rem', color: 'var(--text-secondary)', textDecoration: 'none',
+            display: 'flex', alignItems: 'center', gap: '0.25rem',
             transition: 'color 0.2s ease',
           }}
           onMouseEnter={e => e.currentTarget.style.color = 'var(--color-active)'}
-          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
         >
-          ← all documents
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+          all documents
         </Link>
 
         {/* Centered doc name */}
@@ -654,16 +754,69 @@ export default function DocumentSession() {
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             maxWidth: '60%', marginLeft: 'auto', marginRight: 'auto',
           }}>
-            {docName}
+            {formatFilename(docName)}
           </h2>
-          <div style={{
-            width: '3rem', height: '2px', background: 'var(--color-pebble)',
-            borderRadius: '1px', margin: '0.35rem auto 0', opacity: 0.5,
-          }} />
-          {docPages && (
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
-              {docPages} page{docPages !== 1 ? 's' : ''}
-            </span>
+        </div>
+
+        <div style={{ marginTop: '0.6rem' }}>
+          {/* Prev / Next doc switcher */}
+          {navDocs.length > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0', marginTop: '0.6rem' }}>
+              {/* Prev */}
+              <button
+                onClick={() => prevDoc && navigate(`/documents/${prevDoc.id}`)}
+                disabled={!prevDoc}
+                title={prevDoc ? formatFilename(prevDoc.filename) : undefined}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.22rem',
+                  fontSize: '0.72rem', color: 'var(--text-muted)',
+                  background: 'none', border: 'none',
+                  borderRadius: 8, padding: '0.22rem 0.5rem',
+                  cursor: prevDoc ? 'pointer' : 'default',
+                  opacity: prevDoc ? 1 : 0.25,
+                  transition: 'background 0.15s ease, color 0.15s ease, opacity 0.15s ease',
+                }}
+                onMouseEnter={e => { if (prevDoc) { e.currentTarget.style.background = 'var(--accent-soft)'; e.currentTarget.style.color = 'var(--color-pebble)' } }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)' }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                {prevDoc && (
+                  <span style={{ maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {formatFilename(prevDoc.filename)}
+                  </span>
+                )}
+              </button>
+
+              {/* Counter */}
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', padding: '0 0.55rem' }}>
+                {currentIndex + 1} / {navDocs.length}
+              </span>
+
+              {/* Next */}
+              <button
+                onClick={() => nextDoc && navigate(`/documents/${nextDoc.id}`)}
+                disabled={!nextDoc}
+                title={nextDoc ? formatFilename(nextDoc.filename) : undefined}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.22rem',
+                  fontSize: '0.72rem', color: 'var(--text-muted)',
+                  background: 'none', border: 'none',
+                  borderRadius: 8, padding: '0.22rem 0.5rem',
+                  cursor: nextDoc ? 'pointer' : 'default',
+                  opacity: nextDoc ? 1 : 0.25,
+                  transition: 'background 0.15s ease, color 0.15s ease, opacity 0.15s ease',
+                }}
+                onMouseEnter={e => { if (nextDoc) { e.currentTarget.style.background = 'var(--accent-soft)'; e.currentTarget.style.color = 'var(--color-pebble)' } }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)' }}
+              >
+                {nextDoc && (
+                  <span style={{ maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {formatFilename(nextDoc.filename)}
+                  </span>
+                )}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -683,7 +836,7 @@ export default function DocumentSession() {
                   fontFamily: 'var(--font-display)', fontSize: 'clamp(1.1rem, 3vw, 1.35rem)',
                   fontWeight: 400, color: 'var(--text-primary)', margin: 0, lineHeight: 1.4,
                 }}>
-                  what would you like to do with your document?
+                  What would you like to do with your document?
                 </h3>
               </motion.div>
 
@@ -705,7 +858,7 @@ export default function DocumentSession() {
                       borderRight: `1.5px solid ${isHovered ? choice.dot : 'var(--border)'}`,
                       borderBottom: `1.5px solid ${isHovered ? choice.dot : 'var(--border)'}`,
                       borderLeft: `3px solid ${isHovered ? choice.dot : 'var(--border)'}`,
-                      borderRadius: 'var(--radius)',
+                      borderRadius: 12,
                       cursor: 'pointer', textAlign: 'left', width: '100%',
                       color: 'var(--text-primary)',
                       transition: 'background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease',
@@ -718,20 +871,22 @@ export default function DocumentSession() {
                     <div style={{
                       width: 10, height: 10, borderRadius: '50%', background: choice.dot, flexShrink: 0,
                       transition: 'transform 0.25s ease',
-                      transform: isHovered ? 'scale(1.5)' : 'scale(1)',
+                      transform: isHovered ? 'scale(1.2)' : 'scale(1)',
                     }} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: '0.95rem', fontWeight: 500, color: 'var(--text-primary)' }}>{choice.title}</div>
                       <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{choice.sub}</div>
                     </div>
-                    {/* Arrow that slides in on hover */}
+                    {/* Chevron that slides in on hover */}
                     <motion.span
                       animate={{ opacity: isHovered ? 1 : 0, x: isHovered ? 0 : -8 }}
                       transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
-                      style={{ fontSize: '1.15rem', color: choice.dot, flexShrink: 0 }}
+                      style={{ color: choice.dot, flexShrink: 0, display: 'flex', alignItems: 'center' }}
                       aria-hidden="true"
                     >
-                      →
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
                     </motion.span>
                   </motion.button>
                 )
@@ -747,7 +902,7 @@ export default function DocumentSession() {
 
         {/* ── Results phase ───────────────────────────────────────────────── */}
         {phase === 'results' && (
-          <motion.div key="results" {...fadeUp} style={{ ...pageStyle, alignItems: 'stretch', paddingBottom: '6rem' }}>
+          <motion.div key="results" {...fadeUp} style={{ ...pageStyle, alignItems: 'stretch', paddingBottom: '8rem' }}>
             <motion.div
               variants={stagger} initial="initial" animate="animate"
               style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
@@ -756,89 +911,113 @@ export default function DocumentSession() {
               {/* Main results bubble */}
               <motion.div variants={staggerItem}>
                 {chosenMode === 'questions' && (
-                  <AIBubble text="ask me anything about this document. i've read through it and i'm ready to help." />
+                  <AIBubble text="Ask me anything about this document. I've read through it and I'm ready to help." />
                 )}
 
-                {chosenMode === 'actions' && (
-                  <AIBubble>
-                    <p style={{ marginBottom: '0.85rem', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                      {`found ${actionItems.length > 0 ? actionItems.length : '…'} things you need to do. everything else is background.`}
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      {actionItems.length === 0 && !streamError && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem', padding: '0.5rem 0' }}>
-                          <span className="streaming-cursor" aria-hidden="true" />
-                          <span>working through it…</span>
-                        </div>
-                      )}
-                      {actionItems.map((step, i) => (
-                        <div key={i} style={{
-                          display: 'flex', gap: '0.85rem', alignItems: 'flex-start',
-                          padding: '0.75rem 0',
-                          borderBottom: i < actionItems.length - 1 ? '1px solid var(--border)' : 'none',
+                {chosenMode === 'actions' && (() => {
+                  return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+
+                    {/* Pebble intro line */}
+                    <div style={{ display: 'flex', gap: '0.55rem', alignItems: 'flex-start' }}>
+                      <motion.div
+                        animate={{ scale: [0.88, 1.08, 0.88], opacity: [0.7, 1, 0.7] }}
+                        transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+                        style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '0.35rem' }}
+                      />
+                      <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+                        {actionItems.length > 0
+                          ? `found ${actionItems.length} things to do. everything else is background.`
+                          : 'working through it…'}
+                      </p>
+                    </div>
+
+                    {/* Loading state */}
+                    {actionItems.length === 0 && !streamError && (
+                      <ThreeDotLoader text="breaking it down…" />
+                    )}
+
+                    {/* Group header */}
+                    {actionItems.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35 }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.6rem',
+                          padding: '0.65rem 1rem',
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border)',
+                          borderLeft: '3px solid var(--color-pebble)',
+                          borderRadius: '12px 12px 0 0',
+                          marginTop: '0.35rem',
+                        }}
+                      >
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0 }} />
+                        <span style={{
+                          fontFamily: 'var(--font-display)', fontSize: '0.95rem', fontWeight: 400,
+                          color: 'var(--text-primary)', flex: 1,
                         }}>
+                          {aiGroupName || docName || 'from this document'}
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {actionItems.length} task{actionItems.length !== 1 ? 's' : ''}
+                        </span>
+                      </motion.div>
+                    )}
+
+                    {/* Task cards with interactive pills */}
+                    {actionItems.map((step, i) => {
+                      return (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.32, delay: i * 0.06 }}
+                          style={{
+                            display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                            padding: '0.85rem 1rem',
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--border)',
+                            borderLeft: '3px solid var(--color-pebble)',
+                            borderTop: 'none',
+                            borderRadius: i === actionItems.length - 1 ? '0 0 12px 12px' : '0',
+                          }}
+                        >
+                          {/* Circle checkbox */}
                           <div style={{
-                            width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
-                            background: 'var(--accent-soft)', color: 'var(--accent)',
-                            fontSize: '0.72rem', fontWeight: 700,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}>
-                            {i + 1}
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)', marginBottom: '0.15rem' }}>
+                            width: 16, height: 16, borderRadius: '50%', flexShrink: 0, marginTop: '0.22rem',
+                            border: '1.5px solid var(--border)', background: 'transparent',
+                          }} />
+
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.45 }}>
                               {step.task_name}
                             </div>
                             {step.motivation_nudge && (
-                              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, marginTop: '0.2rem' }}>
                                 {step.motivation_nudge}
                               </div>
                             )}
-                            {step.duration_minutes && (
-                              <span style={{
-                                display: 'inline-block', marginTop: '0.35rem',
-                                fontSize: '0.72rem', fontWeight: 500,
-                                color: 'var(--color-upcoming)',
-                                background: 'rgba(106,150,184,0.12)',
-                                padding: '0.15rem 0.55rem',
-                                borderRadius: '99px',
-                                border: '1px solid rgba(106,150,184,0.2)',
-                              }}>
-                                ~{step.duration_minutes} min
-                              </span>
-                            )}
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        </motion.div>
+                      )
+                    })}
+
                     {streamError && (
-                      <p style={{ fontSize: '0.85rem', color: 'var(--color-ai)', marginTop: '0.5rem' }}>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--color-ai)', marginTop: '0.25rem' }}>
                         {streamError}
                       </p>
                     )}
-                  </AIBubble>
-                )}
+                  </div>
+                  )
+                })()}
 
                 {/* Highlights — priority-based cognitive offloading */}
                 {chosenMode === 'highlights' && (
                   <>
                     {!highlightData && !streamError ? (
-                      <div style={{
-                        display: 'flex', flexDirection: 'column', alignItems: 'center',
-                        justifyContent: 'center', padding: '3rem 1rem', gap: '1rem',
-                      }}>
-                        <motion.div
-                          animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.5, 1, 0.5] }}
-                          transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
-                          style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--color-pebble)' }}
-                        />
-                        <p style={{
-                          fontSize: '0.88rem', color: 'var(--text-muted)', textAlign: 'center',
-                          fontStyle: 'italic', lineHeight: 1.5,
-                        }}>
-                          reading through everything for you...
-                        </p>
-                      </div>
+                      <ThreeDotLoader text="Reading through everything for you..." />
                     ) : highlightData ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         <h3 style={{
@@ -846,7 +1025,7 @@ export default function DocumentSession() {
                           fontWeight: 400, color: 'var(--text-primary)', textAlign: 'center',
                           margin: 0,
                         }}>
-                          here's what matters most
+                          Here's what matters most
                         </h3>
 
                         {/* High priority — always visible */}
@@ -857,7 +1036,7 @@ export default function DocumentSession() {
                             transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
                           >
                             <p style={{ fontSize: '0.82rem', color: 'var(--color-ai)', fontWeight: 600, marginBottom: '0.6rem' }}>
-                              these need your attention
+                              These need your attention
                             </p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                               {highlightData.high.map((item, i) => (
@@ -902,14 +1081,8 @@ export default function DocumentSession() {
                                 marginBottom: expandedTiers.medium ? '0.6rem' : 0,
                               }}
                             >
-                              <motion.span
-                                animate={{ rotate: expandedTiers.medium ? 90 : 0 }}
-                                transition={{ duration: 0.2 }}
-                                style={{ display: 'inline-block' }}
-                              >
-                                →
-                              </motion.span>
-                              helpful, but no rush
+                              <Chevron expanded={expandedTiers.medium} />
+                              Helpful, but no rush
                               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>
                                 ({highlightData.medium.length})
                               </span>
@@ -932,7 +1105,7 @@ export default function DocumentSession() {
                                         transition={{ delay: i * 0.08, duration: 0.35 }}
                                         style={{
                                           background: 'var(--bg-card)',
-                                          borderLeft: '3px solid var(--color-active)',
+                                          borderLeft: '3px solid var(--color-pebble)',
                                           borderRadius: '10px',
                                           padding: '0.85rem 1rem',
                                           boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
@@ -969,14 +1142,8 @@ export default function DocumentSession() {
                                 marginBottom: expandedTiers.low ? '0.6rem' : 0,
                               }}
                             >
-                              <motion.span
-                                animate={{ rotate: expandedTiers.low ? 90 : 0 }}
-                                transition={{ duration: 0.2 }}
-                                style={{ display: 'inline-block' }}
-                              >
-                                →
-                              </motion.span>
-                              just background — you can skip this
+                              <Chevron expanded={expandedTiers.low} color="var(--text-muted)" />
+                              Just background. You can skip this
                               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>
                                 ({highlightData.low.length})
                               </span>
@@ -1038,22 +1205,7 @@ export default function DocumentSession() {
                 {chosenMode === 'simplify' && (
                   <>
                     {isStreaming ? (
-                      <div style={{
-                        display: 'flex', flexDirection: 'column', alignItems: 'center',
-                        justifyContent: 'center', padding: '3rem 1rem', gap: '1rem',
-                      }}>
-                        <motion.div
-                          animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.5, 1, 0.5] }}
-                          transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
-                          style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--color-pebble)' }}
-                        />
-                        <p style={{
-                          fontSize: '0.88rem', color: 'var(--text-muted)', textAlign: 'center',
-                          fontStyle: 'italic', lineHeight: 1.5,
-                        }}>
-                          don't worry, simplifying for you now
-                        </p>
-                      </div>
+                      <ThreeDotLoader text="Simplifying it for you now..." />
                     ) : (
                       <div>
                         <h3 style={{
@@ -1061,16 +1213,24 @@ export default function DocumentSession() {
                           fontWeight: 400, color: 'var(--text-primary)', textAlign: 'center',
                           margin: '0 0 1.25rem',
                         }}>
-                          here's the simple version
+                          Here's the simple version
                         </h3>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
                           <button
-                            className="btn btn-ghost"
-                            style={{ fontSize: '0.78rem', padding: '0.25rem 0.75rem' }}
                             onClick={() => setBionicMode(b => !b)}
                             aria-pressed={bionicMode}
+                            style={{
+                              borderRadius: 999,
+                              border: '1px solid var(--border)',
+                              padding: '0.2rem 0.85rem',
+                              fontSize: '0.78rem',
+                              background: bionicMode ? 'var(--color-pebble)' : 'transparent',
+                              color: bionicMode ? 'white' : 'var(--text-secondary)',
+                              transition: 'all 0.2s ease',
+                              cursor: 'pointer',
+                            }}
                           >
-                            {bionicMode ? 'normal reading' : 'bionic reading'}
+                            {bionicMode ? 'Normal reading' : 'Bionic reading'}
                           </button>
                         </div>
                         <SimplifiedSections text={streamText} bionicMode={bionicMode} />
@@ -1086,49 +1246,101 @@ export default function DocumentSession() {
               </motion.div>
 
               {/* Follow-up actions */}
-              {!isStreaming && chosenMode !== 'questions' && (chosenMode !== 'highlights' || highlightData) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.45, duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-                >
-                  <AIBubble orange>
-                    <p style={{ marginBottom: '0.75rem', fontSize: '0.88rem' }}>
-                      {docType === 'article'
-                        ? 'want to explore this further?'
-                        : 'want me to do anything else with this?'}
-                    </p>
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      {docType !== 'article' && (
-                        <button
-                          className="btn btn-primary"
-                          style={{ fontSize: '0.82rem', padding: '0.4rem 0.95rem' }}
-                          onClick={handleTurnIntoTasks}
-                        >
-                          turn into tasks
-                        </button>
-                      )}
-                      {chosenMode !== 'simplify' && (
-                        <button
-                          className="btn btn-ghost"
-                          style={{ fontSize: '0.82rem', padding: '0.4rem 0.95rem' }}
-                          onClick={() => handleModeSelect('simplify')}
-                        >
-                          simplify full text
-                        </button>
-                      )}
-                      {chosenMode !== 'highlights' && (
-                        <button
-                          className="btn btn-ghost"
-                          style={{ fontSize: '0.82rem', padding: '0.4rem 0.95rem' }}
-                          onClick={() => handleModeSelect('highlights')}
-                        >
-                          highlight key parts
-                        </button>
-                      )}
+              {!isStreaming && chosenMode !== 'questions' && (chosenMode !== 'highlights' || highlightData) && (chosenMode !== 'actions' || actionItems.length > 0) && (
+                <div>
+                  {chosenMode === 'actions' && actionItems.length > 0 ? (
+                    /* Actions mode: prominent add-to-tasks CTA */
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={isSaving}
+                        style={{ width: '100%', fontSize: '0.88rem', padding: '0.65rem 1.25rem', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', opacity: isSaving ? 0.7 : 1, cursor: isSaving ? 'default' : 'pointer' }}
+                        onClick={handleTurnIntoTasks}
+                      >
+                        {isSaving ? 'adding…' : 'add these to my tasks'}
+                        {!isSaving && (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="9 18 15 12 9 6"/>
+                          </svg>
+                        )}
+                      </button>
+                    {(() => {
+                        const chosen2 = prefs.pebbleColor || 'sage'
+                        const nonChosen = _ALL_PILL_COLORS.filter(c => c.key !== chosen2)
+                        const simplifyClr = nonChosen[1] || nonChosen[0]
+                        const highlightClr = nonChosen[2] || nonChosen[1]
+                        return (
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            {chosenMode !== 'simplify' && (
+                              <button
+                                onClick={() => handleModeSelect('simplify')}
+                                style={{
+                                  flex: 1, fontSize: '0.8rem', padding: '0.38rem 0.75rem', borderRadius: 10,
+                                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500,
+                                  background: simplifyClr.bg,
+                                  border: `1px solid ${simplifyClr.border}`,
+                                  color: simplifyClr.color,
+                                  transition: 'opacity 0.18s ease',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.opacity = '0.75' }}
+                                onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+                              >
+                                simplify full text
+                              </button>
+                            )}
+                            {chosenMode !== 'highlights' && (
+                              <button
+                                onClick={() => handleModeSelect('highlights')}
+                                style={{
+                                  flex: 1, fontSize: '0.8rem', padding: '0.38rem 0.75rem', borderRadius: 10,
+                                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500,
+                                  background: highlightClr.bg,
+                                  border: `1px solid ${highlightClr.border}`,
+                                  color: highlightClr.color,
+                                  transition: 'opacity 0.18s ease',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.opacity = '0.75' }}
+                                onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+                              >
+                                highlight key parts
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </div>
-                  </AIBubble>
-                </motion.div>
+                  ) : (
+                    <AIBubble orange>
+                      <p style={{ marginBottom: '0.75rem', fontSize: '0.88rem' }}>
+                        {docType === 'article'
+                          ? 'want to explore this further?'
+                          : 'want me to do anything else with this?'}
+                      </p>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {docType !== 'article' && (
+                          <button
+                            className="btn btn-primary"
+                            style={{ fontSize: '0.82rem', padding: '0.4rem 0.95rem', borderRadius: 999, background: 'var(--color-pebble)', border: 'none' }}
+                            onClick={() => handleModeSelect('actions')}
+                          >
+                            turn into tasks
+                          </button>
+                        )}
+                        {chosenMode !== 'simplify' && (
+                          <button className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '0.4rem 0.95rem', borderRadius: 999 }} onClick={() => handleModeSelect('simplify')}>
+                            simplify full text
+                          </button>
+                        )}
+                        {chosenMode !== 'highlights' && (
+                          <button className="btn btn-ghost" style={{ fontSize: '0.82rem', padding: '0.4rem 0.95rem', borderRadius: 999 }} onClick={() => handleModeSelect('highlights')}>
+                            highlight key parts
+                          </button>
+                        )}
+                      </div>
+                    </AIBubble>
+                  )}
+                </div>
               )}
 
               {/* Q&A thread */}
@@ -1146,11 +1358,32 @@ export default function DocumentSession() {
                         </motion.div>
                       )
                   )}
+                  {/* Loading dots when waiting for first token */}
+                  {qaStreaming && qaMessages[qaMessages.length - 1]?.role === 'user' && (
+                    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-pebble)', flexShrink: 0, marginTop: '0.75rem' }} />
+                      <div style={{
+                        background: 'rgba(200,148,80,0.07)', border: '1px solid rgba(200,148,80,0.12)',
+                        borderRadius: '18px 18px 18px 5px', padding: '0.75rem 1rem',
+                      }}>
+                        <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 16 }}>
+                          {LOADING_DOTS.map((dot, i) => (
+                            <motion.span
+                              key={i}
+                              animate={{ y: [0, -6, 0] }}
+                              transition={{ duration: 1.1, delay: dot.delay, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.5 }}
+                              style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: dot.color, flexShrink: 0 }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
               )}
 
-              {/* Q&A input */}
-              {!isStreaming && (
+              {/* Q&A input — only in questions mode */}
+              {!isStreaming && chosenMode === 'questions' && (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1158,11 +1391,12 @@ export default function DocumentSession() {
                   style={{
                     display: 'flex', gap: '0.65rem', alignItems: 'center',
                     position: 'sticky', bottom: '1.5rem',
+                    marginTop: '1rem',
                   }}
                 >
                   <input
                     type="text"
-                    placeholder="ask anything about this document..."
+                    placeholder="Ask me anything about this document..."
                     value={qaInput}
                     onChange={e => setQaInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleQaSubmit()}
@@ -1171,11 +1405,11 @@ export default function DocumentSession() {
                   />
                   <button
                     className="btn btn-primary"
-                    style={{ padding: '0.65rem 1.25rem', borderRadius: '99px', flexShrink: 0, opacity: !qaInput.trim() || qaStreaming ? 0.45 : 1 }}
+                    style={{ padding: '0.65rem 1.25rem', borderRadius: 999, flexShrink: 0, opacity: !qaInput.trim() || qaStreaming ? 0.45 : 1, background: 'var(--color-pebble)', border: 'none' }}
                     disabled={!qaInput.trim() || qaStreaming}
                     onClick={handleQaSubmit}
                   >
-                    ask
+                    Ask
                   </button>
                 </motion.div>
               )}

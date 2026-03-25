@@ -6,11 +6,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from ai_service import AIService
 from blob_service import BlobService
@@ -163,7 +165,12 @@ def make_app(settings: Settings | None = None) -> FastAPI:
         req: DecomposeRequest,
         user_id: str = Depends(get_user_id),
     ):
-        await safety.screen_user_intent(req.goal)
+        # Long text = document content, not user intent — skip cognitive-pressure regex
+        # to avoid false positives on normal document language ("deadline", "must", "urgent").
+        if len(req.goal) > 2000:
+            await safety.screen_document(req.goal[:10_000])
+        else:
+            await safety.screen_user_intent(req.goal)
         # Context is a conversation transcript (may contain "right now", "panicking", etc.)
         # — only run Azure harmful-content check, not cognitive-pressure regex.
         if req.context:
@@ -672,6 +679,27 @@ def make_app(settings: Settings | None = None) -> FastAPI:
         })
         return response
 
+    # ── Frontend static file serving ─────────────────────────────────────── #
+    # Defined last so all /api/* and /health routes take priority.
+    # Uses a catch-all Route (not a Mount) — app.mount("/") has a known issue
+    # where Starlette fires FastAPI's 404 handler before the Mount can match,
+    # returning JSON {"detail":"Not Found"} instead of serving index.html.
+    # A Route defined last is guaranteed to be checked after all prior routes.
+    _static_dir = Path(__file__).parent / "static"
+    if _static_dir.is_dir():
+        _static_root = _static_dir.resolve()
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def serve_spa(full_path: str) -> FileResponse:
+            candidate = (_static_root / full_path).resolve()
+            try:
+                candidate.relative_to(_static_root)
+            except ValueError:
+                raise HTTPException(status_code=404)
+            if candidate.is_file():
+                return FileResponse(str(candidate))
+            return FileResponse(str(_static_root / "index.html"))
+
     return app
 
 
@@ -679,4 +707,5 @@ app = make_app()
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
