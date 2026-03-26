@@ -60,6 +60,12 @@ const GRANULARITIES = [
   { label: 'big picture',  value: 'broad',  sub: "i'll figure out the rest" },
 ]
 
+const LANGUAGES = [
+  { label: 'English',    value: 'en' },
+  { label: 'Español',    value: 'es' },
+  { label: 'Português',  value: 'pt' },
+]
+
 
 async function persist(updates) {
   // Convert camelCase Redux keys to snake_case backend keys
@@ -70,6 +76,7 @@ async function persist(updates) {
     communicationStyle:  'communication_style',
     readingLevel:        'reading_level',
     granularity:         'granularity',
+    language:            'language',
   }
   const payload = {}
   for (const [k, v] of Object.entries(updates)) {
@@ -119,6 +126,11 @@ export default function Settings() {
   function setGranularity(value) {
     dispatch(prefsActions.setPrefs({ granularity: value }))
     persist({ granularity: value })
+  }
+
+  function setLanguage(value) {
+    dispatch(prefsActions.setPrefs({ language: value }))
+    persist({ language: value })
   }
 
 
@@ -280,6 +292,26 @@ export default function Settings() {
                 >
                   <div style={{ fontSize: '0.88rem', fontWeight: 500, color: 'var(--text-primary)' }}>{g.label}</div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>{g.sub}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Language */}
+        <motion.div variants={staggerItem} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>Language</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label style={{ fontSize: '0.88rem', fontWeight: 500, color: 'var(--text-secondary)' }}>Pebble responds in</label>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {LANGUAGES.map(l => (
+                <button
+                  key={l.value}
+                  onClick={() => setLanguage(l.value)}
+                  className={`btn ${(prefs.language || 'en') === l.value ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ fontSize: '0.83rem' }}
+                >
+                  {l.label}
                 </button>
               ))}
             </div>

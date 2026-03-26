@@ -86,6 +86,7 @@ export default function App() {
           granularity:  p.granularity,
           colorTheme:   p.color_theme,
           pebbleColor:  p.pebble_color || 'sage',
+          language:     p.language || 'en',
         }))
         // Always land on home after a fresh load (unless in focus mode)
         if (location.pathname !== '/focus') {
