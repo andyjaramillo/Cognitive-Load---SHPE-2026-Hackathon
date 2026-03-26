@@ -594,11 +594,11 @@ export default function DocumentSession() {
 
     try {
       const fallbackName = docName || 'document'
-      let tasks     = actionItems
+      let rawTasks  = actionItems
       let groupName = aiGroupName || fallbackName
 
       // If actionItems is empty for some reason, decompose on the fly
-      if (tasks.length === 0) {
+      if (rawTasks.length === 0) {
         const truncated = docText.length > 15000 ? docText.slice(0, 15000) + '\n\n[document continues...]' : docText
         const res = await decompose({
           goal: truncated,
@@ -610,21 +610,40 @@ export default function DocumentSession() {
           setIsSaving(false)
           return
         }
-        tasks     = res.steps
+        rawTasks  = res.steps
         groupName = res.group_name || fallbackName
       }
 
-      // Build a stable group ID so Tasks.jsx can highlight it
-      const newGroupId = Math.random().toString(36).slice(2, 10)
+      // Normalize tasks up-front: generate stable IDs and fill required Redux fields.
+      // This is critical — Tasks.jsx uses setGroups (unconditional replace) on mount,
+      // so we must AWAIT the Cosmos save before navigating or the group will disappear.
+      const genId = () => Math.random().toString(36).slice(2, 10)
+      const tasks = rawTasks.map(t => ({
+        id:               t.id || genId(),
+        task_name:        t.task_name || t.name || 'Task',
+        duration_minutes: t.duration_minutes || 15,
+        motivation_nudge: t.motivation_nudge || '',
+        due_date:         t.due_date || null,
+        due_label:        t.due_label || null,
+        done:             false,
+        paused:           false,
+        timerStarted:     null,
+        nudgeText:        null,
+      }))
 
-      // 1. Dispatch to Redux immediately (synchronous — Tasks.jsx will see it)
+      const newGroupId = genId()
+      const newGroup = {
+        id: newGroupId, name: groupName, source: 'document',
+        groupColor: 'sage', created_at: new Date().toISOString(), tasks,
+      }
+
+      // 1. Dispatch to Redux
       dispatch(tasksActions.addGroup({ id: newGroupId, name: groupName, source: 'document', tasks }))
 
-      // 2. Persist to Cosmos explicitly — don't rely on Tasks.jsx debounce
-      //    Build combined list manually since Redux dispatch is synchronous but
-      //    the selector won't reflect it until next render.
-      const newGroup = { id: newGroupId, name: groupName, source: 'document', created_at: new Date().toISOString(), tasks }
-      saveTasks([...taskGroups, newGroup]).catch(() => {}) // fire-and-forget
+      // 2. Kick off Cosmos save (fire-and-forget).
+      //    Tasks.jsx snapshots Redux at mount and merges any groups missing from
+      //    Cosmos, so the group is safe even if this write hasn't landed yet.
+      saveTasks([...taskGroups, newGroup]).catch(() => {})
 
       // 3. Navigate with highlight state
       navigate('/tasks', { state: { highlightGroupId: newGroupId } })

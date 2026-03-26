@@ -2534,15 +2534,22 @@ export default function Tasks() {
   // Track whether initial load from Cosmos is done (prevent saving empty state on mount)
   const [cosmosSynced, setCosmosSynced] = useState(false)
 
+  // Snapshot the Redux groups at mount time (before Cosmos load overwrites them).
+  // This preserves any groups dispatched just before navigation — e.g. a document
+  // turned into tasks — even if Cosmos hasn't finished writing yet.
+  const mountGroupsRef = useRef(groups)
+
   // Load tasks from Cosmos on mount.
-  // Uses setGroupsIfEmpty so that if the user adds a group WHILE loadTasks is in flight,
-  // their new group is never overwritten by the Cosmos response.
+  // Uses setGroups (unconditional base) but merges any mount-time groups that
+  // Cosmos doesn't know about yet (race-condition protection for DocumentSession).
   useEffect(() => {
     loadTasks()
       .then(data => {
-        if (data.groups && data.groups.length > 0) {
-          dispatch(tasksActions.setGroupsIfEmpty(data.groups))
-        }
+        const cosmosGroups = data.groups || []
+        const cosmosIds = new Set(cosmosGroups.map(g => g.id))
+        // Any group that was in Redux at mount but not yet in Cosmos gets preserved.
+        const orphans = mountGroupsRef.current.filter(g => !cosmosIds.has(g.id))
+        dispatch(tasksActions.setGroups([...cosmosGroups, ...orphans]))
       })
       .catch(() => { /* keep whatever is in Redux */ })
       .finally(() => setCosmosSynced(true))
@@ -2576,12 +2583,14 @@ export default function Tasks() {
   // Accordion
   const [expandedGroupId, setExpandedGroupId] = useState(null)
 
-  // Ensure "My Tasks" permanent group always exists
+  // Ensure "My Tasks" permanent group always exists — deferred until after Cosmos
+  // has loaded so it never races with loadTasks and triggers a spurious empty save.
   useEffect(() => {
+    if (!cosmosSynced) return
     if (!groups.some(g => g.name === 'My Tasks' && g.source === 'manual')) {
       dispatch(tasksActions.addGroup({ name: 'My Tasks', source: 'manual', groupColor: 'sage' }))
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cosmosSynced]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // New group inline form
   const [newGroupOpen,  setNewGroupOpen]  = useState(false)
