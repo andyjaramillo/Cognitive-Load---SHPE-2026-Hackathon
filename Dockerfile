@@ -12,6 +12,7 @@ WORKDIR /app
 COPY frontend/package*.json frontend/
 RUN cd frontend && npm ci
 
+ARG CACHE_BUST=none
 COPY frontend/ frontend/
 RUN cd frontend && npm run build
 
@@ -22,8 +23,8 @@ RUN pip install --no-cache-dir gunicorn
 
 COPY backend/ backend/
 
-# Copy frontend build to backend static directory
-RUN cp -r frontend/dist backend/static
+# Copy frontend build to backend static directory (clear first to avoid stale files)
+RUN rm -rf backend/static && cp -r frontend/dist backend/static
 
 EXPOSE 8000
 
