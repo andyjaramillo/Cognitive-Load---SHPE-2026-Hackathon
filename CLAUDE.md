@@ -203,10 +203,21 @@ All code should be calibrated for solo-builder reality. Efficiency matters, neve
 90. ✅ **Demo Mode in Settings** — New "Demo Mode" card at the bottom of Settings with a "Start Demo" button. Resets `onboardingComplete` and `walkthroughComplete` to `false` in Redux, localStorage, and Cosmos. Shows the full onboarding flow from scratch without touching any tasks, chats, or documents.
 91. ✅ **Onboarding comm style copy** — "Like a deep breath" → "A deep breath", "Like a clear path" → "A clear path". Settings comm style sub also updated: "like a deep breath" → "a deep breath".
 
+### Fixed in Session 18 (March 26 2026)
+92. ✅ **FocusTimer ring fixed** — Removed `overtime ? 0 :` branch from `dashOffset` (caused ring to snap full on overtime trigger then CSS-animate back, creating fill-up glitch). Removed `stroke-dashoffset 1s linear` CSS transition during normal depletion (rAF runs at 60fps — 1s transition caused pebble dot and arc to desync). Added amber (`--color-ai`) color for overtime state. `fillComplete` 0.4s ease kept for intentional green completion animation only.
+93. ✅ **Standalone Focus timer fixed** — `StandaloneFocus` in `FocusMode.jsx`: removed `stroke-dashoffset 1s linear` transition, clamped `setInterval` decrement to `Math.max(0, r - 1)`, added completion detection effect (`status === 'done'` when `remaining === 0`), added green done-state ring + "done." label + "start over" button.
+94. ✅ **USER_ID reverted to 'diego'** — Session 17 changed `api.js` to use `crypto.randomUUID()` per browser, which broke the demo (each browser got unique ID, saw empty Cosmos data). Reverted to `const USER_ID = 'diego'` hardcoded — all browsers share the same demo account as intended.
+95. ✅ **Tasks bottom chat: raw ###ACTIONS stripped** — `onDone` in `handleQaSubmit` now strips `###ACTIONS[...]###` from `accumulated` before storing in message state. Was showing raw marker text because backend streams all tokens then strips at end.
+96. ✅ **Tasks bottom chat: delete_tasks action handled** — Added `delete_tasks` handler in `onActions`: finds tasks by name (case-insensitive), dispatches `tasksActions.deleteTask` for each. Added `TASK DELETE RULE` to `chat_service.py` `_BLOCK_12_BASE` so AI uses `{"type":"delete_tasks","task_names":[...]}` format.
+97. ✅ **Tasks bottom chat: no more proactive overdue warnings** — Removed the `cosmosSynced` effect that auto-injected an overdue notice message into the chat on page load. Chat is now silent until user speaks.
+98. ✅ **My Tasks clear-all button** — Three-dot `···` button appears on My Tasks group header when pending tasks exist. Clicking shows amber confirmation strip ("clear all tasks from my tasks? this can't be undone."). Confirming dispatches new `clearAllTasks(groupId)` reducer. `clearAllTasks` added to `tasksSlice` in `store.js`.
+99. ✅ **Energy check-in overlay solid background** — Check-in overlay `background: 'transparent'` → `background: 'var(--bg-primary)'`. The transparent background caused the focus content behind it to bleed through the overlay, making the check-in unreadable. Now fully opaque, matches theme.
+100. ✅ **Language support (es/pt)** — `language: str = "en"` added to `UserPreferences` in `models.py`. `_fmt_lang_block()` in `chat_service.py` generates a LANGUAGE instruction block for es/pt (empty for en, graceful fallback for unsupported values). Block inserted after `_BLOCK_1` in `_build_system_prompt`. Language selector added to Settings page (pill buttons: English / Español / Português) — same pattern as font/theme selectors. `language` field mapped in `App.jsx` fetchPreferences → Redux. `language: 'en'` added to Redux `initialState`. `persist()` backendMap updated. Deployed on feature/language-support branch, merged to main.
+101. ✅ **Deployed to Azure Container Apps** — `pebble.redbay-c8c366b2.eastus.azurecontainerapps.io` — rebuilt via `az acr build`, updated via `az containerapp update`. All latest code live.
+
 ### Still Open
-1. **P0-5: Chapter 5 seed data** — Needs running backend: `curl -X POST http://localhost:8000/api/tasks -H "Content-Type: application/json" -H "X-User-Id: diego" -d '{"groups":[]}'`
-2. ✅ **Walkthrough built** — `WalkthroughOverlay.jsx` complete, integrated in `Home.jsx`.
-3. ✅ **Fonts in onboarding** — All three fonts (Lexend, Atkinson, OpenDyslexic) already loaded in `index.html`.
+1. **Demo prep** — Pre-load demo content (tasks, documents, chat history) in Cosmos under 'diego'. Use Demo Mode button to reset onboarding for the judges walkthrough.
+2. **Remove debug console.logs** — `api.js` (USER_ID log), `App.jsx` (PREFS FROM COSMOS), `Onboarding.jsx` (ONBOARDING SAVE TRIGGERED + SAVE PREFS FAILED), `Tasks.jsx` (TASKS FROM COSMOS).
 
 ---
 
