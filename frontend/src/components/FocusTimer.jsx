@@ -109,16 +109,23 @@ const FocusTimer = forwardRef(function FocusTimer({ durationMinutes = 25, onOver
   // Cleanup on unmount
   useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
 
+  // When overtime, ring stays empty (CIRCUMFERENCE offset = fully depleted).
+  // Removed the old `overtime ? 0` branch that snapped back to full and triggered
+  // the CSS fill-up animation via the stroke-dashoffset transition.
   const dashOffset = fillComplete
     ? 0
-    : overtime
-      ? 0
-      : CIRCUMFERENCE * (1 - fraction)
+    : CIRCUMFERENCE * (1 - fraction)
 
-  const strokeColor = fillComplete ? 'var(--color-done)' : 'var(--color-pebble)'
+  const strokeColor = fillComplete
+    ? 'var(--color-done)'
+    : overtime
+      ? 'var(--color-ai)'   // soft amber — "running over, no rush"
+      : 'var(--color-pebble)'
   const glowBg = fillComplete
     ? 'radial-gradient(circle, #50946A 0%, transparent 70%)'
-    : 'radial-gradient(circle, var(--color-pebble) 0%, transparent 70%)'
+    : overtime
+      ? 'radial-gradient(circle, var(--color-ai) 0%, transparent 70%)'
+      : 'radial-gradient(circle, var(--color-pebble) 0%, transparent 70%)'
 
   // scale(1,-1) mirrors the SVG vertically, flipping the arc from CCW to CW.
   // dotAngle tracks the clockwise-moving tip of the remaining arc.
@@ -155,7 +162,9 @@ const FocusTimer = forwardRef(function FocusTimer({ durationMinutes = 25, onOver
           transform: 'rotate(-90deg) scale(1, -1)',
           filter: fillComplete
             ? 'drop-shadow(0 0 7px var(--color-done))'
-            : 'drop-shadow(0 0 4px var(--color-pebble))',
+            : overtime
+              ? 'drop-shadow(0 0 4px var(--color-ai))'
+              : 'drop-shadow(0 0 4px var(--color-pebble))',
           transition: 'filter 1s ease',
         }}
       >
@@ -177,9 +186,13 @@ const FocusTimer = forwardRef(function FocusTimer({ durationMinutes = 25, onOver
           fill="none"
           style={{
             stroke: strokeColor,
+            // No stroke-dashoffset transition during normal depletion — the rAF loop
+            // already updates at 60fps so no CSS smoothing needed, and a 1s transition
+            // caused the arc to visually lag behind the pebble dot. The fillComplete
+            // 0.4s ease is kept for the intentional "ring fills green" completion animation.
             transition: fillComplete
               ? 'stroke-dashoffset 0.4s ease, stroke 0.4s ease'
-              : 'stroke-dashoffset 1s linear, stroke 0.6s ease',
+              : 'stroke 0.6s ease',
           }}
         />
         {/* Arc-tip pebble — brand dot riding the leading edge of the arc */}

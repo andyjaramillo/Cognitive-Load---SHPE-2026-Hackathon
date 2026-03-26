@@ -12,3 +12,4 @@ azure-monitor-opentelemetry
 pydantic-settings
 python-multipart
 httpx
+aiohttp

@@ -190,7 +190,7 @@ function StandaloneFocus({ startBreak = false, initialTopic = '' }) {
   const [cM, setCM] = useState(defaultMinutes)
   const [cS, setCS] = useState(0)
 
-  // Timer
+  // Timer — status: 'idle' | 'running' | 'paused' | 'done'
   const [status, setStatus]       = useState('idle')
   const [totalSecs, setTotalSecs] = useState(defaultMinutes * 60)
   const [remaining, setRemaining] = useState(defaultMinutes * 60)
@@ -207,13 +207,18 @@ function StandaloneFocus({ startBreak = false, initialTopic = '' }) {
   const CIRC   = 2 * Math.PI * R
 
   const fraction   = totalSecs > 0 ? Math.max(0, remaining / totalSecs) : 1
-  const dashOffset = CIRC * (1 - fraction)
-  const ringColor  = 'var(--color-pebble)'
+  // 'done': snap to full green ring (no CSS transition since stroke-dashoffset transition removed)
+  const dashOffset = status === 'done' ? 0 : CIRC * (1 - fraction)
+  const ringColor  = status === 'done' ? 'var(--color-done)' : 'var(--color-pebble)'
+  const ringFilter = status === 'done'
+    ? 'drop-shadow(0 0 7px var(--color-done))'
+    : 'drop-shadow(0 0 4px var(--color-pebble))'
 
   const sFrac   = Math.max(0, Math.min(1, fraction))
   const sDotAng = sFrac * 2 * Math.PI
   const sDotX   = SIZE / 2 + R * Math.cos(sDotAng)
   const sDotY   = SIZE / 2 + R * Math.sin(sDotAng)
+  // Hide dot when done (full green ring has no moving tip)
   const showSDot = status === 'running' && sFrac > 0.005
 
   // Countdown label — real H:MM:SS
@@ -223,12 +228,19 @@ function StandaloneFocus({ startBreak = false, initialTopic = '' }) {
   const hasHours     = Math.abs(remaining) >= 3600
   const labelSize    = hasHours ? 24 : 30
 
-  // Interval tick
+  // Interval tick — clamp at 0 so fraction never goes negative
   useEffect(() => {
     if (status !== 'running') { clearInterval(intervalRef.current); return }
-    intervalRef.current = setInterval(() => setRemaining(r => r - 1), 1000)
+    intervalRef.current = setInterval(() => setRemaining(r => Math.max(0, r - 1)), 1000)
     return () => clearInterval(intervalRef.current)
   }, [status])
+
+  // Completion detection — fires when running timer reaches 0
+  useEffect(() => {
+    if (status === 'running' && remaining === 0) {
+      setStatus('done')
+    }
+  }, [remaining, status])
 
   // Rotate quote every 5 min
   useEffect(() => {
@@ -266,14 +278,16 @@ function StandaloneFocus({ startBreak = false, initialTopic = '' }) {
     setDurationMode('preset')
   }
 
-  const canChange = status !== 'running'
+  const canChange = status !== 'running' && status !== 'done'
 
   function handleStart()  {
-    if (status === 'idle') { setTotalSecs(totalSecs); setRemaining(totalSecs) }
+    if (status === 'idle' || status === 'done') { setRemaining(totalSecs) }
     setStatus('running')
   }
   function handlePause()  { setStatus('paused') }
   function handleResume() { setStatus('running') }
+  // Stop/reset: no CSS dashOffset transition means this instantly snaps the ring
+  // back to full — no unwanted fill-up animation.
   function handleStop()   { clearInterval(intervalRef.current); setStatus('idle'); setRemaining(totalSecs) }
   function handleReset()  { clearInterval(intervalRef.current); setStatus('idle'); setRemaining(totalSecs) }
 
@@ -504,11 +518,14 @@ function StandaloneFocus({ startBreak = false, initialTopic = '' }) {
             style={{
               position: 'absolute', top: -28, left: -28,
               width: SIZE + 56, height: SIZE + 56, borderRadius: '50%',
-              background: 'radial-gradient(circle, var(--color-pebble) 0%, transparent 70%)',
+              background: status === 'done'
+                ? 'radial-gradient(circle, #50946A 0%, transparent 70%)'
+                : 'radial-gradient(circle, var(--color-pebble) 0%, transparent 70%)',
               pointerEvents: 'none',
+              transition: 'background 0.5s ease',
             }}
           />
-          <svg width={SIZE} height={SIZE} style={{ transform: 'rotate(-90deg) scale(1, -1)', filter: 'drop-shadow(0 0 4px var(--color-pebble))', transition: 'filter 1s ease' }}>
+          <svg width={SIZE} height={SIZE} style={{ transform: 'rotate(-90deg) scale(1, -1)', filter: ringFilter, transition: 'filter 1s ease' }}>
             <circle cx={SIZE/2} cy={SIZE/2} r={R} stroke="var(--color-pebble)" strokeOpacity={0.18} strokeWidth={STROKE} fill="none" />
             <circle
               cx={SIZE/2} cy={SIZE/2} r={R}
@@ -518,7 +535,11 @@ function StandaloneFocus({ startBreak = false, initialTopic = '' }) {
               strokeDasharray={CIRC}
               strokeDashoffset={dashOffset}
               fill="none"
-              style={{ transition: 'stroke-dashoffset 1s linear, stroke 2s ease' }}
+              style={{
+                transition: status === 'done'
+                  ? 'stroke-dashoffset 0.4s ease, stroke 0.5s ease'
+                  : 'stroke 2s ease',
+              }}
             />
             {showSDot && (
               <>
@@ -530,11 +551,15 @@ function StandaloneFocus({ startBreak = false, initialTopic = '' }) {
           </svg>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{
-              fontSize: labelSize, fontWeight: 500,
-              color: 'var(--text-primary)', letterSpacing: '-1px',
-              fontFamily: 'var(--font-display)', fontVariantNumeric: 'tabular-nums',
+              fontSize: status === 'done' ? 22 : labelSize,
+              fontWeight: 400,
+              color: status === 'done' ? 'var(--color-done)' : 'var(--text-primary)',
+              letterSpacing: status === 'done' ? '-0.5px' : '-1px',
+              fontFamily: 'var(--font-display)',
+              fontVariantNumeric: 'tabular-nums',
+              transition: 'color 0.5s ease',
             }}>
-              {countdownStr}
+              {status === 'done' ? 'done.' : countdownStr}
             </span>
           </div>
         </motion.div>
@@ -545,9 +570,10 @@ function StandaloneFocus({ startBreak = false, initialTopic = '' }) {
           variants={{ initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] } } }}
           style={{ display: 'flex', gap: 10, marginTop: 30 }}
         >
-          {status === 'idle'    && <Btn color="active" onClick={handleStart}>Start</Btn>}
-          {status === 'running' && <><Btn color="paused" onClick={handlePause} rotation={rotation}>Pause</Btn><Btn color="reset" onClick={handleStop} rotation={rotation}>Reset</Btn></>}
-          {status === 'paused'  && <><Btn color="active" onClick={handleResume}>Resume</Btn><Btn color="reset" onClick={handleStop} rotation={rotation}>Reset</Btn></>}
+          {status === 'idle'    && <Btn color="active" onClick={handleStart}>start</Btn>}
+          {status === 'running' && <><Btn color="paused" onClick={handlePause} rotation={rotation}>pause</Btn><Btn color="reset" onClick={handleStop} rotation={rotation}>reset</Btn></>}
+          {status === 'paused'  && <><Btn color="active" onClick={handleResume}>resume</Btn><Btn color="reset" onClick={handleStop} rotation={rotation}>reset</Btn></>}
+          {status === 'done'    && <Btn color="active" onClick={handleReset}>start over</Btn>}
         </motion.div>
 
         {/* ── Quote ── */}

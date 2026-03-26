@@ -208,6 +208,12 @@ const tasksSlice = createSlice({
       group.tasks.push(task)
     },
 
+    clearAllTasks(state, action) {
+      // action.payload = groupId — removes all tasks from the group
+      const group = state.groups.find(g => g.id === action.payload)
+      if (group) group.tasks = []
+    },
+
     clearCompletedTasks(state, action) {
       // action.payload = groupId (string) OR null/undefined to clear all groups
       const groupId = action.payload
