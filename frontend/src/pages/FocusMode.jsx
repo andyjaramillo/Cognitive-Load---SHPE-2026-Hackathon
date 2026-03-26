@@ -1449,21 +1449,10 @@ export default function FocusMode() {
                     position: 'fixed', inset: 0,
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center',
-                    background: 'transparent',
+                    background: 'var(--bg-primary)',
                     zIndex: 50,
                   }}
                 >
-                  {/* Ghost ring behind check-in — per spec: focusing content fades to 0.12 */}
-                  <div style={{
-                    position: 'absolute', inset: 0, opacity: 0.12,
-                    pointerEvents: 'none',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <div style={{
-                      width: 170, height: 170, borderRadius: '50%',
-                      border: '3px solid var(--color-active)',
-                    }} />
-                  </div>
 
                   <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
                     <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 400, color: 'var(--text-primary)', margin: 0 }}>
