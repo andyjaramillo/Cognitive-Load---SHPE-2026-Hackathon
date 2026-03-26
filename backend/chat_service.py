@@ -75,6 +75,28 @@ _HARD_BLOCK = {
     ),
 }
 
+# ── Language block ────────────────────────────────────────────────────────── #
+
+_LANG_MAP = {
+    "es": "Spanish (español)",
+    "pt": "Portuguese (português)",
+}
+
+def _fmt_lang_block(language: str) -> str:
+    lang_name = _LANG_MAP.get(language or "", "")
+    if not lang_name:
+        return ""
+    return (
+        f"LANGUAGE: You MUST respond entirely in {lang_name}. "
+        f"Every word — greetings, task breakdowns, nudges, document summaries, "
+        f"follow-up suggestions, motivational quotes, error messages — must be in {lang_name}. "
+        f"Never mix languages. Never translate the user's name. "
+        f"If the user writes in English, still respond in {lang_name}. "
+        f"Maintain Pebble's calm, warm personality in {lang_name}. "
+        f"Use informal tone — tú in Spanish, você in Portuguese."
+    )
+
+
 # ── System prompt blocks ──────────────────────────────────────────────────── #
 
 _BLOCK_1 = """You are Pebble, an AI cognitive support companion for people who find things overwhelming.
@@ -502,6 +524,11 @@ class ChatService:
         now: datetime,
     ) -> str:
         parts = [_BLOCK_1]
+
+        # Language block: governs ALL subsequent blocks — only for non-English users
+        lang_block = _fmt_lang_block(prefs.language)
+        if lang_block:
+            parts.append(lang_block)
 
         # Block 2: User preferences
         parts.append(_fmt_block_2(prefs))

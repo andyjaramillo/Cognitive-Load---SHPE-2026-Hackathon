@@ -21,6 +21,7 @@ class UserPreferences(BaseModel):
     onboarding_complete: bool = False
     walkthrough_complete: bool = False
     pebble_color: Literal["sage", "sky", "lilac", "amber"] = "sage"
+    language: str = "en"  # Supported: "en", "es", "pt" — others fall back to English silently
 
 
 # ── Task Decomposer ──────────────────────────────────────────────────────── #
