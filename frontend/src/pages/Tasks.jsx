@@ -1978,19 +1978,36 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
   const [input,      setInput]      = useState('')
   const [streaming,  setStreaming]  = useState(false)
   const [streamText, setStreamText] = useState('')
-  const [building,   setBuilding]   = useState(false)
-  const [preview,    setPreview]    = useState(null)   // { groupName, steps }
-  const [editSteps,  setEditSteps]  = useState(null)   // editable copy with stable _id fields
-  const [editMode,   setEditMode]   = useState(false)  // true = keep cards + show input
-  const [editingName, setEditingName] = useState(false) // true = group name input focused
-  const [planError,    setPlanError]    = useState(null)
-  const [userReplied,  setUserReplied]  = useState(false)  // true after first user message sent
+  const [building,         setBuilding]         = useState(false)
+  const [preview,          setPreview]          = useState(null)   // { groupName, steps }
+  const [editSteps,        setEditSteps]        = useState(null)   // editable copy with stable _id fields
+  const [editMode,         setEditMode]         = useState(false)  // true = keep cards + show input
+  const [editingName,      setEditingName]      = useState(false)  // true = group name input focused
+  const [planError,        setPlanError]        = useState(null)
+  const [userReplied,      setUserReplied]      = useState(false)  // true after first user message sent
+  const [addingPreviewTask, setAddingPreviewTask] = useState(false)
+  const [newPreviewTaskName, setNewPreviewTaskName] = useState('')
   const bottomRef          = useRef(null)
   const inputRef           = useRef(null)
   const initialSent        = useRef(false)
   const historyRef         = useRef([])  // parallel to messages, but only role+content for API
   const buildTriggeredRef  = useRef(false)  // prevents double-firing triggerBuildPlan
   const genId              = () => Math.random().toString(36).slice(2, 10)
+
+  function handleAddPreviewTask() {
+    const name = newPreviewTaskName.trim()
+    if (!name) return
+    setEditSteps(prev => [...(prev || []), {
+      _id: Math.random().toString(36).slice(2, 8),
+      task_name: name,
+      duration_minutes: 15,
+      motivation_nudge: '',
+      due_date: null,
+      due_label: null,
+    }])
+    setNewPreviewTaskName('')
+    setAddingPreviewTask(false)
+  }
 
   async function triggerBuildPlan() {
     if (buildTriggeredRef.current) return  // prevent double-trigger
@@ -2012,7 +2029,15 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
       if (steps.length === 0) { setPlanError("couldn't break that down. want to try again?"); setBuilding(false); return }
       const groupName = toTitleCase(res.group_name || (goal.length > 36 ? goal.slice(0, 34) + '…' : goal))
       setPreview({ groupName, steps })
-      setEditSteps(steps.map(s => ({ ...s, _id: Math.random().toString(36).slice(2, 8) })))  // editable copy with stable drag IDs
+      setEditSteps(steps.map(s => ({ ...s, _id: Math.random().toString(36).slice(2, 8) })))
+      setEditMode(false)          // hide chat input if user was in edit mode
+      setAddingPreviewTask(false) // close inline add-task input if open
+      // After showing the plan, invite the user to add or adjust
+      setMessages(prev => [...prev, {
+        id: genId(), role: 'assistant',
+        content: "here's your plan.\n\nwant to add anything or reorder before confirming?",
+      }])
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 80)
     } catch {
       setPlanError('something went quiet. try again?')
     }
@@ -2332,6 +2357,51 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
                 ))}
               </Reorder.Group>
 
+              {/* Inline add-task row */}
+              {addingPreviewTask ? (
+                <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem' }}>
+                  <input
+                    autoFocus
+                    value={newPreviewTaskName}
+                    onChange={e => setNewPreviewTaskName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleAddPreviewTask()
+                      if (e.key === 'Escape') { setAddingPreviewTask(false); setNewPreviewTaskName('') }
+                    }}
+                    placeholder="task name..."
+                    style={{
+                      flex: 1, fontSize: '0.82rem', borderRadius: 8,
+                      padding: '0.4rem 0.65rem',
+                      border: '1px solid var(--color-active)',
+                      background: 'var(--bg-primary)', color: 'var(--text-primary)',
+                      outline: 'none', fontFamily: 'inherit',
+                    }}
+                  />
+                  <button
+                    className="btn btn-primary"
+                    style={{ fontSize: '0.78rem', padding: '0.4rem 0.75rem', flexShrink: 0 }}
+                    onClick={handleAddPreviewTask}
+                  >
+                    add
+                  </button>
+                </div>
+              ) : (
+                <button
+                  style={{
+                    marginTop: '0.5rem', background: 'none',
+                    border: '1px dashed var(--border)', borderRadius: 10,
+                    width: '100%', padding: '0.5rem',
+                    cursor: 'pointer', fontSize: '0.78rem', color: 'var(--text-muted)',
+                    transition: 'border-color 0.18s ease, color 0.18s ease', fontFamily: 'inherit',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-active)'; e.currentTarget.style.color = 'var(--color-active)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                  onClick={() => setAddingPreviewTask(true)}
+                >
+                  + add a task
+                </button>
+              )}
+
               {/* Actions */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginTop: '0.85rem' }}>
                 <button
@@ -2355,7 +2425,7 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
                     onMouseLeave={e => { e.currentTarget.style.opacity = '0.8' }}
                     onClick={() => { setEditMode(true); setTimeout(() => inputRef.current?.focus(), 50) }}
                   >
-                    edit these steps myself
+                    something not right? chat with pebble
                   </button>
                 )}
               </div>
