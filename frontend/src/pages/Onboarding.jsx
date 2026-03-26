@@ -245,8 +245,7 @@ export default function Onboarding() {
         onboarding_complete: true,
         walkthrough_complete: false,
       }
-      try { await savePreferences(prefs) } catch (err) { console.error('SAVE PREFS FAILED:', err) }
-      console.log('ONBOARDING SAVE TRIGGERED')
+      try { await savePreferences(prefs) } catch { /* best effort */ }
       try { localStorage.setItem('pebble_onboarding_complete', 'true') } catch {}
       dispatch(prefsActions.setPrefs({
         name,

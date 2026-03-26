@@ -70,12 +70,16 @@ class CosmosRepo:
     async def upsert_preferences(self, user_id: str, prefs: dict) -> dict:
         db = self._client.get_database_client(self._db_name)
         container = db.get_container_client(self._pref_container_name)
-        doc = {
-            "id": user_id,
-            "user_id": user_id,
-            "updated_at": _utcnow(),
-            **prefs,
-        }
+        # Read-merge-write: overlay only the supplied fields so partial updates
+        # (e.g. {walkthrough_complete: true}) never wipe unrelated saved data.
+        try:
+            existing = await container.read_item(item=user_id, partition_key=user_id)
+            safe = {k: v for k, v in existing.items()
+                    if not k.startswith("_") and k not in ("id", "user_id", "updated_at")}
+        except exceptions.CosmosResourceNotFoundError:
+            safe = {}
+        safe.update(prefs)
+        doc = {"id": user_id, "user_id": user_id, "updated_at": _utcnow(), **safe}
         result = await container.upsert_item(doc)
         return result
 

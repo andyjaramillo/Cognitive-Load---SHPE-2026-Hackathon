@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { tasksActions } from '../store'
-import { chatStream, suggestTask, decompose, saveTasks, loadConversation, loadDocuments, generateSessionTitle } from '../utils/api'
+import { chatStream, suggestTask, decompose, saveTasks, loadConversation, saveConversation, loadDocuments, generateSessionTitle } from '../utils/api'
 import { splitIntoBubbles, renderMarkdown } from '../utils/bubbles'
 import { PriorityPicker } from '../components/PriorityChip'
 
@@ -574,7 +574,7 @@ function TaskChoiceCard({ task, onAddToTasks, onFocusNow, onDismiss }) {
 // Shown when Pebble detects a multi-step goal in the conversation.
 // Self-contained: manages idle → loading → preview flow internally.
 
-function GroupSuggestionBubble({ conversationContext, onConfirm, onDismiss }) {
+function GroupSuggestionBubble({ conversationContext, onConfirm, onFocusNow, onDismiss }) {
   const [phase, setPhase]       = useState('idle')   // idle | loading | preview
   const [tasks, setTasks]       = useState([])
   const [groupName, setGroupName] = useState('')
@@ -696,9 +696,15 @@ function GroupSuggestionBubble({ conversationContext, onConfirm, onDismiss }) {
                 </div>
               ))}
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <button style={btnPrimary} onClick={() => onConfirm(tasks, groupName)}>
                 add to my tasks
+              </button>
+              <button
+                style={{ ...btnPrimary, background: 'var(--color-done)', opacity: 0.92 }}
+                onClick={() => onFocusNow?.(tasks, groupName)}
+              >
+                start focus
               </button>
               <button style={btnGhost} onClick={onDismiss}>not now</button>
             </div>
@@ -1055,6 +1061,16 @@ export default function Home() {
     } catch {}
   }, [messages])
 
+  // Save to Cosmos when streaming ends — fires on the true→false transition only,
+  // never on mount. Belt-and-suspenders: /api/chat also saves server-side.
+  const wasStreamingRef = useRef(false)
+  useEffect(() => {
+    if (isStreaming) { wasStreamingRef.current = true; return }
+    if (!wasStreamingRef.current || messages.length === 0) return
+    wasStreamingRef.current = false
+    saveConversation(messages).catch(() => {})
+  }, [isStreaming, messages])
+
   // On mount: load real conversation history from Cosmos, then always fetch
   // a live greeting that streams into heroText — never into messages.
   // This way: returning users get their full history in chat, new users start fresh,
@@ -1298,6 +1314,22 @@ export default function Home() {
     ])
     setTimeout(() => inputRef.current?.focus(), 80)
   }, [])
+
+  // Group suggestion focus — creates tasks then navigates directly to /focus on first task
+  const handleFocusTaskGroup = useCallback((tasks, groupName, msgId) => {
+    const newGroupId = genId()
+    const firstTaskId = tasks[0] ? (tasks[0].id || genId()) : genId()
+    const tasksWithIds = tasks.map((t, i) => ({ ...t, id: i === 0 ? firstTaskId : (t.id || genId()) }))
+    setMessages(prev => prev.filter(m => m.id !== msgId))
+    dispatch(tasksActions.addGroup({ id: newGroupId, name: groupName, source: 'ai', tasks: tasksWithIds }))
+    dispatch(tasksActions.setFocusGroup(newGroupId))
+    dispatch(tasksActions.setFocusTask(firstTaskId))
+    try {
+      const withNew = [...taskGroups, { id: newGroupId, name: groupName, source: 'ai', tasks: tasksWithIds }]
+      saveTasks(withNew).catch(() => {})
+    } catch {}
+    navigate('/focus')
+  }, [dispatch, taskGroups, navigate])
 
   // Group suggestion confirm — dispatches addGroup with all tasks, navigates to /tasks
   const handleConfirmTaskGroup = useCallback((tasks, groupName, msgId) => {
@@ -1806,6 +1838,7 @@ export default function Home() {
                     <GroupSuggestionBubble
                       conversationContext={msg.conversationContext}
                       onConfirm={(tasks, groupName) => handleConfirmTaskGroup(tasks, groupName, msg.id)}
+                      onFocusNow={(tasks, groupName) => handleFocusTaskGroup(tasks, groupName, msg.id)}
                       onDismiss={() => setMessages(prev => prev.filter(m => m.id !== msg.id))}
                     />
                   ) : msg.role === 'assistant' ? (

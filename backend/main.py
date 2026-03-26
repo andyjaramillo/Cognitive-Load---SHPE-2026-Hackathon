@@ -155,7 +155,7 @@ def make_app(settings: Settings | None = None) -> FastAPI:
         prefs: UserPreferences,
         user_id: str = Depends(get_user_id),
     ):
-        await repo.upsert_preferences(user_id, prefs.model_dump())
+        await repo.upsert_preferences(user_id, prefs.model_dump(exclude_unset=True))
         return prefs
 
     # ── Task Decomposer ──────────────────────────────────────────────────── #
@@ -602,6 +602,17 @@ def make_app(settings: Settings | None = None) -> FastAPI:
         """
         messages = await repo.get_conversation(user_id)
         return {"messages": messages}
+
+    @app.post("/api/conversations", tags=["conversations"])
+    async def save_conversation(body: dict, user_id: str = Depends(get_user_id)):
+        """Frontend-driven save of the full conversation message list."""
+        clean = [
+            {"role": m["role"], "content": m.get("content", "")}
+            for m in body.get("messages", [])
+            if m.get("role") in ("user", "assistant") and m.get("content")
+        ]
+        await repo.upsert_conversation(user_id, clean[-40:])
+        return {"saved": len(clean)}
 
     @app.delete("/api/conversations", tags=["conversations"])
     async def clear_conversation(user_id: str = Depends(get_user_id)):

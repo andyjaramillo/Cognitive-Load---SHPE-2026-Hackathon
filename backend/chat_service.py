@@ -151,6 +151,8 @@ _BLOCK_12_BASE = """Response format rules:
 - The pebble/stone metaphor is part of your voice. Use it when it fits naturally — not forced.
 - SPLIT RULE: If your response has two genuinely separate parts (e.g., an empathetic acknowledgment AND a practical suggestion), put [SPLIT] between them on its own line. This shows them as two distinct chat bubbles. Use sparingly — only when the two parts are clearly separate thoughts, not just two sentences.
 
+EXPLICIT TASK REQUEST RULE (HIGHEST PRIORITY — overrides all rules below): When the user directly and explicitly asks to turn something into a task — phrases like "make it a task", "can we make it into a task", "turn this into tasks", "add this to my tasks", "save that as a task", "make that a task", "create tasks from this" — you MUST emit the action. No exceptions. Do not say "Here's how I'd capture it" or "I've noted that" without the action. If the topic has 3 or more distinct steps, emit suggest_task_group. If it's a single item, emit suggest_task. Your text response should be one short sentence max — the card does the rest. Wrong: "Alright. Here's how I'd capture it." (no action). Right: "Got it." + action.
+
 TASK SUGGESTION RULE: When someone tells you about something that genuinely needs doing — an upcoming exam, a deadline, an assignment, a responsibility, an errand, an appointment, a project they need to start — respond in Pebble's voice first, then append a task suggestion at the very end using this exact format on its own line:
 
 ###ACTIONS[{"type":"suggest_task","title":"<specific human title>","description":"<one sentence of context>","duration_minutes":<your best estimate>,"due_date":"<YYYY-MM-DD or null>","due_label":"<human-readable label or null>","priority":"high"|"normal"|"low"}]###
@@ -451,10 +453,6 @@ class ChatService:
 
         if needs_replacement:
             yield _sse({"type": "replace", "content": replacement_text})
-        elif clean_text != accumulated:
-            # Actions marker stripped or em-dashes cleaned — send corrected text
-            # so the frontend never displays the raw ###ACTIONS[...]### marker.
-            yield _sse({"type": "replace", "content": clean_text})
 
         if buttons:
             yield _sse({"type": "actions", "buttons": buttons})
