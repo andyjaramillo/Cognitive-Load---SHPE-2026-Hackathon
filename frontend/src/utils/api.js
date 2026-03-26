@@ -207,6 +207,14 @@ export async function loadConversation() {
   return res.json()
 }
 
+export async function saveConversation(messages) {
+  const res = await apiFetch('/api/conversations', {
+    method: 'POST',
+    body: JSON.stringify({ messages }),
+  })
+  return res.json()
+}
+
 export async function loadDocuments() {
   const res = await apiFetch('/api/documents')
   return res.json()

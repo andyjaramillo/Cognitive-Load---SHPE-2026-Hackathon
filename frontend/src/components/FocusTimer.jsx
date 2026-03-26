@@ -109,25 +109,21 @@ const FocusTimer = forwardRef(function FocusTimer({ durationMinutes = 25, onOver
   // Cleanup on unmount
   useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
 
-  // Negative offset shifts the dash pattern backward, so the gap grows CLOCKWISE from 12 o'clock.
-  // Positive offset (old) caused the gap to grow counterclockwise (wrong direction).
   const dashOffset = fillComplete
     ? 0
     : overtime
       ? 0
-      : -(CIRCUMFERENCE * (1 - fraction))
+      : CIRCUMFERENCE * (1 - fraction)
 
-  // Ring uses user's personal pebble color; green only on fill-complete animation
   const strokeColor = fillComplete ? 'var(--color-done)' : 'var(--color-pebble)'
   const glowBg = fillComplete
     ? 'radial-gradient(circle, #50946A 0%, transparent 70%)'
     : 'radial-gradient(circle, var(--color-pebble) 0%, transparent 70%)'
 
-  // Arc-tip dot — rides the leading (clockwise) edge of the shrinking arc.
-  // SVG is rotated -90deg so angle=0 maps to 12 o'clock on screen.
-  // As elapsed time grows (fraction shrinks), (1-fraction) increases → dot sweeps clockwise.
+  // scale(1,-1) mirrors the SVG vertically, flipping the arc from CCW to CW.
+  // dotAngle tracks the clockwise-moving tip of the remaining arc.
   const safeFrac = Math.max(0, Math.min(1, fraction))
-  const dotAngle = (1 - safeFrac) * 2 * Math.PI
+  const dotAngle = safeFrac * 2 * Math.PI
   const dotX     = SIZE / 2 + R * Math.cos(dotAngle)
   const dotY     = SIZE / 2 + R * Math.sin(dotAngle)
   const showDot  = !fillComplete && !overtime && safeFrac > 0.005
@@ -156,7 +152,7 @@ const FocusTimer = forwardRef(function FocusTimer({ durationMinutes = 25, onOver
         width={SIZE}
         height={SIZE}
         style={{
-          transform: 'rotate(-90deg)',
+          transform: 'rotate(-90deg) scale(1, -1)',
           filter: fillComplete
             ? 'drop-shadow(0 0 7px var(--color-done))'
             : 'drop-shadow(0 0 4px var(--color-pebble))',

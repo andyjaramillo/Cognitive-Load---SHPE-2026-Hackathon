@@ -210,7 +210,6 @@ function StandaloneFocus({ startBreak = false, initialTopic = '' }) {
   const dashOffset = CIRC * (1 - fraction)
   const ringColor  = 'var(--color-pebble)'
 
-  // Arc-tip pebble dot
   const sFrac   = Math.max(0, Math.min(1, fraction))
   const sDotAng = sFrac * 2 * Math.PI
   const sDotX   = SIZE / 2 + R * Math.cos(sDotAng)
@@ -509,8 +508,8 @@ function StandaloneFocus({ startBreak = false, initialTopic = '' }) {
               pointerEvents: 'none',
             }}
           />
-          <svg width={SIZE} height={SIZE} style={{ transform: 'rotate(-90deg)', filter: 'drop-shadow(0 0 4px var(--color-pebble))', transition: 'filter 1s ease' }}>
-            <circle cx={SIZE/2} cy={SIZE/2} r={R} stroke="var(--color-inactive)" strokeOpacity={0.08} strokeWidth={STROKE} fill="none" />
+          <svg width={SIZE} height={SIZE} style={{ transform: 'rotate(-90deg) scale(1, -1)', filter: 'drop-shadow(0 0 4px var(--color-pebble))', transition: 'filter 1s ease' }}>
+            <circle cx={SIZE/2} cy={SIZE/2} r={R} stroke="var(--color-pebble)" strokeOpacity={0.18} strokeWidth={STROKE} fill="none" />
             <circle
               cx={SIZE/2} cy={SIZE/2} r={R}
               stroke={ringColor}
