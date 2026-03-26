@@ -934,6 +934,7 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive, 
   const navigate = useNavigate()
 
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmClearAll, setConfirmClearAll] = useState(false)
   const [nameEdit, setNameEdit]   = useState(false)
   const [nameVal,  setNameVal]    = useState(group.name)
   const nameInputRef              = useRef(null)
@@ -1177,6 +1178,27 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive, 
           </button>
         )}
 
+        {/* Clear all button — only for My Tasks (permanent group) */}
+        {isPermanent && group.tasks.filter(t => !t.done).length > 0 && (
+          <button
+            onClick={e => { e.stopPropagation(); setConfirmClearAll(true) }}
+            aria-label="Clear all tasks"
+            title="clear all"
+            style={{
+              background: 'none', border: 'none', borderLeft: '1px solid var(--border)',
+              cursor: 'pointer', padding: '0 0.85rem', color: 'var(--text-muted)',
+              flexShrink: 0, transition: 'background 0.18s ease, color 0.18s ease',
+              borderRadius: '0 11px 0 0', display: 'flex', alignItems: 'center', gap: 3,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(200,148,80,0.08)'; e.currentTarget.style.color = 'var(--color-ai)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)' }}
+          >
+            <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }} />
+            <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }} />
+            <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }} />
+          </button>
+        )}
+
         {/* Trash button — hidden for My Tasks */}
         {!isPermanent && <button
           onClick={e => { e.stopPropagation(); setConfirmDelete(true) }}
@@ -1232,6 +1254,56 @@ function TaskGroupCard({ group, isOpen, onToggle, timeFilter, timeFilterActive, 
                 </button>
                 <button
                   onClick={() => setConfirmDelete(false)}
+                  style={{
+                    fontSize: '0.78rem', padding: '4px 12px', borderRadius: 7,
+                    border: '1px solid var(--border)', background: 'transparent',
+                    color: 'var(--text-muted)', cursor: 'pointer',
+                    transition: 'background 0.15s ease',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-soft)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  cancel
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Clear-all confirmation strip — My Tasks only */}
+      <AnimatePresence>
+        {confirmClearAll && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+            style={{ overflow: 'hidden', borderTop: '1px solid rgba(200,148,80,0.2)' }}
+          >
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '0.65rem 1.1rem', background: 'rgba(200,148,80,0.06)', gap: '0.75rem',
+            }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                clear all tasks from <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>my tasks</strong>? this can't be undone.
+              </span>
+              <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                <button
+                  onClick={() => { dispatch(tasksActions.clearAllTasks(group.id)); setConfirmClearAll(false) }}
+                  style={{
+                    fontSize: '0.78rem', padding: '4px 14px', borderRadius: 7,
+                    border: '1px solid var(--color-ai)', background: 'transparent',
+                    color: 'var(--color-ai)', cursor: 'pointer', fontWeight: 500,
+                    transition: 'background 0.15s ease',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(200,148,80,0.12)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  yes, clear all
+                </button>
+                <button
+                  onClick={() => setConfirmClearAll(false)}
                   style={{
                     fontSize: '0.78rem', padding: '4px 12px', borderRadius: 7,
                     border: '1px solid var(--border)', background: 'transparent',
@@ -2736,43 +2808,6 @@ export default function Tasks() {
   const qaChatRef   = useRef(null)
   const genQaId     = () => Math.random().toString(36).slice(2, 10)
 
-  // One-shot overdue notice — fires once after Cosmos load, never again in this session
-  const overdueNoticedRef = useRef(false)
-  useEffect(() => {
-    if (!cosmosSynced || overdueNoticedRef.current) return
-    overdueNoticedRef.current = true
-
-    const now = new Date()
-    const todayMs = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
-
-    const overdueGroups = groups.filter(g =>
-      g.tasks.some(t => {
-        if (t.done || t.paused || !t.due_date) return false
-        const d = new Date(t.due_date)
-        return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) < todayMs
-      })
-    )
-    if (overdueGroups.length === 0) return
-
-    let msg
-    if (overdueGroups.length === 1) {
-      const g = overdueGroups[0]
-      const earliest = g.tasks
-        .filter(t => !t.done && !t.paused && t.due_date)
-        .map(t => new Date(t.due_date))
-        .filter(d => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) < todayMs)
-        .sort((a, b) => a - b)[0]
-      const daysAgo = Math.round((todayMs - Date.UTC(earliest.getFullYear(), earliest.getMonth(), earliest.getDate())) / 86_400_000)
-      const timeStr = daysAgo === 1 ? 'yesterday' : daysAgo <= 6 ? 'a few days ago' : `on ${earliest.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-      msg = `Your "${g.name}" was due ${timeStr}. No pressure — just a heads up. Want to reschedule it or keep chipping away?`
-    } else {
-      const names = overdueGroups.slice(0, 3).map(g => `"${g.name}"`).join(', ')
-      const extra = overdueGroups.length > 3 ? ` and ${overdueGroups.length - 3} more` : ''
-      msg = `A few things are past their due dates — ${names}${extra}. No rush on any of it. Want to look at rescheduling, or just keep going at your own pace?`
-    }
-
-    setQaMessages([{ id: genQaId(), role: 'assistant', content: msg }])
-  }, [cosmosSynced]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-expand document-sourced group on first mount
   useEffect(() => {
@@ -2915,6 +2950,17 @@ export default function Tasks() {
               pendingButtons = [...pendingButtons, btn]
               continue
             }
+            if (btn.type === 'delete_tasks') {
+              const names = new Set((btn.task_names || []).map(n => n.toLowerCase()))
+              for (const group of groups) {
+                for (const task of group.tasks) {
+                  if (names.has(task.task_name.toLowerCase())) {
+                    dispatch(tasksActions.deleteTask({ groupId: group.id, taskId: task.id }))
+                  }
+                }
+              }
+              continue
+            }
             if (btn.type === 'set_due_date') {
               const group = groups.find(g =>
                 btn.group_name ? g.name === btn.group_name : g.tasks.some(t => t.task_name === btn.task_name)
@@ -2957,7 +3003,8 @@ export default function Tasks() {
           }
         },
         onDone: () => {
-          const content = finalContent ?? accumulated
+          const raw = finalContent ?? accumulated
+          const content = raw.replace(/###ACTIONS\[[\s\S]*?###/g, '').replace(/###ACTIONS[\s\S]*$/, '').trim()
           if (content) setQaMessages(prev => [...prev, { id: genQaId(), role: 'assistant', content, buttons: pendingButtons }])
           setQaStream('')
           setQaStreaming(false)
