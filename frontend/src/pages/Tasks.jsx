@@ -2024,9 +2024,9 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
         reading_level: prefs.readingLevel  || 'standard',
         context:       context             || undefined,
       })
-      if (res.flagged) { setPlanError("something went quiet. want to try again?"); setBuilding(false); return }
+      if (res.flagged) { buildTriggeredRef.current = false; setPlanError("something went quiet. want to try again?"); setBuilding(false); return }
       const steps = res.steps || []
-      if (steps.length === 0) { setPlanError("couldn't break that down. want to try again?"); setBuilding(false); return }
+      if (steps.length === 0) { buildTriggeredRef.current = false; setPlanError("couldn't break that down. want to try again?"); setBuilding(false); return }
       const groupName = toTitleCase(res.group_name || (goal.length > 36 ? goal.slice(0, 34) + '…' : goal))
       setPreview({ groupName, steps })
       setEditSteps(steps.map(s => ({ ...s, _id: Math.random().toString(36).slice(2, 8) })))
@@ -2039,6 +2039,7 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
       }])
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 80)
     } catch {
+      buildTriggeredRef.current = false  // allow retry
       setPlanError('something went quiet. try again?')
     }
     setBuilding(false)
@@ -2075,7 +2076,9 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
         onActions: buttons => {
           for (const btn of (buttons || [])) {
             if (btn.type === 'build_plan') {
-              setTimeout(() => triggerBuildPlan(), 150)  // ref prevents double-trigger
+              // Only build if user has actually replied — prevents firing on the hidden seed message
+              const hasUserReply = historyRef.current.some(m => m.role === 'user')
+              if (hasUserReply) setTimeout(() => triggerBuildPlan(), 150)
             }
           }
         },

@@ -27,7 +27,10 @@ SPECIFICITY IS THE WHOLE POINT. Generic tasks ("review notes", "study chapter") 
 to someone with ADHD — they cause decision paralysis, not action. Every task name must be
 concrete enough that the person knows EXACTLY what to open, pick up, or do first.
 
-If a Context field is provided, mine it aggressively:
+EXPLICIT TASK LIST RULE (highest priority):
+If the Context field contains a user message that lists specific tasks (e.g., "these tasks: X / Y / Z", or a numbered/bulleted list, or multiple sentence fragments separated by capitalized words or line breaks), treat those as the user's EXACT task names. Use them VERBATIM — do NOT reword, shorten, expand, combine, or split them. Your only job is to set duration_minutes and motivation_nudge. Omit any item the user marked as "completed", "done", "mark completed", or "already done".
+
+If a Context field is provided (and no explicit task list is present), mine it aggressively:
 - Pull out specific subjects, topics, chapters, tools, or deadlines the user mentioned.
 - Reflect those specifics in the task names. "Review derivatives" not "review math topics".
 - If the user said they're stressed, panicking, or overwhelmed: order tasks starting with
