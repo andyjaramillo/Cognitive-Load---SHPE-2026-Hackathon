@@ -1985,13 +1985,16 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
   const [editingName, setEditingName] = useState(false) // true = group name input focused
   const [planError,    setPlanError]    = useState(null)
   const [userReplied,  setUserReplied]  = useState(false)  // true after first user message sent
-  const bottomRef   = useRef(null)
-  const inputRef    = useRef(null)
-  const initialSent = useRef(false)
-  const historyRef  = useRef([])  // parallel to messages, but only role+content for API
-  const genId       = () => Math.random().toString(36).slice(2, 10)
+  const bottomRef          = useRef(null)
+  const inputRef           = useRef(null)
+  const initialSent        = useRef(false)
+  const historyRef         = useRef([])  // parallel to messages, but only role+content for API
+  const buildTriggeredRef  = useRef(false)  // prevents double-firing triggerBuildPlan
+  const genId              = () => Math.random().toString(36).slice(2, 10)
 
   async function triggerBuildPlan() {
+    if (buildTriggeredRef.current) return  // prevent double-trigger
+    buildTriggeredRef.current = true
     setBuilding(true)
     setPlanError(null)
     try {
@@ -2047,10 +2050,7 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
         onActions: buttons => {
           for (const btn of (buttons || [])) {
             if (btn.type === 'build_plan') {
-              const hasUserReply = historyRef.current.some(m => m.role === 'user')
-              if (hasUserReply) {
-                setTimeout(() => triggerBuildPlan(), 150)
-              }
+              setTimeout(() => triggerBuildPlan(), 150)  // ref prevents double-trigger
             }
           }
         },
@@ -2063,6 +2063,13 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
           setStreamText('')
           setStreaming(false)
           setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+          // Auto-build: if user has replied and Pebble gave a non-question response,
+          // always trigger the plan — don't require the user to click the button.
+          const hasUserReply = historyRef.current.some(m => m.role === 'user')
+          const endsWithQuestion = clean ? /\?\s*$/.test(clean.trim()) : false
+          if (hasUserReply && !endsWithQuestion && !buildTriggeredRef.current) {
+            setTimeout(() => triggerBuildPlan(), 200)
+          }
         },
         onError: msg => {
           setMessages(prev => [...prev, { id: genId(), role: 'assistant', content: msg || 'something went quiet. try again?' }])
