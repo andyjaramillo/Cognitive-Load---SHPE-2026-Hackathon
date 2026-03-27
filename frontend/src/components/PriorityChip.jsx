@@ -86,7 +86,7 @@ export function PriorityChip({ priority = null, onChange }) {
 export function PriorityPicker({ priority = null, onChange }) {
   return (
     <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
-      {[1, 2, 3].map(p => {
+      {[1, 3].map(p => {
         const cfg      = PRIORITY_CONFIG[p]
         const selected = p === priority
         return (

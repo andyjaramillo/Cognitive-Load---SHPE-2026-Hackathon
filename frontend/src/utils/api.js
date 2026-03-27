@@ -250,7 +250,7 @@ function _toFrontendGroup(g) {
       id:               t.id,
       task_name:        t.task_name,
       duration_minutes: t.duration_minutes || 15,
-      priority:         (t.priority != null && t.priority !== 2) ? t.priority : null,  // 1=high, 3=low, null=none
+      priority:         (t.priority === 1 || t.priority === 3) ? t.priority : null,  // 1=high, 3=low, null=none (2 is backend default sentinel)
       motivation_nudge: t.description || '',
       due_date:         t.due_date || null,
       due_label:        t.due_label || null,

@@ -78,14 +78,17 @@ _HARD_BLOCK = {
 # ── Language block ────────────────────────────────────────────────────────── #
 
 _LANG_MAP = {
+    "en": "English",
     "es": "Spanish (español)",
     "pt": "Portuguese (português)",
 }
 
 def _fmt_lang_block(language: str) -> str:
-    lang_name = _LANG_MAP.get(language or "", "")
-    if not lang_name:
-        return ""
+    lang = (language or "en").lower()
+    lang_name = _LANG_MAP.get(lang, "English")
+    if lang_name == "English":
+        # Always state English explicitly so switching back from es/pt overrides conversation history
+        return "LANGUAGE: Respond in English. Ignore any prior messages in other languages — the user has switched their language setting."
     return (
         f"LANGUAGE: You MUST respond entirely in {lang_name}. "
         f"Every word — greetings, task breakdowns, nudges, document summaries, "
@@ -531,10 +534,8 @@ class ChatService:
     ) -> str:
         parts = [_BLOCK_1]
 
-        # Language block: governs ALL subsequent blocks — only for non-English users
-        lang_block = _fmt_lang_block(prefs.language)
-        if lang_block:
-            parts.append(lang_block)
+        # Language block: always included — English block resets context when switching back from es/pt
+        parts.append(_fmt_lang_block(prefs.language))
 
         # Block 2: User preferences
         parts.append(_fmt_block_2(prefs))

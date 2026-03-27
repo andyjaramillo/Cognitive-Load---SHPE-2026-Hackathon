@@ -227,17 +227,6 @@ const tasksSlice = createSlice({
     },
 
     deleteGroup(state, action) {
-      const group = state.groups.find(g => g.id === action.payload)
-      if (!group) return
-      // Rescue non-empty groups: move all tasks to "My Tasks"
-      if (group.tasks.length > 0) {
-        let myTasks = state.groups.find(g => g.name === 'My Tasks' && g.source === 'manual')
-        if (!myTasks) {
-          myTasks = { id: genId(), name: 'My Tasks', source: 'manual', groupColor: 'sage', created_at: new Date().toISOString(), tasks: [] }
-          state.groups.unshift(myTasks)
-        }
-        myTasks.tasks.push(...group.tasks)
-      }
       state.groups = state.groups.filter(g => g.id !== action.payload)
       if (state.focusGroupId === action.payload) { state.focusGroupId = null; state.focusTaskId = null }
     },

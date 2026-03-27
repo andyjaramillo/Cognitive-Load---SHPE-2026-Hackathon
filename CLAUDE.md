@@ -277,7 +277,7 @@ The `_toBackendGroup` and `_toFrontendGroup` helpers in `api.js` handle this map
 
 ## Color Meaning System (STRICT — Never Deviate)
 
-See `color_system.md` for full hex values across all 4 themes.
+See `docs/specs/color_system.md` for full hex values across all 4 themes.
 
 | Color | CSS Variable | Meaning | Use |
 |-------|-------------|---------|-----|
@@ -314,7 +314,7 @@ Color theme override (user-selected) applied via `data-theme` attribute. `calm` 
 - Returning users → AI greeting fires on mount, 3 quick action pills, "What was I working on?" lilac button
 - Chat: SSE streaming via `chatStream()`, persisted messages in local state, streaming bubble with pulse dots
 - Quick actions disappear after first user message (`hasUserMessages` flag)
-- Spec: `SESSION5_PROGRESS.md`, `SESSION5_PART3_COMPLETE.md`
+- Spec: `docs/session-history/SESSION5_PROGRESS.md`, `docs/session-history/SESSION5_PART3_COMPLETE.md`
 
 ### Page 2: Documents — Conversational Doc Processing (`/documents`)
 **Status: ✅ Working with gaps.** Missing: saved documents browser.
@@ -322,7 +322,7 @@ Color theme override (user-selected) applied via `data-theme` attribute. `calm` 
 - Three states: Input (upload zone + breathing animation) → AI question (4 guided choices) → Results (conversation)
 - "Turn into tasks" → dispatches to Redux `taskGroups` → navigates to `/tasks`
 - Doc memory saves to Cosmos DB
-- Spec: `SESSION2_PROMPT.md`
+- Spec: `docs/session-history/SESSION2_PROMPT.md`
 
 ### Page 3: Tasks — Living Checklist (`/tasks`)
 **Status: ✅ Working with gaps.** Missing: Cosmos sync on mount/change.
@@ -331,7 +331,7 @@ Color theme override (user-selected) applied via `data-theme` attribute. `calm` 
 - Three-level interaction depth, smart input (simple vs AI decomposition)
 - "I have ___ minutes" filter, per-task AI nudges
 - Shared Redux `tasks.groups` state — also written by Home chat and Documents page
-- Spec: `TASKS_SPEC.md`
+- Spec: `docs/specs/TASKS_SPEC.md`
 
 ### Page 4: Focus Mode — Full Screen (`/focus`)
 **Status: ✅ Working.** App.jsx hides TopNav entirely for this route.
@@ -339,7 +339,7 @@ Color theme override (user-selected) applied via `data-theme` attribute. `calm` 
 - Circular timer, energy check-in, overwhelm escape hatch
 - Timer colors: green → teal → warm amber (NEVER red)
 - Session summary on exit
-- Spec: `SESSION4_FINAL.md` (561 lines, 6 states)
+- Spec: `docs/specs/SESSION4_FINAL.md` (561 lines, 6 states)
 
 ### Page 5: Settings (`/settings`)
 **Status: ⚠️ Stub only.** Full UI is Session 6 work.
@@ -551,7 +551,7 @@ frontend/
 
 ## AI Personality (Pebble)
 
-Full spec in `PEBBLE_PERSONALITY.md` (1,652 lines). Key points:
+Full spec in `docs/specs/PEBBLE_PERSONALITY.md` (1,652 lines). Key points:
 
 - **Layer 1:** Identity, 7 nevers, 6 always behaviors, emotional spectrum
 - **Layer 2:** 12-block dynamic system prompt assembled per `/api/chat` call in `chat_service.py`:
@@ -577,14 +577,20 @@ Full spec in `PEBBLE_PERSONALITY.md` (1,652 lines). Key points:
 
 | File | Contents |
 |------|----------|
-| `PEBBLE_PERSONALITY.md` | Full AI personality — 5 layers, system prompt construction, voice guide, content safety |
-| `SESSION5_PROGRESS.md` | Home page layout + all 6 onboarding questions + returning user view |
-| `SESSION5_PART3_COMPLETE.md` | Chat routing, document memory, walkthrough 5-step spec, error handling |
-| `SESSION5_GAPS.md` | Animation specs, chat styling, backend endpoint spec, Redux shape, known gaps |
-| `TASKS_SPEC.md` | Complete Tasks page specification — all interaction depths, filter, nudges |
-| `SESSION2_PROMPT.md` | Complete Documents page specification — 3 states, guided choices, results |
-| `SESSION4_FINAL.md` | Complete Focus Mode specification — 6 states (561 lines) |
-| `color_system.md` | Full color system — all hex values across 4 time-of-day themes |
+| `docs/specs/PEBBLE_PERSONALITY.md` | Full AI personality — 5 layers, system prompt construction, voice guide, content safety |
+| `docs/specs/SESSION4_FINAL.md` | Complete Focus Mode specification — 6 states (561 lines) |
+| `docs/specs/TASKS_SPEC.md` | Complete Tasks page specification — all interaction depths, filter, nudges |
+| `docs/specs/PEBBLE_BRAND.md` | Brand identity — logo, typography, color meaning system |
+| `docs/specs/color_system.md` | Full color system — all hex values across 4 time-of-day themes |
+| `docs/session-history/SESSION5_PROGRESS.md` | Home page layout + all 6 onboarding questions + returning user view |
+| `docs/session-history/SESSION5_PART3_COMPLETE.md` | Chat routing, document memory, walkthrough 5-step spec, error handling |
+| `docs/session-history/SESSION5_GAPS.md` | Animation specs, chat styling, backend endpoint spec, Redux shape, known gaps |
+| `docs/session-history/SESSION2_PROMPT.md` | Complete Documents page specification — 3 states, guided choices, results |
+| `docs/diagrams/` | Architecture diagrams — system, deployment, content safety, doc pipeline, prompt blocks |
+| `docs/reports/` | Project reports and breakdowns |
+| `docs/branding/` | Logo assets (SVG, PNG variants) |
+| `demo/` | 9 sample PDFs for demo — budgets, leases, job docs, study guides, insurance |
+| `presentation/pebble_presentation.pptx` | Slide deck for judges |
 
 ---
 
@@ -609,7 +615,7 @@ The voice is quiet poet 70% + playful sage 30%. Short sentences. Gentle metaphor
 - The USER can have their initial(s) as their avatar — that's personalization. First initial, or first + last if they gave two names. This appears on user chat bubbles and could link to a profile/settings view later. Pebble = dot, User = their initial(s)
 
 ### Color Philosophy
-- Colors have meanings in Pebble (see color_system.md for exact hex values across all 4 time-of-day themes):
+- Colors have meanings in Pebble (see `docs/specs/color_system.md` for exact hex values across all 4 time-of-day themes):
   - **Green:** completion, safety — "you did it"
   - **Teal/ocean sage:** primary actions, Pebble's identity — "click me" / "I'm Pebble"
   - **Sky blue:** upcoming, queued — "no rush"

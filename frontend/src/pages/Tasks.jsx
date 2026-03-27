@@ -576,47 +576,50 @@ function OptInPills({ task, groupId }) {
       )}
 
       {/* ── Priority pill ── */}
-      {task.priority == null ? (
-        activeField === 'priority' ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <PriorityPicker
-              priority={task.priority}
-              onChange={p => { dispatch(tasksActions.updateTask({ groupId, taskId: task.id, priority: p })); setActiveField(null) }}
-            />
-          </div>
-        ) : (
+      {activeField === 'priority' ? (
+        // Picker always takes over the entire priority area when open
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          <PriorityPicker
+            priority={task.priority}
+            onChange={p => { dispatch(tasksActions.updateTask({ groupId, taskId: task.id, priority: p })); setActiveField(null) }}
+          />
           <button
-            style={pillBase(priorityClr)}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.04)'; e.currentTarget.style.borderColor = priorityClr.color }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = priorityClr.border }}
-            onClick={e => { e.stopPropagation(); setActiveField('priority') }}
-          >
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M2 2h8v6l-4-2-4 2V2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
-              <path d="M6 9v1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-            </svg>
-            add priority
-          </button>
-        )
-      ) : (
-        // Priority is set — click chip to clear it (same pattern as time)
+            onClick={e => { e.stopPropagation(); setActiveField(null) }}
+            style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}
+          >✕</button>
+        </div>
+      ) : task.priority == null ? (
         <button
-          onClick={e => { e.stopPropagation(); dispatch(tasksActions.updateTask({ groupId, taskId: task.id, priority: null })); setActiveField(null) }}
-          title="click to remove priority"
+          style={pillBase(priorityClr)}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.04)'; e.currentTarget.style.borderColor = priorityClr.color }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = priorityClr.border }}
+          onClick={e => { e.stopPropagation(); setActiveField('priority') }}
+        >
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 2h8v6l-4-2-4 2V2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+            <path d="M6 9v1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+          add priority
+        </button>
+      ) : (
+        // Priority is set — click to open picker and change/clear
+        <button
+          onClick={e => { e.stopPropagation(); setActiveField('priority') }}
+          title="click to change priority"
           style={{
             fontSize: '0.72rem', padding: '1px 7px', height: 18, lineHeight: 1,
             borderRadius: 99, cursor: 'pointer', fontWeight: 500,
             letterSpacing: '0.02em', display: 'inline-flex', alignItems: 'center',
             userSelect: 'none', flexShrink: 0, fontFamily: 'inherit',
-            background: task.priority === 1 ? 'rgba(224,160,96,0.12)' : task.priority === 2 ? 'rgba(106,150,184,0.09)' : 'rgba(180,170,154,0.10)',
-            border: task.priority === 1 ? '1px solid rgba(224,160,96,0.3)' : task.priority === 2 ? '1px solid rgba(106,150,184,0.2)' : '1px solid rgba(180,170,154,0.22)',
-            color: task.priority === 1 ? 'var(--color-ai)' : task.priority === 2 ? 'var(--color-upcoming)' : 'var(--color-inactive)',
+            background: task.priority === 1 ? 'rgba(224,160,96,0.12)' : 'rgba(180,170,154,0.10)',
+            border: task.priority === 1 ? '1px solid rgba(224,160,96,0.3)' : '1px solid rgba(180,170,154,0.22)',
+            color: task.priority === 1 ? 'var(--color-ai)' : 'var(--color-inactive)',
             transition: 'opacity 0.15s ease',
           }}
           onMouseEnter={e => { e.currentTarget.style.opacity = '0.6' }}
           onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
         >
-          {task.priority === 1 ? 'high' : task.priority === 2 ? 'med' : 'low'}
+          {task.priority === 1 ? 'high' : 'low'}
         </button>
       )}
 
@@ -725,39 +728,39 @@ function TaskRow({ task, groupId, isExpanded, onToggleExpand, onComplete, onDele
               }}>
                 {task.task_name}
               </span>
-              {/* Opt-in chips — click to clear */}
-              {showDateChip && (
+              {/* Opt-in chips — only on collapsed row; OptInPills handles them when expanded */}
+              {!isExpanded && showDateChip && (
                 <button onClick={e => { e.stopPropagation(); dispatch(tasksActions.updateTask({ groupId, taskId: task.id, due_date: null, due_label: null })) }} title="click to remove date"
                   style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', transition: 'opacity 0.18s ease' }}
                   onMouseEnter={e => e.currentTarget.style.opacity = '0.55'} onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
                   <DueDateChip due_date={task.due_date} due_label={task.due_label} />
                 </button>
               )}
-              {showTimeChip && (
+              {!isExpanded && showTimeChip && (
                 <button onClick={e => { e.stopPropagation(); dispatch(tasksActions.updateTask({ groupId, taskId: task.id, userSetTime: false })) }} title="click to remove time"
                   style={{ fontSize: '0.7rem', color: 'var(--text-muted)', padding: '1px 6px', borderRadius: 99, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'opacity 0.18s ease' }}
                   onMouseEnter={e => e.currentTarget.style.opacity = '0.55'} onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
                   ~{task.duration_minutes} min
                 </button>
               )}
-              {showPriorityChip && (
+              {!isExpanded && showPriorityChip && (
                 <button
-                  onClick={e => { e.stopPropagation(); dispatch(tasksActions.updateTask({ groupId, taskId: task.id, priority: 2 })) }}
+                  onClick={e => { e.stopPropagation(); dispatch(tasksActions.updateTask({ groupId, taskId: task.id, priority: null })) }}
                   title="click to remove priority"
                   style={{
                     fontSize: '0.72rem', padding: '1px 7px', height: 18, lineHeight: 1,
                     borderRadius: 99, cursor: 'pointer', fontWeight: 500,
                     letterSpacing: '0.02em', display: 'inline-flex', alignItems: 'center',
                     userSelect: 'none', flexShrink: 0, fontFamily: 'inherit',
-                    background: task.priority === 1 ? 'rgba(224,160,96,0.12)' : 'rgba(180,170,154,0.10)',
-                    border: task.priority === 1 ? '1px solid rgba(224,160,96,0.3)' : '1px solid rgba(180,170,154,0.22)',
-                    color: task.priority === 1 ? 'var(--color-ai)' : 'var(--color-inactive)',
+                    background: task.priority === 1 ? 'rgba(224,160,96,0.12)' : task.priority === 2 ? 'rgba(106,150,184,0.09)' : 'rgba(180,170,154,0.10)',
+                    border: task.priority === 1 ? '1px solid rgba(224,160,96,0.3)' : task.priority === 2 ? '1px solid rgba(106,150,184,0.2)' : '1px solid rgba(180,170,154,0.22)',
+                    color: task.priority === 1 ? 'var(--color-ai)' : task.priority === 2 ? 'var(--color-upcoming)' : 'var(--color-inactive)',
                     transition: 'opacity 0.15s ease',
                   }}
                   onMouseEnter={e => { e.currentTarget.style.opacity = '0.6' }}
                   onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
                 >
-                  {task.priority === 1 ? 'high' : 'low'}
+                  {task.priority === 1 ? 'high' : task.priority === 2 ? 'med' : 'low'}
                 </button>
               )}
             </div>
@@ -1915,6 +1918,82 @@ function stripClarifyActions(text) {
     .trim()
 }
 
+// ── extractGroupNameFromGoal ──────────────────────────────────────────────── //
+// Pulls an explicit group name from goals like:
+//   "I need a task group called Apartment Move-out with these tasks"
+//   "create a group named Morning Routine"
+function extractGroupNameFromGoal(goal) {
+  const m = goal.match(/(?:called|named)\s+([^,\.]+?)(?:\s+with|\s+for|\s+that|\s+and|\s+please|$)/i)
+  return m ? m[1].trim() : null
+}
+
+// ── extractExplicitTasks ──────────────────────────────────────────────────── //
+// Returns an array of task-name strings if the conversation history contains
+// an explicit user-provided list of tasks. Returns null if no clear list found.
+// Strategies (in priority order):
+//  1. Numbered list   "1. Return cable modem\n2. Forward mail"
+//  2. Bullet list     "- Return\n- Forward\n* Schedule"
+//  3. Newline-separated (3+ lines, each looks like a task — starts with verb or proper noun)
+//  4. Comma-separated (4+ items — safer threshold avoids false positives)
+//  5. Action-verb boundary in a single run-on string
+const ACTION_VERBS = [
+  'Return','Forward','Schedule','Clean','Get','Call','Email','Buy','Pack',
+  'Find','Submit','Fill','Drop','Look','Make','Complete','Contact','Arrange',
+  'Book','Confirm','Send','Pick','Check','Review','Update','Remove','Install',
+  'Pay','Cancel','Transfer','Close','Notify','File','Sign','Prepare','Organize',
+  'Collect','Move','Sort','Handle','Take','Bring','Fix','Replace','Order',
+  'Request','Gather','Donate','Dispose','Deep','Clear','Write','Print','Scan',
+  'Backup','Test','Measure','Record','Register','Apply','Appeal','Compare',
+  'Research','Research','Set','Label','Wrap','Seal','Address','Post',
+]
+const ACTION_VERB_RE = new RegExp(
+  '(?<=\\S)\\s+(?=(?:' + ACTION_VERBS.join('|') + ')\\s)',
+  'g'
+)
+
+function extractExplicitTasks(history) {
+  // Collect all user messages (skip very short ones — they're typically answers to yes/no Qs)
+  const userMessages = history
+    .filter(m => m.role === 'user' && m.content.length > 10)
+
+  for (const msg of userMessages) {
+    const text = msg.content.trim()
+
+    // Strategy 1: numbered list  "1. X\n2. Y\n3. Z"
+    const numbered = text.match(/^\d+\.\s+.+/gm)
+    if (numbered && numbered.length >= 2) {
+      return numbered.map(l => l.replace(/^\d+\.\s+/, '').trim()).filter(Boolean)
+    }
+
+    // Strategy 2: bullet list  "- X\n- Y" or "* X\n* Y"
+    const bulleted = text.match(/^[-*•]\s+.+/gm)
+    if (bulleted && bulleted.length >= 2) {
+      return bulleted.map(l => l.replace(/^[-*•]\s+/, '').trim()).filter(Boolean)
+    }
+
+    // Strategy 3: newline-separated (3+ lines, each starts with verb/capital — avoid prose)
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 3)
+    if (lines.length >= 3) {
+      const allLookLikeTasks = lines.every(l =>
+        /^[A-Z]/.test(l) && l.length < 120 && !/^(I |My |The |This |That |It |We |You )/.test(l)
+      )
+      if (allLookLikeTasks) return lines
+    }
+
+    // Strategy 4: comma-separated (4+ items)
+    if (text.includes(',') && !text.includes('\n')) {
+      const parts = text.split(',').map(p => p.trim()).filter(p => p.length > 3)
+      if (parts.length >= 4) return parts
+    }
+
+    // Strategy 5: action-verb boundary in run-on string
+    const split = text.split(ACTION_VERB_RE).map(s => s.trim()).filter(s => s.length > 3)
+    if (split.length >= 3) return split
+  }
+
+  return null  // no explicit list found — fall back to decompose()
+}
+
 // ── SortablePreviewCard — draggable preview card inside ClarifyPanel ──────── //
 function PreviewCard({ step, onChangeName, onDelete }) {
   return (
@@ -2015,6 +2094,30 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
     setBuilding(true)
     setPlanError(null)
     try {
+      // ── Path A: user provided an explicit task list — bypass decompose entirely ──
+      const explicitTasks = extractExplicitTasks(historyRef.current)
+      if (explicitTasks && explicitTasks.length >= 2) {
+        const extractedName = extractGroupNameFromGoal(goal)
+        const groupName = toTitleCase(extractedName || (goal.length > 36 ? goal.slice(0, 34) + '…' : goal))
+        const steps = explicitTasks.map(name => ({
+          task_name:        name,
+          duration_minutes: 20,
+          motivation_nudge: '',
+        }))
+        setPreview({ groupName, steps })
+        setEditSteps(steps.map(s => ({ ...s, _id: Math.random().toString(36).slice(2, 8) })))
+        setEditMode(false)
+        setAddingPreviewTask(false)
+        setMessages(prev => [...prev, {
+          id: genId(), role: 'assistant',
+          content: "here's your plan.\n\nwant to add anything or reorder before confirming?",
+        }])
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 80)
+        setBuilding(false)
+        return
+      }
+
+      // ── Path B: no explicit list — let decompose figure it out ────────────────
       const context = historyRef.current
         .map(m => `${m.role === 'user' ? 'User' : 'Pebble'}: ${m.content}`)
         .join('\n')
@@ -2030,9 +2133,8 @@ function ClarifyPanel({ goal, onClose, onConfirm }) {
       const groupName = toTitleCase(res.group_name || (goal.length > 36 ? goal.slice(0, 34) + '…' : goal))
       setPreview({ groupName, steps })
       setEditSteps(steps.map(s => ({ ...s, _id: Math.random().toString(36).slice(2, 8) })))
-      setEditMode(false)          // hide chat input if user was in edit mode
-      setAddingPreviewTask(false) // close inline add-task input if open
-      // After showing the plan, invite the user to add or adjust
+      setEditMode(false)
+      setAddingPreviewTask(false)
       setMessages(prev => [...prev, {
         id: genId(), role: 'assistant',
         content: "here's your plan.\n\nwant to add anything or reorder before confirming?",
