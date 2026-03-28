@@ -6,7 +6,16 @@
 
 ### *a calm place to start*
 
-**An AI cognitive support companion that transforms overwhelming information into calm, structured, personalized clarity — built for neurodiverse users and anyone navigating cognitive overload.**
+**An AI cognitive support companion that transforms overwhelming information into calm, structured, personalized clarity.**
+**Built from the ground up for neurodiverse users — every color, every word, every animation was a deliberate choice.**
+
+<br/>
+
+### 👉 [**Try Pebble right now — no login required**](https://pebble.redbay-c8c366b2.eastus.azurecontainerapps.io)
+
+*Deployed live on Azure Container Apps. Open it. Talk to it. It's ready.*
+
+<br/>
 
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -18,7 +27,7 @@
 
 ---
 
-### [🌐 Live Demo](https://pebble.redbay-c8c366b2.eastus.azurecontainerapps.io) &nbsp;·&nbsp; [🎥 Video Walkthrough](https://drive.google.com/file/d/17prNYPP_y0JbiZbdeOno3abUTiG4su6R/view?usp=sharing) &nbsp;·&nbsp; [📊 Slide Deck](presentation/pebble_presentation.pptx) &nbsp;·&nbsp; [📄 Project Report](docs/reports/pebble_project_report.docx)
+### [🌐 Try the App](https://pebble.redbay-c8c366b2.eastus.azurecontainerapps.io) &nbsp;·&nbsp; [🎥 Video Walkthrough](https://drive.google.com/file/d/17prNYPP_y0JbiZbdeOno3abUTiG4su6R/view?usp=sharing) &nbsp;·&nbsp; [📊 Slide Deck](presentation/pebble_presentation.pptx) &nbsp;·&nbsp; [📄 Project Report](docs/reports/pebble_project_report.docx)
 
 ---
 
@@ -62,6 +71,22 @@ The result: people freeze. They avoid the task. They spiral.
 Pebble takes the opposite approach.
 
 > Instead of asking *"what do you want to do?"* — Pebble asks *"what's on your mind?"* — and handles the rest.
+
+### Every Design Decision Was Intentional
+
+Pebble was built with neurodiversity at the center — not as an afterthought, not as an accessibility checkbox. Every single decision was made by asking: *does this add cognitive load, or reduce it?*
+
+| Design Choice | Why It Matters for Neurodiverse Users |
+|--------------|---------------------------------------|
+| **No red anywhere** | Red triggers threat response. Pebble uses warm greens, teals, and soft oranges — colors that signal safety and calm. |
+| **Lowercase voice throughout** | Capital letters and formal tone create distance and pressure. Pebble speaks quietly, like a friend. |
+| **One question at a time** | Multiple questions at once force parallel processing — exhausting for ADHD/autism. Pebble asks one thing, then waits. |
+| **Breathing animations everywhere** | Ambient motion (pulsing dots, breathing circles) naturally regulates arousal and keeps users grounded without demanding attention. |
+| **Four time-of-day color themes** | Cognitive load changes throughout the day. Morning is soft peach. Night is deep ocean. The interface adapts, not the user. |
+| **No progress pressure** | No streak counters, no "you have 4 tasks left," no gamification anxiety. Completion is celebrated quietly, once. |
+| **Escape hatch in Focus Mode** | "I need a pause" is always visible, never hidden. Neurodiverse users need safe exits, not traps. |
+| **Font choice + bionic reading** | Lexend, Atkinson Hyperlegible, and OpenDyslexic are offered. Bionic reading mode bolds word-leading letters for faster scanning. |
+| **Personalized AI granularity** | Users pick how much detail they want. Ultra-detailed for some, minimal for others. Never one-size-fits-all. |
 
 ---
 
