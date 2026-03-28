@@ -43,20 +43,19 @@
 2. [Who Pebble Is For](#who-pebble-is-for)
 3. [App Screenshots](#app-screenshots)
 4. [What Pebble Does](#what-pebble-does)
-5. [System Architecture](#system-architecture)
-6. [Architecture Diagrams](#architecture-diagrams)
-7. [Responsible AI](#responsible-ai)
-8. [How the AI Works — The 12-Block Prompt](#how-the-ai-works--the-12-block-prompt)
-9. [Azure Services — 8 Integrated](#azure-services--8-integrated)
-10. [Tech Stack](#tech-stack)
-11. [Project Structure](#project-structure)
-12. [Getting Started](#getting-started)
-13. [Environment Variables](#environment-variables)
-14. [API Reference](#api-reference)
-15. [Judging Criteria Alignment](#judging-criteria-alignment)
-16. [Documentation](#documentation)
-17. [Team](#team)
-18. [License](#license)
+5. [Architecture Diagrams](#architecture-diagrams)
+6. [Responsible AI](#responsible-ai)
+7. [How the AI Works — The 12-Block Prompt](#how-the-ai-works--the-12-block-prompt)
+8. [Azure Services — 8 Integrated](#azure-services--8-integrated)
+9. [Tech Stack](#tech-stack)
+10. [Project Structure](#project-structure)
+11. [Getting Started](#getting-started)
+12. [Environment Variables](#environment-variables)
+13. [API Reference](#api-reference)
+14. [Judging Criteria Alignment](#judging-criteria-alignment)
+15. [Documentation](#documentation)
+16. [Team](#team)
+17. [License](#license)
 
 ---
 
@@ -398,7 +397,7 @@ Pebble./
 │
 ├── docs/
 │   ├── images/
-│   │   ├── screenshots/            # App screenshots (onboarding, chat, tasks, focus, docs, settings)
+│   │   ├── Full App Pictures/      # 22 numbered app screenshots (onboarding → focus mode → themes)
 │   │   └── diagrams/               # Exported diagram PNGs (architecture, prompt, safety, pipeline, deployment)
 │   ├── specs/                      # PEBBLE_PERSONALITY.md, color_system.md, TASKS_SPEC, etc.
 │   ├── session-history/            # 18-session build log (March 16–27, 2026)
