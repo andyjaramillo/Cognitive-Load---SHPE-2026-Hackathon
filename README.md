@@ -91,13 +91,19 @@ Pebble was built with neurodiversity at the center — not as an afterthought, n
 
 | Person | Situation | What overwhelms them |
 |--------|-----------|----------------------|
-| A college student with ADHD | Final exams + apartment search + job applications, all at once | Where to start. What matters. How to break it down. |
-| A professional navigating a layoff | Benefits paperwork, job docs, interview prep, finances | Dense documents written to confuse, not inform. |
-| Someone recently diagnosed with anxiety | Managing health appointments, insurance forms, daily routines | Too many steps. Too much to read. Too many decisions. |
-| A first-generation college student | Graduation checklists, financial aid, career pivots | Systems that assume prior knowledge they don't have. |
-| Anyone on a stressful day | An email, a task list, a goal that feels too big | The cognitive weight of starting. |
+| A new homeowner | Mortgage paperwork, HOA documents, contractor quotes, inspection reports | Legal language designed for lawyers, not people. |
+| Someone reviewing a health insurance plan | Comparing deductibles, copays, out-of-pocket maximums across 3 plans | Terminology that seems designed to confuse. |
+| A person signing a lease or contract | 14-page rental agreement full of legalese and clauses | Not knowing what they're agreeing to. |
+| A professional navigating a layoff | Severance agreements, COBRA benefits, unemployment forms, job docs | Dense documents arriving all at once during the worst week of their life. |
+| A parent managing a family | School enrollment forms, pediatric insurance claims, permission slips, activity schedules | Infinite small tasks with no clear priority. |
+| An immigrant or first-generation American | Government forms, benefit applications, bureaucratic processes in a second language | Systems built with assumptions they don't share. |
+| Someone managing a chronic illness | Medication schedules, specialist referrals, insurance pre-authorizations, medical records | A full-time job on top of being sick. |
+| A small business owner | Client contracts, vendor agreements, tax documents, compliance checklists | No legal team. Just them and a pile of PDFs. |
+| Anyone switching careers | Retraining programs, certification paths, resume rewrites, LinkedIn strategy | Too many options, no clear next step. |
+| A college student with ADHD | Final exams, apartment search, job applications — all at once | Where to start. What matters. How to break it down. |
+| Anyone on a hard day | An email they've been avoiding, a task that feels too big, a goal with no clear start | The cognitive weight of beginning. |
 
-**Pebble handles the entire life** — not just work, not just school. Moving, studying, job searching, understanding legal documents, managing health, planning events. Anything that creates cognitive load.
+**Pebble handles the entire life** — not just school, not just work. If it's on paper, in a PDF, or in your head creating weight — Pebble can help you start.
 
 ---
 
