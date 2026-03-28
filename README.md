@@ -22,7 +22,7 @@
 [![React 18](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Azure](https://img.shields.io/badge/Azure-8_Services-0078D4?style=flat-square&logo=microsoftazure&logoColor=white)](https://azure.microsoft.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-5A8A80?style=flat-square)](LICENSE)
-[![Live](https://img.shields.io/badge/Live_Demo-Azure_Container_Apps-E07A40?style=flat-square)](https://pebble.redbay-c8c366b2.eastus.azurecontainerapps.io)
+[![App](https://img.shields.io/badge/Try_the_App-Azure_Container_Apps-E07A40?style=flat-square)](https://pebble.redbay-c8c366b2.eastus.azurecontainerapps.io)
 [![Video](https://img.shields.io/badge/Video_Demo-Google_Drive-4285F4?style=flat-square&logo=googledrive&logoColor=white)](https://drive.google.com/file/d/17prNYPP_y0JbiZbdeOno3abUTiG4su6R/view?usp=sharing)
 
 ---
