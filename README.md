@@ -47,13 +47,11 @@
 8. [Azure Services — 8 Integrated](#azure-services--8-integrated)
 9. [Tech Stack](#tech-stack)
 10. [Project Structure](#project-structure)
-11. [Getting Started](#getting-started)
-12. [Environment Variables](#environment-variables)
-13. [API Reference](#api-reference)
-14. [Judging Criteria Alignment](#judging-criteria-alignment)
-15. [Documentation](#documentation)
-16. [Team](#team)
-17. [License](#license)
+11. [API Reference](#api-reference)
+12. [Judging Criteria Alignment](#judging-criteria-alignment)
+13. [Documentation](#documentation)
+14. [Team](#team)
+15. [License](#license)
 
 ---
 
@@ -202,11 +200,11 @@ Pebble was built with neurodiversity at the center — not as an afterthought, n
 
 ## Architecture Diagrams
 
-> Source `.drawio` files in [`docs/diagrams/draw.io/`](docs/diagrams/draw.io/) — open at [diagrams.net](https://app.diagrams.net).
+> Source `.drawio` files in [`docs/images/diagrams/draw.io/`](docs/images/diagrams/draw.io/) — open at [diagrams.net](https://app.diagrams.net).
 
 ### Full System Architecture
 
-![Pebble System Architecture](docs/diagrams/PNG/architecture.png)
+![Pebble System Architecture](docs/images/diagrams/PNG/architecture.png)
 
 *React frontend → FastAPI backend → 8 Azure services. All traffic over REST + SSE.*
 
@@ -214,7 +212,7 @@ Pebble was built with neurodiversity at the center — not as an afterthought, n
 
 ### The 12-Block Dynamic Prompt Pipeline
 
-![12 Block Prompt Diagram](docs/diagrams/PNG/12-block-prompt.png)
+![12 Block Prompt Diagram](docs/images/diagrams/PNG/12-block-prompt.png)
 
 *Every `/api/chat` request assembles a fresh 12-block system prompt — user profile, memories, tasks, documents, safety tier, time context, and more. No static prompts.*
 
@@ -222,7 +220,7 @@ Pebble was built with neurodiversity at the center — not as an afterthought, n
 
 ### Content Safety Architecture
 
-![Content Safety Architecture](docs/diagrams/PNG/content-safety.png)
+![Content Safety Architecture](docs/images/diagrams/PNG/content-safety.png)
 
 *Two-tier safety: input screened before GPT call, output re-screened after stream. Hard block at severity 5–6, soft flag at 3–4. Custom 7-category cognitive pressure regex runs on both sides.*
 
@@ -230,7 +228,7 @@ Pebble was built with neurodiversity at the center — not as an afterthought, n
 
 ### Document Processing Pipeline
 
-![Document Pipeline](docs/diagrams/PNG/doc-pipeline.png)
+![Document Pipeline](docs/images/diagrams/PNG/doc-pipeline.png)
 
 *Upload → magic-byte validation → Azure Document Intelligence extraction → Content Safety screening → simplification → Cosmos DB + Blob Storage.*
 
@@ -238,7 +236,7 @@ Pebble was built with neurodiversity at the center — not as an afterthought, n
 
 ### Deployment Architecture
 
-![Deployment Architecture](docs/diagrams/PNG/deployment.png)
+![Deployment Architecture](docs/images/diagrams/PNG/deployment.png)
 
 *Single Docker image built via Azure Container Registry, deployed to Azure Container Apps. FastAPI serves both the API and the React static build from one URL.*
 
@@ -247,7 +245,7 @@ Pebble was built with neurodiversity at the center — not as an afterthought, n
 > **To export diagrams as images:**
 > 1. Open any `.drawio` file in [diagrams.net](https://app.diagrams.net)
 > 2. File → Export As → PNG (set width to 1600px, transparent background off)
-> 3. Save to `docs/diagrams/PNG/` using the filenames above
+> 3. Save to `docs/images/diagrams/PNG/` using the filenames above
 
 ---
 
@@ -416,86 +414,6 @@ Pebble./
 │   └── demo/                       # 9 sample PDFs for demo walkthrough
 └── audit/                          # UX audit reports + trial screenshots
 ```
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Python 3.11+
-- Node.js 20+
-- Azure account with services provisioned
-
-### 1. Clone & Configure
-
-```bash
-git clone https://github.com/dfig777/Cognitive-Load---SHPE-2026-Hackathon.git
-cd Cognitive-Load---SHPE-2026-Hackathon
-cp backend/.env.example backend/.env
-# Fill in AZURE_OPENAI_* and COSMOS_* at minimum
-```
-
-### 2. Backend
-
-```bash
-cd backend
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload
-# API: http://localhost:8000
-# Swagger UI: http://localhost:8000/docs
-```
-
-### 3. Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-# App: http://localhost:5173 — proxies /api/* to localhost:8000
-```
-
-### 4. Production Build
-
-```bash
-./scripts/build.sh      # Builds React → copies dist/ into backend/static/
-./scripts/startup.sh    # Starts Gunicorn — API + frontend from one port
-```
-
-### 5. Docker
-
-```bash
-docker build -t pebble .
-docker run -p 8000:8000 --env-file backend/.env pebble
-```
-
----
-
-## Environment Variables
-
-Copy `backend/.env.example` → `backend/.env`. Minimum to run locally: `AZURE_OPENAI_*` and `COSMOS_*`. All other services degrade gracefully.
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `AZURE_OPENAI_ENDPOINT` | Yes | Azure OpenAI resource endpoint |
-| `AZURE_OPENAI_API_KEY` | Yes | Azure OpenAI API key |
-| `AZURE_OPENAI_DEPLOYMENT` | No | Deployment name (default: `gpt-4o`) |
-| `AZURE_OPENAI_API_VERSION` | No | API version (default: `2024-02-01`) |
-| `COSMOS_ENDPOINT` | Yes | Cosmos DB account endpoint |
-| `COSMOS_KEY` | Yes | Cosmos DB primary key |
-| `COSMOS_DATABASE` | No | Database name (default: `neurofocus`) |
-| `CONTENT_SAFETY_ENDPOINT` | No | Azure Content Safety endpoint |
-| `CONTENT_SAFETY_KEY` | No | Azure Content Safety key |
-| `BLOB_CONNECTION_STRING` | No | Azure Blob Storage connection string |
-| `DOC_INTELLIGENCE_ENDPOINT` | No | Azure Document Intelligence endpoint |
-| `DOC_INTELLIGENCE_KEY` | No | Azure Document Intelligence key |
-| `APP_INSIGHTS_CONNECTION_STRING` | No | Application Insights connection string |
-| `KEYVAULT_URL` | No | Key Vault URL — enables Managed Identity secret fetch |
-| `ALLOWED_ORIGINS` | No | Comma-separated CORS origins (default: `http://localhost:5173`) |
-| `PORT` | No | Server port — set automatically by Azure Container Apps |
-
-**In production:** set `KEYVAULT_URL` and grant the Container App's Managed Identity `Key Vault Secrets User` — all other secrets are fetched automatically via `DefaultAzureCredential`.
 
 ---
 
