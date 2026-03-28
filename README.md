@@ -2,8 +2,6 @@
 
 <img src="docs/branding/pebble_logo_white.svg" alt="Pebble Logo" width="160" />
 
-# Pebble.
-
 ### *a calm place to start*
 
 **An AI cognitive support companion that transforms overwhelming information into calm, structured, personalized clarity.**
