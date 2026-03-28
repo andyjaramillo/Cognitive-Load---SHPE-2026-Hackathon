@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/branding/pebble_logo.svg" alt="Pebble Logo" width="64" />
+<img src="docs/branding/pebble_logo_white.svg" alt="Pebble Logo" width="64" />
 
 # Pebble.
 
