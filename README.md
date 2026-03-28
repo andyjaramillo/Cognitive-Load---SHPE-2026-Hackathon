@@ -356,11 +356,12 @@ Full spec: [`docs/specs/PEBBLE_PERSONALITY.md`](docs/specs/PEBBLE_PERSONALITY.md
 Pebble./
 │
 ├── README.md                       # This file
-├── DEVLOG.md                       # Full developer handoff document
 ├── Dockerfile                      # Single image — API + static frontend
-├── build.sh                        # Builds React → backend/static/
-├── startup.sh                      # Starts Gunicorn in production
 ├── LICENSE
+│
+├── scripts/
+│   ├── build.sh                    # Builds React → backend/static/
+│   └── startup.sh                  # Starts Gunicorn in production
 │
 ├── backend/                        # Python / FastAPI
 │   ├── main.py                     # All 15 route handlers
@@ -458,8 +459,8 @@ npm run dev
 ### 4. Production Build
 
 ```bash
-./build.sh      # Builds React → copies dist/ into backend/static/
-./startup.sh    # Starts Gunicorn — API + frontend from one port
+./scripts/build.sh      # Builds React → copies dist/ into backend/static/
+./scripts/startup.sh    # Starts Gunicorn — API + frontend from one port
 ```
 
 ### 5. Docker
@@ -537,7 +538,7 @@ Full Swagger UI at `/docs` when the backend is running.
 
 | Document | Description |
 |----------|-------------|
-| [`DEVLOG.md`](DEVLOG.md) | Full developer handoff — build status, architecture decisions, known issues |
+| [`docs/DEVLOG.md`](docs/DEVLOG.md) | Full developer handoff — build status, architecture decisions, known issues |
 | [`docs/specs/PEBBLE_PERSONALITY.md`](docs/specs/PEBBLE_PERSONALITY.md) | Complete AI personality spec — 5 layers, 12 blocks, voice guide, safety |
 | [`docs/specs/TASKS_SPEC.md`](docs/specs/TASKS_SPEC.md) | Tasks page — full interaction spec |
 | [`docs/specs/SESSION4_FINAL.md`](docs/specs/SESSION4_FINAL.md) | Focus Mode — 6-state machine spec |
