@@ -1494,7 +1494,8 @@ function BreakdownChatPanel({ task, groupId, onClose, onReplaceTask }) {
           }
         },
         onDone: () => {
-          const content = finalContent ?? accumulated
+          const raw = finalContent ?? accumulated
+          const content = raw.replace(/###ACTIONS\[[\s\S]*?\]###/g, '').replace(/###ACTIONS[\s\S]*$/, '').trim()
           if (content) setMessages(prev => [...prev, { id: genId(), role: 'assistant', content, buttons: pendingButtons }])
           setStreamText('')
           streamingLockRef.current = false
