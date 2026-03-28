@@ -1,4 +1,4 @@
-# CLAUDE.md — Pebble. AI Cognitive Support Companion
+# DEVLOG.md — Pebble. AI Cognitive Support Companion
 
 > "a calm place to start"
 
