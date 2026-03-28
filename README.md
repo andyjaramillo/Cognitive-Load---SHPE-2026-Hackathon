@@ -80,51 +80,67 @@ Pebble takes the opposite approach.
 
 ## App Screenshots
 
-### Onboarding — Personalized from the first question
+### Home — AI Companion
 
-![Pebble Onboarding](docs/images/screenshots/onboarding.png)
+![Home Hero](docs/images/Full%20App%20Pictures/01-home-hero.png)
 
-*11-stage onboarding sets communication style, reading level, font, and visual theme — every answer shapes every subsequent AI response.*
+*Greets you by name, adapts to the time of day, and surfaces your last session instantly.*
 
 ---
 
-### Home — AI Companion Chat
+### Onboarding — Personalized from Question One
 
-![Pebble Home Chat](docs/images/screenshots/home-chat.png)
+| Welcome | Name | Font |
+|:---:|:---:|:---:|
+| ![](docs/images/Full%20App%20Pictures/02-onboarding-welcome.png) | ![](docs/images/Full%20App%20Pictures/03-onboarding-name.png) | ![](docs/images/Full%20App%20Pictures/05-onboarding-font.png) |
 
-*SSE-streamed AI responses. Context-aware. Knows your documents, tasks, and preferences. Archives every session.*
+| Theme | Communication Style | Granularity |
+|:---:|:---:|:---:|
+| ![](docs/images/Full%20App%20Pictures/06-onboarding-theme.png) | ![](docs/images/Full%20App%20Pictures/07-onboarding-comm-style.png) | ![](docs/images/Full%20App%20Pictures/08-onboarding-granularity.png) |
+
+*11 stages. Every answer shapes every AI response from the first message.*
 
 ---
 
 ### Documents — Upload, Simplify, Understand
 
-![Pebble Documents](docs/images/screenshots/documents.png)
+| Hub | Choices | Simplified |
+|:---:|:---:|:---:|
+| ![](docs/images/Full%20App%20Pictures/10-documents-hub.png) | ![](docs/images/Full%20App%20Pictures/11-documents-choices.png) | ![](docs/images/Full%20App%20Pictures/13-documents-simplify.png) |
 
-*Upload any PDF or paste text. Pebble extracts, simplifies to your reading level, and opens a conversation. Tap any sentence for a deeper explanation.*
+![Document Task Extraction](docs/images/Full%20App%20Pictures/12-documents-task-extraction.png)
+
+*Pebble reads an insurance doc and extracts 5 actionable tasks — ready to add to your list.*
 
 ---
 
 ### Tasks — Living Checklist
 
-![Pebble Tasks](docs/images/screenshots/tasks.png)
+| Overview | Expanded | Breakdown Chat |
+|:---:|:---:|:---:|
+| ![](docs/images/Full%20App%20Pictures/14-tasks-overview.png) | ![](docs/images/Full%20App%20Pictures/15-tasks-expanded.png) | ![](docs/images/Full%20App%20Pictures/16-tasks-breakdown-chat.png) |
 
-*Break any goal into time-boxed steps. Drag to reorder. Decompose any task inline with a split-pane chat. Filter by available time.*
+![Tasks Breakdown Panel](docs/images/Full%20App%20Pictures/17-tasks-breakdown-panel.png)
+
+*The breakdown panel slides in — Pebble walks you through step by step or splits into subtasks.*
 
 ---
 
 ### Focus Mode — One Thing at a Time
 
-![Pebble Focus Mode](docs/images/screenshots/focus-mode.png)
+![Focus Mode](docs/images/Full%20App%20Pictures/18-focus-mode.png)
 
-*Full-screen. Circular breathing timer. Energy check-ins. An escape hatch that strips everything to a single action when things feel too heavy.*
+*Full-screen. Circular breathing timer. One task. Nothing else.*
 
 ---
 
-### Settings — Everything Live-Adjustable
+### Four Adaptive Themes + Language Support
 
-![Pebble Settings](docs/images/screenshots/settings.png)
+| Evening Theme | Night Theme | Spanish |
+|:---:|:---:|:---:|
+| ![](docs/images/Full%20App%20Pictures/20-home-evening-theme.png) | ![](docs/images/Full%20App%20Pictures/22-home-night-theme.png) | ![](docs/images/Full%20App%20Pictures/19-home-chat-spanish.png) |
 
-*Four fonts, four themes, three languages, communication style, AI granularity — all saved to Cosmos DB instantly.*
+*Auto-detects time of day. Supports English, Spanish, and Portuguese.*
 
 ---
 
@@ -155,68 +171,15 @@ Pebble takes the opposite approach.
 
 ---
 
-## System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        React Frontend                           │
-│         Vite · Redux Toolkit · Framer Motion · @dnd-kit         │
-└────────────────────────┬────────────────────────────────────────┘
-                         │  REST + Server-Sent Events (SSE)
-                         │  /api/*
-┌────────────────────────▼────────────────────────────────────────┐
-│                     FastAPI Backend                             │
-│                      Python 3.11                                │
-│                                                                 │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │ chat_service │  │  ai_service  │  │   content_safety     │  │
-│  │ 12-block     │  │  decompose   │  │   2-tier screening   │  │
-│  │ prompt       │  │  summarise   │  │   + pressure regex   │  │
-│  │ SSE stream   │  │  nudge       │  │                      │  │
-│  └──────┬───────┘  └──────┬───────┘  └──────────┬───────────┘  │
-└─────────┼─────────────────┼───────────────────── ┼─────────────┘
-          │                 │                       │
-┌─────────▼─────────────────▼───────────────────── ▼─────────────┐
-│                      Azure Services                             │
-│                                                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐   │
-│  │ Azure       │  │ Azure       │  │ Azure AI             │   │
-│  │ OpenAI      │  │ Cosmos DB   │  │ Content Safety       │   │
-│  │ GPT-4o      │  │ NoSQL       │  │                      │   │
-│  │ SSE stream  │  │ Serverless  │  │                      │   │
-│  └─────────────┘  └─────────────┘  └──────────────────────┘   │
-│                                                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐   │
-│  │ Azure AI    │  │ Azure Blob  │  │ Azure Monitor        │   │
-│  │ Document    │  │ Storage     │  │ App Insights         │   │
-│  │ Intelligence│  │             │  │ OpenTelemetry        │   │
-│  └─────────────┘  └─────────────┘  └──────────────────────┘   │
-│                                                                 │
-│  ┌─────────────┐                                               │
-│  │ Azure       │                                               │
-│  │ Key Vault   │                                               │
-│  │ DefaultAzure│                                               │
-│  │ Credential  │                                               │
-│  └─────────────┘                                               │
-└─────────────────────────────────────────────────────────────────┘
-          │
-┌─────────▼──────────────────────────────────────────────────────┐
-│              Azure Container Apps (Production)                  │
-│         Single Docker image · FastAPI serves React build        │
-└────────────────────────────────────────────────────────────────┘
-```
-
----
-
 ## Architecture Diagrams
 
-> All diagrams are in [`docs/diagrams/`](docs/diagrams/) — open any `.drawio` file at [diagrams.net](https://app.diagrams.net).
+> Source `.drawio` files in [`docs/diagrams/draw.io/`](docs/diagrams/draw.io/) — open at [diagrams.net](https://app.diagrams.net).
 
 ### Full System Architecture
 
 ![Pebble System Architecture](docs/images/diagrams/architecture.png)
 
-*End-to-end system — React frontend, FastAPI backend, all 8 Azure services, and deployment via Azure Container Apps.*
+*React frontend → FastAPI backend → 8 Azure services. All traffic over REST + SSE.*
 
 ---
 
@@ -224,7 +187,7 @@ Pebble takes the opposite approach.
 
 ![12 Block Prompt Diagram](docs/images/diagrams/12-block-prompt.png)
 
-*How chat_service.py assembles a fresh, fully-personalized system prompt for every single `/api/chat` request — no static prompts, full context per call.*
+*Every `/api/chat` request assembles a fresh 12-block system prompt — user profile, memories, tasks, documents, safety tier, time context, and more. No static prompts.*
 
 ---
 
@@ -232,7 +195,7 @@ Pebble takes the opposite approach.
 
 ![Content Safety Architecture](docs/images/diagrams/content-safety.png)
 
-*Two-tier safety flow: user input → Azure Content Safety + cognitive pressure regex → GPT-4o → output re-screening → SSE stream to client.*
+*Two-tier safety: input screened before GPT call, output re-screened after stream. Hard block at severity 5–6, soft flag at 3–4. Custom 7-category cognitive pressure regex runs on both sides.*
 
 ---
 
@@ -240,7 +203,7 @@ Pebble takes the opposite approach.
 
 ![Document Pipeline](docs/images/diagrams/doc-pipeline.png)
 
-*Upload → magic-byte validation → Azure Document Intelligence extraction → Content Safety screening → simplification → Cosmos DB metadata storage → Blob Storage archival.*
+*Upload → magic-byte validation → Azure Document Intelligence extraction → Content Safety screening → simplification → Cosmos DB + Blob Storage.*
 
 ---
 
@@ -248,7 +211,7 @@ Pebble takes the opposite approach.
 
 ![Deployment Architecture](docs/images/diagrams/deployment.png)
 
-*Azure Container Registry build → Azure Container Apps deployment · Single image, single URL, FastAPI serves the React static build.*
+*Single Docker image built via Azure Container Registry, deployed to Azure Container Apps. FastAPI serves both the API and the React static build from one URL.*
 
 ---
 
