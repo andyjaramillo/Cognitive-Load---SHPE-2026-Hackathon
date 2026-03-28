@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/branding/pebble_logo_white.svg" alt="Pebble Logo" width="160" />
+<img src="docs/images/branding/pebble_logo_white.svg" alt="Pebble Logo" width="160" />
 
 ### *a calm place to start*
 
@@ -200,7 +200,7 @@ Pebble was built with neurodiversity at the center — not as an afterthought, n
 
 ### Full System Architecture
 
-![Pebble System Architecture](docs/images/diagrams/architecture.png)
+![Pebble System Architecture](docs/diagrams/PNG/architecture.png)
 
 *React frontend → FastAPI backend → 8 Azure services. All traffic over REST + SSE.*
 
@@ -208,7 +208,7 @@ Pebble was built with neurodiversity at the center — not as an afterthought, n
 
 ### The 12-Block Dynamic Prompt Pipeline
 
-![12 Block Prompt Diagram](docs/images/diagrams/12-block-prompt.png)
+![12 Block Prompt Diagram](docs/diagrams/PNG/12-block-prompt.png)
 
 *Every `/api/chat` request assembles a fresh 12-block system prompt — user profile, memories, tasks, documents, safety tier, time context, and more. No static prompts.*
 
@@ -216,7 +216,7 @@ Pebble was built with neurodiversity at the center — not as an afterthought, n
 
 ### Content Safety Architecture
 
-![Content Safety Architecture](docs/images/diagrams/content-safety.png)
+![Content Safety Architecture](docs/diagrams/PNG/content-safety.png)
 
 *Two-tier safety: input screened before GPT call, output re-screened after stream. Hard block at severity 5–6, soft flag at 3–4. Custom 7-category cognitive pressure regex runs on both sides.*
 
@@ -224,7 +224,7 @@ Pebble was built with neurodiversity at the center — not as an afterthought, n
 
 ### Document Processing Pipeline
 
-![Document Pipeline](docs/images/diagrams/doc-pipeline.png)
+![Document Pipeline](docs/diagrams/PNG/doc-pipeline.png)
 
 *Upload → magic-byte validation → Azure Document Intelligence extraction → Content Safety screening → simplification → Cosmos DB + Blob Storage.*
 
@@ -232,7 +232,7 @@ Pebble was built with neurodiversity at the center — not as an afterthought, n
 
 ### Deployment Architecture
 
-![Deployment Architecture](docs/images/diagrams/deployment.png)
+![Deployment Architecture](docs/diagrams/PNG/deployment.png)
 
 *Single Docker image built via Azure Container Registry, deployed to Azure Container Apps. FastAPI serves both the API and the React static build from one URL.*
 
@@ -241,7 +241,7 @@ Pebble was built with neurodiversity at the center — not as an afterthought, n
 > **To export diagrams as images:**
 > 1. Open any `.drawio` file in [diagrams.net](https://app.diagrams.net)
 > 2. File → Export As → PNG (set width to 1600px, transparent background off)
-> 3. Save to `docs/images/diagrams/` using the filenames above
+> 3. Save to `docs/diagrams/PNG/` using the filenames above
 
 ---
 
@@ -396,17 +396,17 @@ Pebble./
 ├── docs/
 │   ├── images/
 │   │   ├── Full App Pictures/      # 22 numbered app screenshots (onboarding → focus mode → themes)
-│   │   └── diagrams/               # Exported diagram PNGs (architecture, prompt, safety, pipeline, deployment)
+│   │   ├── branding/               # Logo assets (SVG, PNG variants)
+│   │   └── Logos/                  # Logo exports
+│   ├── diagrams/
+│   │   ├── PNG/                    # Exported diagram PNGs (architecture, prompt, safety, pipeline, deployment)
+│   │   └── draw.io/                # Source .drawio files
 │   ├── specs/                      # PEBBLE_PERSONALITY.md, color_system.md, TASKS_SPEC, etc.
-│   ├── session-history/            # 18-session build log (March 16–27, 2026)
-│   ├── diagrams/                   # Source .drawio files
 │   ├── reports/                    # Project reports
-│   ├── branding/                   # Logo assets
-│   └── archive/                    # Early-phase documentation
+│   └── archive/                    # Session history + early-phase documentation
 │
-├── demo/                           # 9 sample PDFs for demo walkthrough
 ├── presentation/
-│   └── pebble_presentation.pptx
+│   └── demo/                       # 9 sample PDFs for demo walkthrough
 └── audit/                          # UX audit reports + trial screenshots
 ```
 
