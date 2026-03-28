@@ -25,7 +25,7 @@
 
 ---
 
-### [🌐 Try the App](https://pebble.redbay-c8c366b2.eastus.azurecontainerapps.io) &nbsp;·&nbsp; [🎥 Video Walkthrough](https://drive.google.com/file/d/17prNYPP_y0JbiZbdeOno3abUTiG4su6R/view?usp=sharing) &nbsp;·&nbsp; [📊 Slide Deck](presentation/pebble_presentation.pptx) &nbsp;·&nbsp; [📄 Project Report](docs/reports/pebble_project_report.docx)
+### [🌐 Try the App](https://pebble.redbay-c8c366b2.eastus.azurecontainerapps.io) &nbsp;·&nbsp; [🎥 Video Walkthrough](https://drive.google.com/file/d/17prNYPP_y0JbiZbdeOno3abUTiG4su6R/view?usp=sharing) &nbsp;·&nbsp; [📊 Slide Deck](presentation/Pebble%20Presentation%20Powerpoint.pptx) &nbsp;·&nbsp; [📄 Project Report](docs/archive/reports/pebble_project_report.docx)
 
 ---
 
@@ -462,9 +462,9 @@ Full Swagger UI at `/docs` when the backend is running.
 | [`docs/specs/SESSION4_FINAL.md`](docs/specs/SESSION4_FINAL.md) | Focus Mode — 6-state machine spec |
 | [`docs/specs/color_system.md`](docs/specs/color_system.md) | Full color system across all 4 time-of-day themes |
 | [`docs/specs/PEBBLE_BRAND.md`](docs/specs/PEBBLE_BRAND.md) | Brand identity — name origin, logo, typography |
-| [`docs/diagrams/`](docs/diagrams/) | Source architecture diagrams (.drawio) |
-| [`docs/reports/pebble_project_report.docx`](docs/reports/pebble_project_report.docx) | Full project report |
-| [`presentation/pebble_presentation.pptx`](presentation/pebble_presentation.pptx) | Judge slide deck |
+| [`docs/images/diagrams/`](docs/images/diagrams/) | Source architecture diagrams (.drawio) |
+| [`docs/archive/reports/pebble_project_report.docx`](docs/archive/reports/pebble_project_report.docx) | Full project report |
+| [`presentation/Pebble%20Presentation%20Powerpoint.pptx`](presentation/Pebble%20Presentation%20Powerpoint.pptx) | Judge slide deck |
 
 ---
 
