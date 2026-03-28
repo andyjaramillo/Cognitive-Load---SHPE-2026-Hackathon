@@ -14,10 +14,11 @@
 [![Azure](https://img.shields.io/badge/Azure-8_Services-0078D4?style=flat-square&logo=microsoftazure&logoColor=white)](https://azure.microsoft.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-5A8A80?style=flat-square)](LICENSE)
 [![Live](https://img.shields.io/badge/Live_Demo-Azure_Container_Apps-E07A40?style=flat-square)](https://pebble.redbay-c8c366b2.eastus.azurecontainerapps.io)
+[![Video](https://img.shields.io/badge/Video_Demo-Google_Drive-4285F4?style=flat-square&logo=googledrive&logoColor=white)](https://drive.google.com/file/d/17prNYPP_y0JbiZbdeOno3abUTiG4su6R/view?usp=sharing)
 
 ---
 
-### [🌐 Live Demo](https://pebble.redbay-c8c366b2.eastus.azurecontainerapps.io) &nbsp;·&nbsp; [🎥 Video Walkthrough](#) &nbsp;·&nbsp; [📊 Slide Deck](presentation/pebble_presentation.pptx) &nbsp;·&nbsp; [📄 Project Report](docs/reports/pebble_project_report.docx)
+### [🌐 Live Demo](https://pebble.redbay-c8c366b2.eastus.azurecontainerapps.io) &nbsp;·&nbsp; [🎥 Video Walkthrough](https://drive.google.com/file/d/17prNYPP_y0JbiZbdeOno3abUTiG4su6R/view?usp=sharing) &nbsp;·&nbsp; [📊 Slide Deck](presentation/pebble_presentation.pptx) &nbsp;·&nbsp; [📄 Project Report](docs/reports/pebble_project_report.docx)
 
 ---
 
