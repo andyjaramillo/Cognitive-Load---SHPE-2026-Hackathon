@@ -427,6 +427,31 @@ export default function Settings() {
         </motion.div>
 
       </motion.div>
+
+      <div style={{
+        textAlign: 'center',
+        paddingTop: '2rem',
+        paddingBottom: '1rem',
+      }}>
+        <a
+          href="https://www.linkedin.com/in/diego-figueroa-deibis/"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: '0.72rem',
+            letterSpacing: '0.18em',
+            color: 'var(--text-muted)',
+            opacity: 0.35,
+            userSelect: 'none',
+            textDecoration: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          dfig
+        </a>
+      </div>
+
     </motion.div>
   )
 }
