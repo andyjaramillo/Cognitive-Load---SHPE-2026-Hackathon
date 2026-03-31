@@ -204,7 +204,7 @@ Pebble was built with neurodiversity at the center — not as an afterthought, n
 
 ### Full System Architecture
 
-![Pebble System Architecture](docs/images/diagrams/PNG/architecture.png)
+![Pebble System Architecture](docs/images/diagrams/PNG/Pebble%20Architecture.png)
 
 *React frontend → FastAPI backend → 8 Azure services. All traffic over REST + SSE.*
 

@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36" version="29.6.6">
   <diagram id="pebble-v7" name="Pebble Architecture">
-    <mxGraphModel dx="1901" dy="1059" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1100" background="light-dark(#000000,#121212)" math="0" shadow="0">
+    <mxGraphModel dx="1871" dy="1112" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1100" background="light-dark(#000000,#121212)" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -338,7 +338,30 @@
           <mxGeometry height="50" width="53.13" x="850" y="960" as="geometry" />
         </mxCell>
         <mxCell id="1lrty4G10WY13VF9VX8q-2" parent="1" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;verticalAlign=top;aspect=fixed;imageAspect=0;editableCssRules=.*;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgLTQgMjY3LjE4NzUgODIiIHdpZHRoPSIyNjcuMTg3NSIgaGVpZ2h0PSI4MiI+JiN4YTsgIDx0ZXh0IHg9IjAiIHk9IjYyIiBmb250LWZhbWlseT0iR2VvcmdpYSwgJ1RpbWVzIE5ldyBSb21hbicsIHNlcmlmIiBmb250LXNpemU9IjcyIiBmb250LXdlaWdodD0iNzAwIiBsZXR0ZXItc3BhY2luZz0iLTEiPiYjeGE7ICAgIDx0c3BhbiBmaWxsPSIjRkZGRkZGIj5QZWJibGU8L3RzcGFuPjx0c3BhbiBmaWxsPSIjNUE4QTgwIj4uPC90c3Bhbj4mI3hhOyAgPC90ZXh0PiYjeGE7PC9zdmc+;shadow=0;" value="" vertex="1">
-          <mxGeometry height="54.36" width="177" x="1570" y="1020.82" as="geometry" />
+          <mxGeometry height="54.36" width="177" x="1507" y="1016" as="geometry" />
+        </mxCell>
+        <mxCell id="XOl8YVKPNTKt2nIH1Sox-1" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;strokeWidth=1.2;dashed=1;dashPattern=6 4;shadow=0;" target="fe">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="549" y="405" />
+              <mxPoint x="549" y="252" />
+            </Array>
+            <mxPoint x="440" y="405" as="sourcePoint" />
+            <mxPoint x="1220" y="823" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="XOl8YVKPNTKt2nIH1Sox-2" edge="1" parent="1" source="fe" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;strokeWidth=1.2;dashed=1;dashPattern=6 4;shadow=0;exitX=0.209;exitY=0.04;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" target="user">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="266" y="189" />
+              <mxPoint x="59" y="189" />
+            </Array>
+            <mxPoint x="93" y="244" as="sourcePoint" />
+            <mxPoint x="93" y="91" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="XOl8YVKPNTKt2nIH1Sox-3" parent="1" style="text;fontSize=9;fontFamily=Arial;fontColor=#999999;align=left;strokeColor=none;fillColor=none;whiteSpace=wrap;shadow=0;" value="SSE Response" vertex="1">
+          <mxGeometry height="28" width="55" x="494" y="250" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
